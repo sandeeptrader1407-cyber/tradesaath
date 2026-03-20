@@ -1,13 +1,33 @@
 'use client'
 
 import Link from 'next/link'
-import {
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/nextjs'
+import dynamic from 'next/dynamic'
+
+// Lazy-load Clerk auth buttons so they never run during SSG.
+// If Clerk isn't configured, the fallback renders plain links instead.
+const ClerkAuth = dynamic(() => import('./ClerkAuth'), {
+  ssr: false,
+  loading: () => <AuthFallback />,
+})
+
+function AuthFallback() {
+  return (
+    <>
+      <Link
+        href="/sign-in"
+        className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors"
+      >
+        Sign In
+      </Link>
+      <Link
+        href="/sign-up"
+        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
+      >
+        Sign Up
+      </Link>
+    </>
+  )
+}
 
 export default function Navbar() {
   return (
@@ -27,28 +47,7 @@ export default function Navbar() {
           Dashboard
         </Link>
 
-        <SignedOut>
-          <SignInButton mode="redirect">
-            <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
-              Sign In
-            </button>
-          </SignInButton>
-          <SignUpButton mode="redirect">
-            <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
-              Sign Up
-            </button>
-          </SignUpButton>
-        </SignedOut>
-
-        <SignedIn>
-          <Link
-            href="/upload"
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-          >
-            Upload Trades
-          </Link>
-          <UserButton />
-        </SignedIn>
+        <ClerkAuth />
       </div>
     </nav>
   )
