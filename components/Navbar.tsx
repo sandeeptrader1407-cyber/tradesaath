@@ -1,67 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-
-// Dynamically check if Clerk key exists — avoids crash when the key
-// isn't present during Vercel's static page generation step.
-const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-
-// Conditional imports aren't possible at the top level, so we import
-// everything but only USE the Clerk components when the key is available.
-import { useAuth, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
-
-function ClerkNavItems() {
-  const { isSignedIn, isLoaded } = useAuth()
-  const showUserUI = isLoaded && isSignedIn
-
-  if (showUserUI) {
-    return (
-      <>
-        <Link
-          href="/upload"
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-        >
-          Upload Trades
-        </Link>
-        <UserButton afterSignOutUrl="/" />
-      </>
-    )
-  }
-
-  return (
-    <>
-      <SignInButton mode="redirect">
-        <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
-          Sign In
-        </button>
-      </SignInButton>
-      <SignUpButton mode="redirect">
-        <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
-          Sign Up
-        </button>
-      </SignUpButton>
-    </>
-  )
-}
-
-function FallbackNavItems() {
-  return (
-    <>
-      <Link
-        href="/sign-in"
-        className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors"
-      >
-        Sign In
-      </Link>
-      <Link
-        href="/sign-up"
-        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-      >
-        Sign Up
-      </Link>
-    </>
-  )
-}
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/nextjs'
 
 export default function Navbar() {
   return (
@@ -81,7 +27,28 @@ export default function Navbar() {
           Dashboard
         </Link>
 
-        {hasClerk ? <ClerkNavItems /> : <FallbackNavItems />}
+        <SignedOut>
+          <SignInButton mode="redirect">
+            <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
+              Sign In
+            </button>
+          </SignInButton>
+          <SignUpButton mode="redirect">
+            <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
+              Sign Up
+            </button>
+          </SignUpButton>
+        </SignedOut>
+
+        <SignedIn>
+          <Link
+            href="/upload"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
+          >
+            Upload Trades
+          </Link>
+          <UserButton />
+        </SignedIn>
       </div>
     </nav>
   )
