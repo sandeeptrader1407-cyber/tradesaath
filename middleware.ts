@@ -9,16 +9,15 @@ const isAlwaysProtected = createRouteMatcher([
   '/report(.*)',
 ])
 
-export default clerkMiddleware((auth, req) => {
+export default clerkMiddleware(async (auth, req) => {
   const { pathname, searchParams } = req.nextUrl
 
   // /results is protected only when a session_id query param is present.
-  // Without it the empty shell page is publicly visible.
   const isProtectedResults =
     pathname === '/results' && searchParams.has('session_id')
 
   if (isAlwaysProtected(req) || isProtectedResults) {
-    auth.protect()
+    await auth.protect()
   }
 })
 
