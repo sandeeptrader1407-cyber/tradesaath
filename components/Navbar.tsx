@@ -1,16 +1,69 @@
 'use client'
 
 import Link from 'next/link'
+
+// Dynamically check if Clerk key exists — avoids crash when the key
+// isn't present during Vercel's static page generation step.
+const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+// Conditional imports aren't possible at the top level, so we import
+// everything but only USE the Clerk components when the key is available.
 import { useAuth, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
 
-export default function Navbar() {
+function ClerkNavItems() {
   const { isSignedIn, isLoaded } = useAuth()
-
-  // Show signed-in UI only once Clerk has loaded AND confirmed the user is authenticated.
-  // In every other state (loading, signed-out) we show the Sign In / Get Started buttons
-  // so they are always visible on first paint — both in production SSR and during hydration.
   const showUserUI = isLoaded && isSignedIn
 
+  if (showUserUI) {
+    return (
+      <>
+        <Link
+          href="/upload"
+          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
+        >
+          Upload Trades
+        </Link>
+        <UserButton afterSignOutUrl="/" />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <SignInButton mode="redirect">
+        <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
+          Sign In
+        </button>
+      </SignInButton>
+      <SignUpButton mode="redirect">
+        <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
+          Sign Up
+        </button>
+      </SignUpButton>
+    </>
+  )
+}
+
+function FallbackNavItems() {
+  return (
+    <>
+      <Link
+        href="/sign-in"
+        className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors"
+      >
+        Sign In
+      </Link>
+      <Link
+        href="/sign-up"
+        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
+      >
+        Sign Up
+      </Link>
+    </>
+  )
+}
+
+export default function Navbar() {
   return (
     <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
       <Link href="/" className="text-2xl font-bold text-blue-400">
@@ -28,30 +81,7 @@ export default function Navbar() {
           Dashboard
         </Link>
 
-        {showUserUI ? (
-          <>
-            <Link
-              href="/upload"
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-            >
-              Upload Trades
-            </Link>
-            <UserButton afterSignOutUrl="/" />
-          </>
-        ) : (
-          <>
-            <SignInButton mode="redirect">
-              <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
-                Sign In
-              </button>
-            </SignInButton>
-            <SignUpButton mode="redirect">
-              <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
-                Sign Up
-              </button>
-            </SignUpButton>
-          </>
-        )}
+        {hasClerk ? <ClerkNavItems /> : <FallbackNavItems />}
       </div>
     </nav>
   )

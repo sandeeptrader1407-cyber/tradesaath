@@ -20,16 +20,25 @@ export const metadata: Metadata = {
     'Upload your trades and get deep AI-powered psychological insights to fix emotional biases and grow as an Indian trader.',
 }
 
+const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+  const body = (
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+      </body>
+    </html>
   )
+
+  // Wrap with ClerkProvider only when the publishable key is available.
+  // During Vercel static page generation the env var may not be present,
+  // which causes Clerk to throw and fail the entire build.
+  if (clerkPubKey) {
+    return <ClerkProvider publishableKey={clerkPubKey}>{body}</ClerkProvider>
+  }
+
+  return body
 }
