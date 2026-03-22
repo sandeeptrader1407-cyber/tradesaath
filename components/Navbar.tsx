@@ -2,27 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
-
-const ClerkAuth = dynamic(() => import('./ClerkAuth'), {
-  ssr: false,
-  loading: () => <AuthFallback />,
-})
-
-function AuthFallback() {
-  return (
-    <>
-      <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">
-        Sign In
-      </Link>
-      <Link href="/sign-up" className="btn btn-accent btn-sm nav-getstarted-btn">
-        Get Started
-      </Link>
-    </>
-  )
-}
+import {
+  SignInButton,
+  SignUpButton,
+  UserButton,
+  useUser,
+} from '@clerk/nextjs'
 
 export default function Navbar() {
+  const { isSignedIn, isLoaded } = useUser()
   const [menuOpen, setMenuOpen] = useState(false)
   const [isDayMode, setIsDayMode] = useState(false)
 
@@ -65,7 +53,25 @@ export default function Navbar() {
             <span>{isDayMode ? '☀️' : '🌙'}</span>
             <span>{isDayMode ? 'Night' : 'Day'}</span>
           </button>
-          <ClerkAuth />
+
+          {isLoaded && isSignedIn ? (
+            <>
+              <Link href="/upload" className="btn btn-accent btn-sm">
+                Upload Trades
+              </Link>
+              <UserButton />
+            </>
+          ) : isLoaded ? (
+            <>
+              <SignInButton mode="redirect">
+                <button className="btn btn-ghost btn-sm nav-auth-btn">Sign In</button>
+              </SignInButton>
+              <SignUpButton mode="redirect">
+                <button className="btn btn-accent btn-sm nav-getstarted-btn">Get Started</button>
+              </SignUpButton>
+            </>
+          ) : null}
+
           <button
             className={`hamburger${menuOpen ? ' open' : ''}`}
             onClick={toggleMenu}
@@ -80,7 +86,9 @@ export default function Navbar() {
         <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
         <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
         <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
-        <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">Sign In</Link>
+        {isLoaded && !isSignedIn && (
+          <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">Sign In</Link>
+        )}
       </div>
     </>
   )
