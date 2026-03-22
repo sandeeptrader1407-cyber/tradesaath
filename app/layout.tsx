@@ -1,23 +1,14 @@
 import type { Metadata } from 'next'
-import localFont from 'next/font/local'
 import './globals.css'
 import ClerkWrapper from '@/components/ClerkWrapper'
-
-const geistSans = localFont({
-  src: './fonts/GeistVF.woff',
-  variable: '--font-geist-sans',
-  weight: '100 900',
-})
-const geistMono = localFont({
-  src: './fonts/GeistMonoVF.woff',
-  variable: '--font-geist-mono',
-  weight: '100 900',
-})
+import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
+import Onboarding from '@/components/Onboarding'
 
 export const metadata: Metadata = {
   title: 'TradeSaath – AI Trading Psychology Coach',
   description:
-    'Upload your trades and get deep AI-powered psychological insights to fix emotional biases and grow as an Indian trader.',
+    'Upload your trades and get deep AI-powered psychological insights to fix emotional biases and grow as a trader.',
 }
 
 export default function RootLayout({
@@ -25,8 +16,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ClerkWrapper>{children}</ClerkWrapper>
+      <body>
+        <ClerkWrapper>
+          <Navbar />
+          {children}
+          <Footer />
+          <Onboarding />
+        </ClerkWrapper>
       </body>
     </html>
   )

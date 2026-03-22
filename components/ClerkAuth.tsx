@@ -12,21 +12,14 @@ import {
 const hasKey = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 export default function ClerkAuth() {
-  // If Clerk isn't configured, show plain link fallbacks
   if (!hasKey) {
     return (
       <>
-        <Link
-          href="/sign-in"
-          className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors"
-        >
+        <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">
           Sign In
         </Link>
-        <Link
-          href="/sign-up"
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-        >
-          Sign Up
+        <Link href="/sign-up" className="btn btn-accent btn-sm nav-getstarted-btn">
+          Get Started
         </Link>
       </>
     )
@@ -36,22 +29,15 @@ export default function ClerkAuth() {
     <>
       <SignedOut>
         <SignInButton mode="redirect">
-          <button className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors">
-            Sign In
-          </button>
+          <button className="btn btn-ghost btn-sm nav-auth-btn">Sign In</button>
         </SignInButton>
         <SignUpButton mode="redirect">
-          <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors">
-            Sign Up
-          </button>
+          <button className="btn btn-accent btn-sm nav-getstarted-btn">Get Started</button>
         </SignUpButton>
       </SignedOut>
 
       <SignedIn>
-        <Link
-          href="/upload"
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-        >
+        <Link href="/upload" className="btn btn-accent btn-sm">
           Upload Trades
         </Link>
         <UserButton />

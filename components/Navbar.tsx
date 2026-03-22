@@ -1,10 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
-// Lazy-load Clerk auth buttons so they never run during SSG.
-// If Clerk isn't configured, the fallback renders plain links instead.
 const ClerkAuth = dynamic(() => import('./ClerkAuth'), {
   ssr: false,
   loading: () => <AuthFallback />,
@@ -13,42 +12,76 @@ const ClerkAuth = dynamic(() => import('./ClerkAuth'), {
 function AuthFallback() {
   return (
     <>
-      <Link
-        href="/sign-in"
-        className="border border-white/30 hover:border-white/60 hover:text-white px-4 py-1.5 rounded-full transition-colors"
-      >
+      <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">
         Sign In
       </Link>
-      <Link
-        href="/sign-up"
-        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full transition-colors"
-      >
-        Sign Up
+      <Link href="/sign-up" className="btn btn-accent btn-sm nav-getstarted-btn">
+        Get Started
       </Link>
     </>
   )
 }
 
 export default function Navbar() {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [isDayMode, setIsDayMode] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme')
+    if (saved === 'day') {
+      document.body.classList.add('day')
+      setIsDayMode(true)
+    }
+  }, [])
+
+  function toggleTheme() {
+    const isDay = document.body.classList.toggle('day')
+    setIsDayMode(isDay)
+    localStorage.setItem('theme', isDay ? 'day' : 'night')
+  }
+
+  function toggleMenu() {
+    setMenuOpen((prev) => !prev)
+  }
+
+  function closeMenu() {
+    setMenuOpen(false)
+  }
+
   return (
-    <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-      <Link href="/" className="text-2xl font-bold text-blue-400">
-        TradeSaath
-      </Link>
+    <>
+      <nav>
+        <Link className="nav-logo" href="/">
+          <div className="nav-logo-dot"></div>TradeSaath
+        </Link>
+        <div className="nav-links">
+          <a href="#how" className="nav-landing-link">How It Works</a>
+          <a href="#features" className="nav-landing-link">Features</a>
+          <a href="#pricing" className="nav-landing-link">Pricing</a>
+          <a href="#faq" className="nav-landing-link">FAQ</a>
+        </div>
+        <div className="nav-right">
+          <button className="theme-btn" onClick={toggleTheme}>
+            <span>{isDayMode ? '☀️' : '🌙'}</span>
+            <span>{isDayMode ? 'Night' : 'Day'}</span>
+          </button>
+          <ClerkAuth />
+          <button
+            className={`hamburger${menuOpen ? ' open' : ''}`}
+            onClick={toggleMenu}
+          >
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </nav>
 
-      <div className="flex items-center gap-6 text-sm text-slate-300">
-        <Link href="/pricing" className="hover:text-white transition-colors">
-          Pricing
-        </Link>
-        <Link href="/journal" className="hover:text-white transition-colors">
-          Journal
-        </Link>
-        <Link href="/dashboard" className="hover:text-white transition-colors">
-          Dashboard
-        </Link>
-
-        <ClerkAuth />
+      <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
+        <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
+        <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
+        <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
+        <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+        <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">Sign In</Link>
       </div>
-    </nav>
+    </>
   )
 }
