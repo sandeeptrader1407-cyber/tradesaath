@@ -1,15 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import { useRazorpay } from '@/hooks/useRazorpay'
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  const { pay, loading: payLoading, testMode } = useRazorpay()
+
+  function handleBuy(plan: string) {
+    setPayError(null)
+    pay({
+      plan,
+      onSuccess: () => {
+        window.location.href = '/upload'
+      },
+      onError: (err) => setPayError(err),
+    })
+  }
 
   return (
     <section className="landing-sec" id="pricing">
       <div className="wrap">
         <div className="sec-eyebrow" style={{ textAlign: 'center' }}>Pricing</div>
         <div className="sec-title" style={{ textAlign: 'center' }}>Start free. Upgrade when ready.</div>
+
+        {testMode && (
+          <div className="test-mode-badge" style={{ margin: '0 auto 16px', width: 'fit-content' }}>
+            TEST MODE — no real charges
+          </div>
+        )}
 
         <div className="billing-toggle-row">
           <span className={`bt-label${yearly ? ' dim' : ''}`}>Monthly</span>
@@ -20,6 +40,12 @@ export default function Pricing() {
           {yearly && <span className="save-badge">Save 38%</span>}
         </div>
 
+        {payError && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--red)', marginBottom: 16, padding: '10px 16px', background: 'rgba(244,63,94,.08)', borderRadius: 8, border: '1px solid rgba(244,63,94,.2)' }}>
+            ⚠ {payError}
+          </div>
+        )}
+
         <div className="pricing-grid">
 
           {/* Free */}
@@ -27,7 +53,7 @@ export default function Pricing() {
             <div className="plan-name">Free</div>
             <div className="plan-price">₹0</div>
             <div className="plan-billed">Always free &middot; no account needed</div>
-            <a href="/upload" className="btn btn-ghost plan-cta">Start Free →</a>
+            <a href="/upload" className="btn btn-ghost plan-cta">Start Free &rarr;</a>
             <ul className="plan-feats">
               <li>Session P&amp;L &amp; KPIs</li>
               <li>Vicious Cycle detection</li>
@@ -44,7 +70,13 @@ export default function Pricing() {
             <div className="plan-name">Single Report</div>
             <div className="plan-price">₹99</div>
             <div className="plan-billed">One-time &middot; full session analysis</div>
-            <button className="btn btn-ghost plan-cta">Buy Report →</button>
+            <button
+              className="btn btn-ghost plan-cta"
+              disabled={payLoading}
+              onClick={() => handleBuy('single')}
+            >
+              {payLoading ? '⏳ Processing...' : 'Buy Report →'}
+            </button>
             <ul className="plan-feats">
               <li>All trades full analysis</li>
               <li>Deep technical analysis</li>
@@ -69,7 +101,13 @@ export default function Pricing() {
                 <div className="plan-billed">Billed ₹5,988/year &middot; save 38%</div>
               </>
             )}
-            <button className="btn btn-accent plan-cta">Get Pro Plan →</button>
+            <button
+              className="btn btn-accent plan-cta"
+              disabled={payLoading}
+              onClick={() => handleBuy(yearly ? 'pro_yearly' : 'pro_monthly')}
+            >
+              {payLoading ? '⏳ Processing...' : 'Get Pro Plan →'}
+            </button>
             <ul className="plan-feats">
               <li>Everything in Free + Single Report</li>
               <li>All trades full analysis</li>
@@ -87,6 +125,12 @@ export default function Pricing() {
           </div>
 
         </div>
+
+        {testMode && (
+          <div className="test-card-hint" style={{ marginTop: 20 }}>
+            Test card: <code>4111 1111 1111 1111</code> | Expiry: any future date | CVV: any 3 digits | OTP: <code>1234</code>
+          </div>
+        )}
       </div>
     </section>
   )

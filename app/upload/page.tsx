@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import PreviewTable from '@/components/PreviewTable'
 import ColumnMapper from '@/components/ColumnMapper'
 import BrokerGuide from '@/components/BrokerGuide'
@@ -37,6 +38,7 @@ export default function UploadPage() {
   const [detection, setDetection] = useState<DetectionResult | null>(null)
   const [confirmedMapping, setConfirmedMapping] = useState<ColumnMapping | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   function formatSize(bytes: number) {
     if (bytes < 1024) return bytes + ' B'
@@ -85,21 +87,42 @@ export default function UploadPage() {
     setLoading(true)
     setLoadingPct(10)
 
-    // No file → demo data
+    // No file → demo data with AI analysis
     if (files.length === 0) {
-      setLoadingPct(50)
-      await new Promise((r) => setTimeout(r, 800))
-      setLoadingPct(100)
-      console.log('📊 TradeSaath — Using DEMO data (no file uploaded)')
-      console.table(DEMO_TRADES.map((t) => ({
-        '#': t.id, time: t.time, symbol: t.symbol, side: t.side,
-        qty: t.qty, entry: t.entry, exit: t.exit, pnl: t.pnl, cumPnl: t.cumPnl,
-      })))
-      await new Promise((r) => setTimeout(r, 400))
-      setLoading(false)
-      setLoadingPct(0)
-      setBroker('demo')
-      setPhase('done')
+      setLoadingPct(30)
+      setPhase('analysing')
+      try {
+        const analyseRes = await fetch('/api/analyse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trades: DEMO_TRADES, context: { broker: 'Demo' } }),
+        })
+        setLoadingPct(90)
+        const analyseData = await analyseRes.json()
+
+        if (!analyseRes.ok) {
+          setError(analyseData.error || 'AI analysis failed')
+          setLoading(false)
+          setLoadingPct(0)
+          setPhase('idle')
+          return
+        }
+
+        setLoadingPct(100)
+        sessionStorage.setItem('tradesaath_results', JSON.stringify({
+          trades: DEMO_TRADES,
+          analysis: analyseData.analysis,
+          broker: 'Demo',
+        }))
+
+        await new Promise((r) => setTimeout(r, 300))
+        router.push('/results')
+      } catch {
+        setError('Failed to connect to AI server')
+        setLoading(false)
+        setLoadingPct(0)
+        setPhase('idle')
+      }
       return
     }
 
@@ -159,40 +182,63 @@ export default function UploadPage() {
 
     setError(null)
     setLoading(true)
-    setLoadingPct(20)
+    setLoadingPct(10)
     setPhase('analysing')
 
     try {
-      setLoadingPct(40)
+      // Step 1: Parse trades
+      setLoadingPct(20)
       const formData = new FormData()
       formData.append('file', files[0].file)
       formData.append('mode', 'analyse')
       formData.append('mapping', JSON.stringify(confirmedMapping))
       if (broker) formData.append('broker', broker)
 
-      const res = await fetch('/api/parse', { method: 'POST', body: formData })
-      setLoadingPct(80)
-      const data = await res.json()
+      const parseRes = await fetch('/api/parse', { method: 'POST', body: formData })
+      setLoadingPct(35)
+      const parseData = await parseRes.json()
 
-      if (!res.ok) {
-        setError(data.error || 'Analysis failed')
+      if (!parseRes.ok) {
+        setError(parseData.error || 'Parse failed')
         setLoading(false)
         setLoadingPct(0)
         setPhase('preview')
         return
       }
 
-      setLoadingPct(100)
-      console.log(`📊 TradeSaath — Parsed ${data.trades.length} trades from ${data.broker} (${data.totalFills} fills)`)
-      console.table(data.trades.map((t: Record<string, unknown>) => ({
-        '#': t.id, time: t.time, symbol: t.symbol, side: t.side,
-        qty: t.qty, entry: t.entry, exit: t.exit, pnl: t.pnl, cumPnl: t.cumPnl,
-      })))
+      console.log(`📊 TradeSaath — Parsed ${parseData.trades.length} trades from ${parseData.broker} (${parseData.totalFills} fills)`)
 
-      await new Promise((r) => setTimeout(r, 400))
-      setLoading(false)
-      setLoadingPct(0)
-      setPhase('done')
+      // Step 2: Call AI analysis
+      setLoadingPct(45)
+      const analyseRes = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trades: parseData.trades,
+          context: { broker: parseData.broker },
+        }),
+      })
+      setLoadingPct(90)
+      const analyseData = await analyseRes.json()
+
+      if (!analyseRes.ok) {
+        setError(analyseData.error || 'AI analysis failed')
+        setLoading(false)
+        setLoadingPct(0)
+        setPhase('preview')
+        return
+      }
+
+      // Store results and redirect
+      setLoadingPct(100)
+      sessionStorage.setItem('tradesaath_results', JSON.stringify({
+        trades: parseData.trades,
+        analysis: analyseData.analysis,
+        broker: parseData.broker,
+      }))
+
+      await new Promise((r) => setTimeout(r, 300))
+      router.push('/results')
     } catch {
       setError('Failed to connect to server')
       setLoading(false)
