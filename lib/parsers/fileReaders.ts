@@ -105,13 +105,15 @@ function readExcel(buffer: Buffer): FileReadResult {
 
 async function readPDF(buffer: Buffer): Promise<FileReadResult> {
   try {
+    console.log(`[PDF] Starting parse, buffer size: ${buffer.length} bytes`)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse')
     const data = await pdfParse(buffer)
+    console.log(`[PDF] Parse complete, pages: ${data.numpages}, text length: ${(data.text || '').length}`)
     const text: string = data.text || ''
 
     if (!text.trim()) {
-      return { headers: [], rows: [], unsupported: true, message: 'Could not extract text from PDF. Try exporting as CSV instead.' }
+      return { headers: [], rows: [], unsupported: true, message: 'This PDF appears to be a scanned image. Please export your trades as CSV or Excel instead.' }
     }
 
     // Try to parse as tabular data
@@ -165,7 +167,9 @@ async function readPDF(buffer: Buffer): Promise<FileReadResult> {
     }
 
     return { headers: result.meta.fields || [], rows: result.data }
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[PDF] Parse error:', msg, err instanceof Error ? err.stack : '')
     return {
       headers: [],
       rows: [],

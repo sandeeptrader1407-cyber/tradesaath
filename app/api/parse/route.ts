@@ -1,3 +1,5 @@
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from '@/lib/parsers/fileReaders'
 import { detectAndPreview } from '@/lib/parsers/autoDetect'
@@ -18,6 +20,8 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const filename = file.name || 'upload.csv'
     const ext = filename.toLowerCase().split('.').pop() || ''
+
+    console.log(`[Parse] File: ${filename}, type: .${ext}, size: ${buffer.length} bytes`)
 
     // Read file into rows
     const fileResult = await readFile(buffer, filename)
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unknown mode: ${mode}` }, { status: 400 })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Parse failed'
+    console.error('[Parse] Error:', message, err instanceof Error ? err.stack : '')
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -42,7 +42,8 @@
       "Bash(curl -s -X POST http://localhost:3000/api/payments/create-order -H \"Content-Type: application/json\" -d '{\"\"plan\"\":\"\"single\"\"}')",
       "Bash(find C:UsersSKDesktoptradesaathappapi -type f -name *.ts)",
       "Bash(find C:UsersSKDesktoptradesaath -name *.sql -o -name *schema* -o -name *migration*)",
-      "Bash(curl -s http://localhost:3000/dashboard)"
+      "Bash(curl -s http://localhost:3000/dashboard)",
+      "Bash(curl -s http://localhost:3000/upload)"
     ]
   }
 }
