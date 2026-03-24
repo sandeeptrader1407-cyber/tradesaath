@@ -15,11 +15,12 @@
     "@types/papaparse": "^5.5.2",
     "next": "14.2.35",
     "papaparse": "^5.5.3",
-    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^4.4.168",
     "razorpay": "^2.9.6",
     "react": "^18",
     "react-dom": "^18",
     "svix": "^1.88.0",
+    "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

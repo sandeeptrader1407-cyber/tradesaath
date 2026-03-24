@@ -80,7 +80,9 @@ export default function UploadPage() {
   const [broker, setBroker] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingPct, setLoadingPct] = useState(0)
+  const [loadingMsg, setLoadingMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [ocrWarning, setOcrWarning] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
   const [detection, setDetection] = useState<DetectionResult | null>(null)
   const [confirmedMapping, setConfirmedMapping] = useState<ColumnMapping | null>(null)
@@ -106,6 +108,7 @@ export default function UploadPage() {
   function resetAll() {
     setFiles([]); setBroker(null); setError(null); setPhase('idle')
     setDetection(null); setConfirmedMapping(null); setLoading(false); setLoadingPct(0)
+    setLoadingMsg(null); setOcrWarning(null)
     setResults(null); setExpandedTrades(new Set([0])); setDeepDives(new Set())
     setFilter('all'); setSelectedTrade(0); setUnlocked(false); setPayError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -152,26 +155,27 @@ export default function UploadPage() {
       return
     }
 
-    // Image check
-    if (/\.(png|jpg|jpeg|gif|webp)$/i.test(files[0].name)) {
-      setError('Image parsing coming soon. Please export as CSV or Excel.'); setLoading(false); setLoadingPct(0); return
-    }
-
-    // Detect
+    // Detect — works for all file types including images and scanned PDFs
     setPhase('detecting')
+    const isImageOrPdf = /\.(png|jpg|jpeg|gif|webp|pdf)$/i.test(files[0].name)
+    if (isImageOrPdf) {
+      setLoadingMsg('Scanning your file with OCR... this may take a few seconds')
+    }
     try {
       setLoadingPct(30)
       const fd = new FormData(); fd.append('file', files[0].file); fd.append('mode', 'detect')
       const res = await fetch('/api/parse', { method: 'POST', body: fd })
       setLoadingPct(70)
       const data = await res.json()
+      setLoadingMsg(null)
       if (!res.ok) { setError(data.error || 'Failed to read file'); setLoading(false); setLoadingPct(0); setPhase('idle'); return }
       setLoadingPct(100); setDetection(data); setBroker(data.broker)
+      if (data.ocrUsed && data.warning) setOcrWarning(data.warning)
       await new Promise(r => setTimeout(r, 300))
       setLoading(false); setLoadingPct(0)
       if (data.confidence >= 0.7) { setConfirmedMapping(data.mapping); setPhase('preview') }
       else { setPhase('mapping') }
-    } catch { setError('Failed to connect to server'); setLoading(false); setLoadingPct(0); setPhase('idle') }
+    } catch { setLoadingMsg(null); setError('Failed to connect to server'); setLoading(false); setLoadingPct(0); setPhase('idle') }
   }
 
   /* ─── Phase 2: Parse + AI analyse ─── */
@@ -827,7 +831,17 @@ export default function UploadPage() {
 
             {/* Loading bar */}
             {loading && (
-              <div className="loading-bar"><div className="loading-fill" style={{ width: `${loadingPct}%` }} /></div>
+              <>
+                <div className="loading-bar"><div className="loading-fill" style={{ width: `${loadingPct}%` }} /></div>
+                {loadingMsg && <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{loadingMsg}</p>}
+              </>
+            )}
+
+            {/* OCR warning */}
+            {ocrWarning && !loading && (
+              <div style={{ background: 'rgba(242,155,75,.1)', border: '1px solid var(--orange)', borderRadius: '8px', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--orange)' }}>
+                {ocrWarning}
+              </div>
             )}
           </div>
         </div>

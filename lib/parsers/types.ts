@@ -36,6 +36,8 @@ export interface DetectionResult {
   preview: Record<string, string>[]
   format: string
   missingFields?: string[]
+  ocrUsed?: boolean
+  warning?: string
 }
 
 export interface FileReadResult {
@@ -43,4 +45,6 @@ export interface FileReadResult {
   rows: Record<string, string>[]
   unsupported?: boolean
   message?: string
+  ocrUsed?: boolean
+  warning?: string
 }

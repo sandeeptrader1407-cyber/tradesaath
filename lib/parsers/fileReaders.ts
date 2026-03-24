@@ -21,19 +21,14 @@ export async function readFile(buffer: Buffer, filename: string): Promise<FileRe
   }
 
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-    return {
-      headers: [],
-      rows: [],
-      unsupported: true,
-      message: 'Image parsing is coming soon. For now, please export your trades as CSV or Excel from your broker.',
-    }
+    return readImage(buffer)
   }
 
   return {
     headers: [],
     rows: [],
     unsupported: true,
-    message: `Unsupported file type: .${ext}. Please upload CSV, Excel, or PDF files.`,
+    message: `Unsupported file type: .${ext}. Please upload CSV, Excel, PDF, or image files.`,
   }
 }
 
@@ -66,7 +61,6 @@ function readCSV(buffer: Buffer, delimiter?: string): FileReadResult {
 }
 
 function readExcel(buffer: Buffer): FileReadResult {
-  // Dynamic import to avoid bundling issues
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const XLSX = require('xlsx')
   const workbook = XLSX.read(buffer, { type: 'buffer' })
@@ -82,7 +76,6 @@ function readExcel(buffer: Buffer): FileReadResult {
     return { headers: [], rows: [], unsupported: true, message: 'Excel sheet is empty' }
   }
 
-  // Normalize headers
   const originalHeaders = Object.keys(rawRows[0])
   const headerMap: Record<string, string> = {}
   for (const h of originalHeaders) {
@@ -103,78 +96,177 @@ function readExcel(buffer: Buffer): FileReadResult {
   }
 }
 
+/* ─── OCR via tesseract.js ─── */
+async function runOCR(buffer: Buffer): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Tesseract = require('tesseract.js')
+  console.log('[OCR] Starting recognition...')
+  const result = await Tesseract.recognize(buffer, 'eng', {
+    logger: (m: { status: string; progress?: number }) => {
+      if (m.status === 'recognizing text') {
+        console.log(`[OCR] ${m.status} ${Math.round((m.progress || 0) * 100)}%`)
+      }
+    },
+  })
+  const text = result.data.text || ''
+  console.log(`[OCR] Complete, extracted ${text.length} characters`)
+  return text
+}
+
+/* ─── Parse extracted text into tabular data ─── */
+function parseExtractedText(text: string, ocrUsed: boolean): FileReadResult {
+  const lines = text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0)
+
+  if (lines.length < 2) {
+    if (ocrUsed) {
+      return {
+        headers: [], rows: [],
+        ocrUsed: true,
+        warning: "We couldn't extract clean trade data from this file. For best results, try uploading the original CSV or Excel file from your broker.",
+        unsupported: true,
+        message: "We couldn't extract clean trade data from this file. For best results, try uploading the original CSV or Excel file from your broker.",
+      }
+    }
+    return { headers: [], rows: [], unsupported: true, message: 'Not enough tabular data found.' }
+  }
+
+  // Detect delimiter
+  const firstLine = lines[0]
+  let delimiter: string | undefined
+  if (firstLine.split('\t').length >= 3) {
+    delimiter = '\t'
+  } else if (firstLine.split(',').length >= 3) {
+    delimiter = ','
+  }
+
+  const joined = lines.join('\n')
+  const result = Papa.parse<Record<string, string>>(joined, {
+    header: true,
+    skipEmptyLines: true,
+    delimiter,
+    transformHeader: (h: string) => normalizeHeader(h),
+  })
+
+  if (result.data.length > 0 && (result.meta.fields?.length || 0) >= 2) {
+    return {
+      headers: result.meta.fields || [],
+      rows: result.data,
+      ocrUsed,
+      warning: ocrUsed ? 'OCR quality may vary — please verify the detected data below.' : undefined,
+    }
+  }
+
+  // Fallback: treat each line as a single-column row so the user can still see what was extracted
+  if (ocrUsed && lines.length > 0) {
+    const headers = ['extracted_text']
+    const rows = lines.map(l => ({ extracted_text: l }))
+    return {
+      headers,
+      rows,
+      ocrUsed: true,
+      warning: "We couldn't detect table structure. The raw extracted text is shown below — try uploading the original CSV or Excel file for better results.",
+    }
+  }
+
+  return {
+    headers: [], rows: [],
+    unsupported: true,
+    message: 'Could not detect table structure in the file.',
+  }
+}
+
+/* ─── PDF reader with OCR fallback ─── */
 async function readPDF(buffer: Buffer): Promise<FileReadResult> {
   try {
     console.log(`[PDF] Starting parse, buffer size: ${buffer.length} bytes`)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse')
-    const data = await pdfParse(buffer)
-    console.log(`[PDF] Parse complete, pages: ${data.numpages}, text length: ${(data.text || '').length}`)
-    const text: string = data.text || ''
-
-    if (!text.trim()) {
-      return { headers: [], rows: [], unsupported: true, message: 'This PDF appears to be a scanned image. Please export your trades as CSV or Excel instead.' }
-    }
-
-    // Try to parse as tabular data
-    const lines = text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0)
-
-    if (lines.length < 2) {
-      return { headers: [], rows: [], unsupported: true, message: 'PDF does not contain enough tabular data. Try exporting as CSV.' }
-    }
-
-    // Detect delimiter (tab, comma, or multiple spaces)
-    const firstLine = lines[0]
-    let delimiter: string | undefined
-    if (firstLine.split('\t').length >= 3) {
-      delimiter = '\t'
-    } else if (firstLine.split(',').length >= 3) {
-      delimiter = ','
-    }
-
-    // If no clear delimiter, try space-separated
-    if (!delimiter) {
-      // Try to parse the whole text as CSV with auto-detection
-      const joined = lines.join('\n')
-      const result = Papa.parse<Record<string, string>>(joined, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (h: string) => normalizeHeader(h),
-      })
-
-      if (result.data.length > 0 && (result.meta.fields?.length || 0) >= 3) {
-        return { headers: result.meta.fields || [], rows: result.data }
+    const { createRequire } = require('module')
+    const nodeRequire = createRequire(__filename)
+    const pdfjsLib = nodeRequire('pdfjs-dist/legacy/build/pdf.mjs')
+    const uint8 = new Uint8Array(buffer)
+    const doc = await pdfjsLib.getDocument({ data: uint8 }).promise
+    let text = ''
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i)
+      const content = await page.getTextContent()
+      let lastY: number | null = null
+      for (const item of content.items as { str: string; transform: number[] }[]) {
+        const y = item.transform[5]
+        if (lastY !== null && Math.abs(y - lastY) > 2) {
+          text += '\n'
+        } else if (lastY !== null) {
+          text += ' '
+        }
+        text += item.str
+        lastY = y
       }
+      text += '\n'
+    }
+    console.log(`[PDF] Parse complete, pages: ${doc.numPages}, text length: ${text.length}`)
 
+    // If text extraction got enough content, parse it directly
+    if (text.trim().length >= 50) {
+      return parseExtractedText(text, false)
+    }
+
+    // Scanned/image PDF — fall back to OCR
+    console.log('[PDF] Low text content, falling back to OCR...')
+    const ocrText = await runOCR(buffer)
+    if (!ocrText.trim()) {
       return {
-        headers: [],
-        rows: [],
+        headers: [], rows: [],
+        ocrUsed: true,
         unsupported: true,
-        message: 'Could not detect table structure in PDF. Please export your trades as CSV or Excel from your broker.',
+        message: 'Could not extract any text from this PDF. The file may be corrupted or contain only graphics.',
       }
     }
-
-    const joined = lines.join('\n')
-    const result = Papa.parse<Record<string, string>>(joined, {
-      header: true,
-      skipEmptyLines: true,
-      delimiter,
-      transformHeader: (h: string) => normalizeHeader(h),
-    })
-
-    if (result.data.length === 0) {
-      return { headers: [], rows: [], unsupported: true, message: 'No tabular data found in PDF.' }
-    }
-
-    return { headers: result.meta.fields || [], rows: result.data }
+    return parseExtractedText(ocrText, true)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[PDF] Parse error:', msg, err instanceof Error ? err.stack : '')
+
+    // Even if pdfjs fails, try OCR as last resort
+    try {
+      console.log('[PDF] pdfjs failed, attempting OCR fallback...')
+      const ocrText = await runOCR(buffer)
+      if (ocrText.trim()) {
+        return parseExtractedText(ocrText, true)
+      }
+    } catch (ocrErr: unknown) {
+      console.error('[PDF] OCR fallback also failed:', ocrErr instanceof Error ? ocrErr.message : String(ocrErr))
+    }
+
     return {
-      headers: [],
-      rows: [],
+      headers: [], rows: [],
       unsupported: true,
-      message: 'Failed to read PDF. Please try exporting your trades as CSV or Excel.',
+      message: 'Failed to read this PDF. The file may be corrupted.',
+    }
+  }
+}
+
+/* ─── Image reader via OCR ─── */
+async function readImage(buffer: Buffer): Promise<FileReadResult> {
+  try {
+    console.log(`[Image] Starting OCR, buffer size: ${buffer.length} bytes`)
+    const ocrText = await runOCR(buffer)
+
+    if (!ocrText.trim()) {
+      return {
+        headers: [], rows: [],
+        ocrUsed: true,
+        unsupported: true,
+        message: 'Could not extract any text from this image. The image may be too blurry or contain only graphics.',
+      }
+    }
+
+    return parseExtractedText(ocrText, true)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[Image] OCR error:', msg, err instanceof Error ? err.stack : '')
+    return {
+      headers: [], rows: [],
+      unsupported: true,
+      message: 'Failed to read this image file.',
     }
   }
 }

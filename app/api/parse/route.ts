@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
     if (mode === 'detect') {
       // Phase 1: Detect columns and return preview
       const result = detectAndPreview(fileResult.headers, fileResult.rows, ext)
+      // Pass through OCR metadata
+      if (fileResult.ocrUsed) result.ocrUsed = true
+      if (fileResult.warning) result.warning = fileResult.warning
       return NextResponse.json(result)
     }
 

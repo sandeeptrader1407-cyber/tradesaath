@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# tesseract OCR data (downloaded at runtime)
+*.traineddata
