@@ -179,30 +179,14 @@ function parseExtractedText(text: string, ocrUsed: boolean): FileReadResult {
 async function readPDF(buffer: Buffer): Promise<FileReadResult> {
   try {
     console.log(`[PDF] Starting parse, buffer size: ${buffer.length} bytes`)
+    // Use unpdf — works reliably in Next.js server routes without worker/webpack issues
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createRequire } = require('module')
-    const nodeRequire = createRequire(__filename)
-    const pdfjsLib = nodeRequire('pdfjs-dist/legacy/build/pdf.mjs')
-    const uint8 = new Uint8Array(buffer)
-    const doc = await pdfjsLib.getDocument({ data: uint8 }).promise
-    let text = ''
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i)
-      const content = await page.getTextContent()
-      let lastY: number | null = null
-      for (const item of content.items as { str: string; transform: number[] }[]) {
-        const y = item.transform[5]
-        if (lastY !== null && Math.abs(y - lastY) > 2) {
-          text += '\n'
-        } else if (lastY !== null) {
-          text += ' '
-        }
-        text += item.str
-        lastY = y
-      }
-      text += '\n'
-    }
-    console.log(`[PDF] Parse complete, pages: ${doc.numPages}, text length: ${text.length}`)
+    const { extractText } = require('unpdf')
+    const result = await extractText(new Uint8Array(buffer))
+    // unpdf returns { totalPages: number, text: string[] } — one string per page
+    const text = (result.text as string[]).join('\n')
+    console.log(`[PDF] Parse complete, pages: ${result.totalPages}, text length: ${text.length}`)
+    console.log(`[PDF] First 2000 chars:\n${text.substring(0, 2000)}`)
 
     // If text extraction got enough content, parse it directly
     if (text.trim().length >= 50) {
@@ -223,11 +207,15 @@ async function readPDF(buffer: Buffer): Promise<FileReadResult> {
     return parseExtractedText(ocrText, true)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('[PDF] Parse error:', msg, err instanceof Error ? err.stack : '')
+    console.error('=== PDF ERROR DETAIL ===')
+    console.error('Error name:', err instanceof Error ? err.name : 'unknown')
+    console.error('Error message:', msg)
+    console.error('Error stack:', err instanceof Error ? err.stack : '')
+    console.error('=== END PDF ERROR ===')
 
-    // Even if pdfjs fails, try OCR as last resort
+    // Even if unpdf fails, try OCR as last resort
     try {
-      console.log('[PDF] pdfjs failed, attempting OCR fallback...')
+      console.log('[PDF] Text extraction failed, attempting OCR fallback...')
       const ocrText = await runOCR(buffer)
       if (ocrText.trim()) {
         return parseExtractedText(ocrText, true)
