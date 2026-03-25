@@ -43,7 +43,22 @@
       "Bash(find C:UsersSKDesktoptradesaathappapi -type f -name *.ts)",
       "Bash(find C:UsersSKDesktoptradesaath -name *.sql -o -name *schema* -o -name *migration*)",
       "Bash(curl -s http://localhost:3000/dashboard)",
-      "Bash(curl -s http://localhost:3000/upload)"
+      "Bash(curl -s http://localhost:3000/upload)",
+      "Bash(node -e \"try { const p = require\\(''pdf-parse''\\); console.log\\(''pdf-parse loaded OK, type:'', typeof p\\); } catch\\(e\\) { console.error\\(''LOAD ERROR:'', e.message\\); console.error\\(''STACK:'', e.stack\\); }\")",
+      "Bash(node -e:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test.pdf;type=application/pdf\" -F \"mode=detect\")",
+      "Bash(npm ls:*)",
+      "Bash(npm info:*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test.csv;type=text/csv;filename=test.csv\" -F \"mode=detect\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test_good.pdf;type=application/pdf;filename=trades.pdf\" -F \"mode=detect\")",
+      "Read(//c/Users/SK/Desktop/tradesaath/**)",
+      "Bash(npm init:*)",
+      "Bash(echo $TEMP)",
+      "Bash(npm uninstall:*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/real_test.pdf;type=application/pdf;filename=trades.pdf\" -F \"mode=detect\")",
+      "Bash(node -e \"console.log\\(require\\(''./node_modules/next/package.json''\\).version\\)\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test_trades.png;type=image/png;filename=trades.png\" -F \"mode=detect\")"
     ]
   }
 }

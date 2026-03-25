@@ -29,7 +29,7 @@ export default function Hero() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-          <a href="/upload" className="btn btn-accent btn-lg">
+          <a href="#sec-app" className="btn btn-accent btn-lg">
             🔍 Analyse My Trades Free
           </a>
           <a href="#pricing" className="btn btn-ghost btn-lg">

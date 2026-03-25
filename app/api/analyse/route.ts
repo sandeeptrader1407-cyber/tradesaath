@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// Lazy client — only created when actually needed (prevents crash if key is missing at import time)
+function getClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY environment variable is not set. Please add it to your Vercel deployment settings.')
+  }
+  return new Anthropic({ apiKey })
+}
 
 const SYSTEM_PROMPT = `You are TradeSaath, an expert AI trading psychology coach specializing in Indian F&O options (Nifty, BankNifty) and all global markets. You analyze trades with deep empathy and give brutally specific coaching.
 
@@ -102,6 +109,7 @@ export async function POST(req: NextRequest) {
     while (attempts < 2 && !analysis) {
       attempts++
       try {
+        const client = getClient()
         const message = await client.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
@@ -150,8 +158,19 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ analysis })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Analysis failed'
-    console.error('Analysis error:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    const errMessage = err instanceof Error ? err.message : 'Analysis failed'
+    console.error('Analysis error:', errMessage)
+
+    // Provide user-friendly error messages
+    if (errMessage.includes('ANTHROPIC_API_KEY')) {
+      return NextResponse.json({ error: errMessage }, { status: 500 })
+    }
+    if (errMessage.includes('authentication') || errMessage.includes('401')) {
+      return NextResponse.json({ error: 'AI service authentication failed. Please check the API key configuration.' }, { status: 502 })
+    }
+    if (errMessage.includes('rate') || errMessage.includes('429')) {
+      return NextResponse.json({ error: 'AI service is temporarily busy. Please try again in a moment.' }, { status: 429 })
+    }
+    return NextResponse.json({ error: errMessage }, { status: 500 })
   }
 }

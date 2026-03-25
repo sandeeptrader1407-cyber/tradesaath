@@ -665,13 +665,13 @@ export default function UploadPage() {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag') }}
                   onDragLeave={e => e.currentTarget.classList.remove('drag')}
                   onDrop={e => { e.currentTarget.classList.remove('drag'); handleDrop(e) }}>
-                  <input ref={inputRef} type="file" accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg" multiple
+                  <input ref={inputRef} type="file" accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.html,.htm" multiple
                     style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
                     onChange={e => { if (e.target.files) addFiles(Array.from(e.target.files)); e.target.value = '' }} />
                   <div className="dz-icon">&#128194;</div>
                   <div className="dz-title">Drop files here or click to browse</div>
-                  <div className="dz-sub">CSV, Excel, PDF, screenshots — any broker worldwide</div>
-                  <div className="dz-tags"><span>CSV</span><span>TSV</span><span>XLSX</span><span>XLS</span><span>PDF</span><span>PNG</span><span>JPG</span></div>
+                  <div className="dz-sub">CSV, Excel, PDF, HTML, screenshots — any broker worldwide</div>
+                  <div className="dz-tags"><span>CSV</span><span>TSV</span><span>XLSX</span><span>XLS</span><span>PDF</span><span>HTML</span><span>PNG</span><span>JPG</span></div>
                 </label>
                 <BrokerGuide />
               </>

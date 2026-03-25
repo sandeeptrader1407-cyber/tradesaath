@@ -18,9 +18,6 @@ function ClerkAuthButtons() {
   if (isSignedIn) {
     return (
       <>
-        <Link href="/upload" className="btn btn-accent btn-sm">
-          Upload Trades
-        </Link>
         <UserButton />
       </>
     )
@@ -45,6 +42,58 @@ function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
 
   return (
     <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">Sign In</Link>
+  )
+}
+
+function NavLinks() {
+  const { isSignedIn, isLoaded } = useUser()
+
+  if (!isLoaded) return null
+
+  if (isSignedIn) {
+    return (
+      <>
+        <Link href="/dashboard" className="nav-app-link">📊 Dashboard</Link>
+        <Link href="/upload" className="nav-app-link">📤 Upload</Link>
+        <Link href="/journal" className="nav-app-link">📓 Journal</Link>
+        <Link href="/pricing" className="nav-app-link">🎯 AI Coach</Link>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <a href="#how" className="nav-landing-link">How It Works</a>
+      <a href="#features" className="nav-landing-link">Features</a>
+      <a href="#pricing" className="nav-landing-link">Pricing</a>
+      <a href="#faq" className="nav-landing-link">FAQ</a>
+    </>
+  )
+}
+
+function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
+  const { isSignedIn, isLoaded } = useUser()
+
+  if (!isLoaded) return null
+
+  if (isSignedIn) {
+    return (
+      <>
+        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>
+        <Link href="/upload" onClick={closeMenu} className="nav-app-link">📤 Upload</Link>
+        <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>
+        <Link href="/pricing" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
+      <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
+      <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
+      <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+    </>
   )
 }
 
@@ -81,10 +130,16 @@ export default function Navbar() {
           <div className="nav-logo-dot"></div>TradeSaath
         </Link>
         <div className="nav-links">
-          <a href="#how" className="nav-landing-link">How It Works</a>
-          <a href="#features" className="nav-landing-link">Features</a>
-          <a href="#pricing" className="nav-landing-link">Pricing</a>
-          <a href="#faq" className="nav-landing-link">FAQ</a>
+          <ClerkErrorBoundary fallback={
+            <>
+              <a href="#how" className="nav-landing-link">How It Works</a>
+              <a href="#features" className="nav-landing-link">Features</a>
+              <a href="#pricing" className="nav-landing-link">Pricing</a>
+              <a href="#faq" className="nav-landing-link">FAQ</a>
+            </>
+          }>
+            <NavLinks />
+          </ClerkErrorBoundary>
         </div>
         <div className="nav-right">
           <button className="theme-btn" onClick={toggleTheme}>
@@ -113,10 +168,16 @@ export default function Navbar() {
       </nav>
 
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
-        <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
-        <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
-        <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
-        <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+        <ClerkErrorBoundary fallback={
+          <>
+            <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
+            <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
+            <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
+            <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+          </>
+        }>
+          <MobileNavLinks closeMenu={closeMenu} />
+        </ClerkErrorBoundary>
         <ClerkErrorBoundary>
           <ClerkMobileAuth closeMenu={closeMenu} />
         </ClerkErrorBoundary>

@@ -447,6 +447,8 @@ body.day nav { background: rgba(247,248,252,.88); border-bottom-color: rgba(223,
 .autodetect-badge.detected { color: var(--accent); border-color: rgba(62,232,196,.25); background: var(--accent2) }
 
 .ctx-box { margin-bottom: 16px }
+.ctx-toggle-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-xs); background: transparent; border: 1px dashed var(--border); color: var(--muted); font-size: 11px; cursor: pointer; transition: all .2s; font-family: 'JetBrains Mono', monospace; width: 100% }
+.ctx-toggle-btn:hover { border-color: var(--accent); color: var(--accent) }
 .ctx-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px }
 .ctx-optional { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace }
 .ctx-questions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }

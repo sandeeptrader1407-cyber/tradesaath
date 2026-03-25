@@ -24,11 +24,15 @@ export async function readFile(buffer: Buffer, filename: string): Promise<FileRe
     return readImage(buffer)
   }
 
+  if (ext === 'html' || ext === 'htm') {
+    return readHTML(buffer)
+  }
+
   return {
     headers: [],
     rows: [],
     unsupported: true,
-    message: `Unsupported file type: .${ext}. Please upload CSV, Excel, PDF, or image files.`,
+    message: `Unsupported file type: .${ext}. Please upload CSV, Excel, PDF, HTML, or image files.`,
   }
 }
 
@@ -230,6 +234,96 @@ async function readPDF(buffer: Buffer): Promise<FileReadResult> {
       message: 'Failed to read this PDF. The file may be corrupted.',
     }
   }
+}
+
+/* ─── HTML reader — extracts tables from broker HTML exports ─── */
+function readHTML(buffer: Buffer): FileReadResult {
+  const html = buffer.toString('utf-8')
+
+  // Simple regex-based table extraction (no DOM parser dependency needed)
+  // Find all <table> elements and extract the largest one
+  const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi
+  const tables: string[][] = []
+
+  let tableMatch
+  while ((tableMatch = tableRegex.exec(html)) !== null) {
+    const tableHtml = tableMatch[1]
+    // Extract rows
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+    const rows: string[] = []
+    let rowMatch
+    while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
+      rows.push(rowMatch[1])
+    }
+    if (rows.length >= 2) {
+      tables.push(rows)
+    }
+  }
+
+  if (tables.length === 0) {
+    // Fallback: try to extract any text content and parse as CSV-like
+    const textContent = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, '\t')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#?\w+;/g, '')
+    return parseExtractedText(textContent, false)
+  }
+
+  // Use the largest table (most rows)
+  const largestTable = tables.reduce((a, b) => a.length > b.length ? a : b)
+
+  // Extract cell contents
+  function extractCells(rowHtml: string): string[] {
+    const cellRegex = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi
+    const cells: string[] = []
+    let cellMatch
+    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+      // Strip inner HTML tags and decode entities
+      const text = cellMatch[1]
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#?\w+;/g, '')
+        .trim()
+      cells.push(text)
+    }
+    return cells
+  }
+
+  // First row = headers
+  const headerCells = extractCells(largestTable[0])
+  if (headerCells.length < 2) {
+    return { headers: [], rows: [], unsupported: true, message: 'Could not detect table headers in HTML file.' }
+  }
+
+  const headers = headerCells.map(h => normalizeHeader(h))
+
+  // Remaining rows = data
+  const dataRows: Record<string, string>[] = []
+  for (let i = 1; i < largestTable.length; i++) {
+    const cells = extractCells(largestTable[i])
+    if (cells.length === 0) continue
+    const row: Record<string, string> = {}
+    for (let j = 0; j < headers.length; j++) {
+      row[headers[j]] = cells[j] || ''
+    }
+    dataRows.push(row)
+  }
+
+  if (dataRows.length === 0) {
+    return { headers: [], rows: [], unsupported: true, message: 'HTML table has no data rows.' }
+  }
+
+  return { headers, rows: dataRows }
 }
 
 /* ─── Image reader via OCR ─── */
