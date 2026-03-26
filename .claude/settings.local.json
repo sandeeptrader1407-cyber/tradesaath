@@ -70,7 +70,17 @@
       "Bash(find C:UsersSK -name *Feature_Audit* -o -name TradeSaath_V12*)",
       "Bash(/c/Python314/python.exe -u:*)",
       "Bash(/c/Python314/python.exe:*)",
-      "Bash(/c/Python314/python.exe -c \"print\\(''test''\\)\")"
+      "Bash(/c/Python314/python.exe -c \"print\\(''test''\\)\")",
+      "Bash(ls C:/Users/SK/Desktop/tradesaath/*.pdf)",
+      "Bash(ls C:/Users/SK/Desktop/*.pdf)",
+      "Bash(ls C:/Users/SK/Desktop/tradesaath/*.csv C:/Users/SK/Desktop/tradesaath/*.xlsx)",
+      "Read(//c/Users/SK/Downloads/**)",
+      "Bash(node test-api.js)",
+      "Bash(curl -s -X POST http://localhost:3000/api/analyse -F \"file=@test-trade.pdf\" -F 'context={\"\"\"\"mood\"\"\"\":\"\"\"\"neutral\"\"\"\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/analyse -F \"file=@test-trade.pdf\" -F 'context={\"\"mood\"\":\"\"neutral\"\"}' -o /tmp/analyse-result.json)",
+      "Bash(mkdir -p C:/Users/SK/Desktop/tradesaath/tmp)",
+      "Bash(curl -s -X POST http://localhost:3000/api/analyse -F \"file=@test-trade.pdf\" -F 'context={\"\"mood\"\":\"\"neutral\"\"}' -o tmp/result.json)",
+      "Bash(curl -s \"http://localhost:3000/_next/static/css/app/layout.css?v=1774555114737\")"
     ]
   }
 }
