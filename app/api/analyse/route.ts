@@ -193,78 +193,297 @@ Return this exact JSON structure:
   ]
 }`
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json()
-    const { trades, context } = body
+export const runtime = 'nodejs'
 
-    if (!trades || !Array.isArray(trades) || trades.length === 0) {
-      return NextResponse.json({ error: 'No trades provided' }, { status: 400 })
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILE EXTRACTION — Send file directly to Claude for trade extraction
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const EXTRACT_PROMPT = `Extract ALL trades from this broker statement / trade file. This is a real trading file from an Indian or global broker.
+
+IMPORTANT RULES:
+- Extract EVERY trade, not just a sample
+- For options trades, include the full instrument name (e.g., "NIFTY 24850 CE", "BANKNIFTY 52000 PE")
+- Detect whether each row is BUY or SELL
+- Calculate P&L per trade if entry and exit prices are available: BUY P&L = (exit - entry) * qty, SELL P&L = (entry - exit) * qty
+- If only net amounts are available (like in contract notes), use those directly
+- Pair matching entries with exits for the same instrument when possible
+- Detect the broker name, market, currency from the file content
+- For PDF contract notes: look for tables with trade details including instrument, buy/sell quantity, price, and amounts
+
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "broker": "detected broker name (e.g., Fyers, Zerodha, Angel One)",
+  "market": "NSE/NYSE/Forex/Crypto",
+  "trade_date": "YYYY-MM-DD",
+  "currency": "INR/USD/etc",
+  "trades": [
+    {
+      "id": 1,
+      "time": "HH:MM",
+      "symbol": "instrument name",
+      "side": "BUY or SELL",
+      "qty": number,
+      "entry": number,
+      "exit": number,
+      "pnl": number,
+      "cumPnl": number,
+      "fills": [{"qty": number, "price": number}]
+    }
+  ]
+}
+
+If you cannot extract structured trade data, return:
+{
+  "broker": "Unknown",
+  "market": "Unknown",
+  "trade_date": null,
+  "currency": "INR",
+  "trades": [],
+  "error": "Description of why extraction failed"
+}`
+
+function isTextFile(name: string, type: string) {
+  return /\.(csv|tsv|txt)$/i.test(name) || type.includes('text/') || type === 'application/csv'
+}
+
+function isExcel(name: string, type: string) {
+  return /\.(xlsx?|xls)$/i.test(name) || type.includes('spreadsheet') || type.includes('excel')
+}
+
+const DOCUMENT_TYPES = ['application/pdf']
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']
+
+async function extractTradesFromFile(client: Anthropic, file: File) {
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const content: any[] = []
+
+  if (isTextFile(file.name, file.type)) {
+    const text = buffer.toString('utf-8')
+    console.log(`📝 Sending as text (${text.length} chars)`)
+    content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
+
+  } else if (isExcel(file.name, file.type)) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx')
+      const workbook = XLSX.read(buffer, { type: 'buffer' })
+      const sheets: string[] = []
+      for (const name of workbook.SheetNames) {
+        const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name])
+        sheets.push(`--- Sheet: ${name} ---\n${csv}`)
+      }
+      const text = sheets.join('\n\n')
+      console.log(`📊 Excel converted to CSV (${text.length} chars, ${workbook.SheetNames.length} sheets)`)
+      content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
+    } catch (xlErr) {
+      console.error('Excel parse failed, sending as base64:', xlErr)
+      const base64 = buffer.toString('base64')
+      content.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', data: base64 }
+      })
     }
 
-    const tradesStr = JSON.stringify(trades, null, 2)
-    const contextStr = context ? JSON.stringify(context, null, 2) : 'No additional context provided'
+  } else if (DOCUMENT_TYPES.includes(file.type) || /\.pdf$/i.test(file.name)) {
+    const base64 = buffer.toString('base64')
+    console.log(`📑 Sending PDF as document (${(base64.length / 1024).toFixed(1)} KB base64)`)
+    content.push({
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+    })
 
-    let analysis = null
-    let attempts = 0
-    let lastRawText = ''
+  } else if (IMAGE_TYPES.includes(file.type) || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name)) {
+    const base64 = buffer.toString('base64')
+    const mediaType = file.type || 'image/png'
+    console.log(`🖼️ Sending image as attachment (${mediaType})`)
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: base64 }
+    })
 
-    while (attempts < 2 && !analysis) {
-      attempts++
-      try {
-        const client = getClient()
-        const message = await client.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
-          system: SYSTEM_PROMPT,
-          messages: [
-            { role: 'user', content: USER_PROMPT_TEMPLATE(tradesStr, contextStr) },
-          ],
-        })
+  } else {
+    const text = buffer.toString('utf-8')
+    content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
+  }
 
-        console.log(`🤖 Anthropic API response — model: ${message.model}, stop_reason: ${message.stop_reason}, usage: ${JSON.stringify(message.usage)}`)
+  content.push({ type: 'text', text: EXTRACT_PROMPT })
 
-        const text = message.content[0].type === 'text' ? message.content[0].text : ''
-        lastRawText = text
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 8000,
+    messages: [{ role: 'user', content }],
+  })
 
-        // Try to extract JSON — handle potential markdown wrapping
-        let jsonStr = text.trim()
-        if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-        }
+  console.log(`🤖 Extract response — model: ${message.model}, stop: ${message.stop_reason}, usage: ${JSON.stringify(message.usage)}`)
 
-        analysis = JSON.parse(jsonStr)
-      } catch (parseErr: unknown) {
-        console.error(`Attempt ${attempts} failed:`, parseErr instanceof Error ? parseErr.message : String(parseErr))
-        console.error('Raw response (first 500 chars):', lastRawText.substring(0, 500))
+  const text = message.content[0].type === 'text' ? message.content[0].text : ''
+  let jsonStr = text.trim()
+  if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+  }
 
-        // If it's an API error (not a JSON parse error), don't retry — surface it immediately
-        if (parseErr instanceof Error && !(parseErr instanceof SyntaxError)) {
-          // Extract clean message from Anthropic SDK error
-          let errMsg = parseErr.message || 'Anthropic API error'
-          try {
-            const parsed = JSON.parse(errMsg.replace(/^\d+\s*/, ''))
-            if (parsed?.error?.message) errMsg = parsed.error.message
-          } catch { /* use raw message */ }
-          return NextResponse.json({ error: errMsg }, { status: 502 })
-        }
+  const result = JSON.parse(jsonStr)
 
-        if (attempts >= 2) {
-          return NextResponse.json(
-            { error: 'AI analysis failed — could not parse response. Please try again.' },
-            { status: 500 }
-          )
-        }
-        // Retry only for JSON parse errors
+  if (!result.trades || result.trades.length === 0) {
+    const errMsg = result.error || 'Could not extract trade data from this file. Try uploading the original CSV or Excel export from your broker.'
+    throw new Error(errMsg)
+  }
+
+  // Ensure cumPnl is computed
+  let cum = 0
+  for (const t of result.trades) {
+    if (t.pnl == null && t.entry != null && t.exit != null && t.qty != null) {
+      t.pnl = t.side === 'BUY'
+        ? Math.round((t.exit - t.entry) * t.qty)
+        : Math.round((t.entry - t.exit) * t.qty)
+    }
+    cum += (t.pnl || 0)
+    t.cumPnl = cum
+    if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
+  }
+
+  return {
+    trades: result.trades,
+    broker: result.broker || 'Unknown',
+    market: result.market || 'Unknown',
+    tradeDate: result.trade_date,
+    currency: result.currency || 'INR',
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANALYSIS — Run psychology coaching on extracted/provided trades
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function parseJsonResponse(text: string) {
+  let jsonStr = text.trim()
+  if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+  }
+  return JSON.parse(jsonStr)
+}
+
+async function analyseTradesWithAI(client: Anthropic, tradesStr: string, contextStr: string) {
+  let analysis = null
+  let attempts = 0
+  let lastRawText = ''
+
+  while (attempts < 2 && !analysis) {
+    attempts++
+    try {
+      const message = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        system: SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: USER_PROMPT_TEMPLATE(tradesStr, contextStr) },
+        ],
+      })
+
+      console.log(`🤖 Analysis response — model: ${message.model}, stop: ${message.stop_reason}, usage: ${JSON.stringify(message.usage)}`)
+
+      const text = message.content[0].type === 'text' ? message.content[0].text : ''
+      lastRawText = text
+      analysis = parseJsonResponse(text)
+    } catch (parseErr: unknown) {
+      console.error(`Analysis attempt ${attempts} failed:`, parseErr instanceof Error ? parseErr.message : String(parseErr))
+      console.error('Raw response (first 500 chars):', lastRawText.substring(0, 500))
+
+      if (parseErr instanceof Error && !(parseErr instanceof SyntaxError)) {
+        let errMsg = parseErr.message || 'Anthropic API error'
+        try {
+          const parsed = JSON.parse(errMsg.replace(/^\d+\s*/, ''))
+          if (parsed?.error?.message) errMsg = parsed.error.message
+        } catch { /* use raw message */ }
+        throw new Error(errMsg)
+      }
+
+      if (attempts >= 2) {
+        throw new Error('AI analysis failed — could not parse response. Please try again.')
       }
     }
+  }
 
-    return NextResponse.json({ analysis })
+  return analysis
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POST HANDLER — Accepts FormData (file) OR JSON (pre-extracted trades)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export async function POST(req: NextRequest) {
+  try {
+    const contentType = req.headers.get('content-type') || ''
+
+    let trades: unknown[]
+    let context: Record<string, unknown> = {}
+    let broker = 'Unknown'
+    let market = 'Unknown'
+    let currency = 'INR'
+
+    const client = getClient()
+
+    // ─── Mode 1: FormData with file — extract + analyse in one call ───
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData()
+      const file = formData.get('file') as File | null
+      const contextStr = formData.get('context') as string | null
+
+      if (!file) {
+        return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      }
+
+      console.log(`📄 Analyse request (file): ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`)
+
+      if (contextStr) {
+        try { context = JSON.parse(contextStr) } catch { /* ignore */ }
+      }
+
+      // Step 1: Extract trades from file
+      const extracted = await extractTradesFromFile(client, file)
+      trades = extracted.trades
+      broker = extracted.broker
+      market = extracted.market
+      currency = extracted.currency
+
+      console.log(`✅ Extracted ${trades.length} trades from ${broker}`)
+
+    // ─── Mode 2: JSON body with pre-extracted trades ───
+    } else {
+      const body = await req.json()
+      trades = body.trades
+      context = body.context || {}
+
+      if (!trades || !Array.isArray(trades) || trades.length === 0) {
+        return NextResponse.json({ error: 'No trades provided' }, { status: 400 })
+      }
+
+      broker = (context.broker as string) || 'Unknown'
+      market = (context.market as string) || 'Unknown'
+      currency = (context.currency as string) || 'INR'
+    }
+
+    // Step 2: Run psychology analysis
+    const tradesStr = JSON.stringify(trades, null, 2)
+    const contextStr = JSON.stringify({ broker, market, currency, ...context }, null, 2)
+    const analysis = await analyseTradesWithAI(client, tradesStr, contextStr)
+
+    return NextResponse.json({
+      analysis,
+      trades,
+      broker,
+      market,
+      currency,
+    })
+
   } catch (err: unknown) {
     const errMessage = err instanceof Error ? err.message : 'Analysis failed'
     console.error('Analysis error:', errMessage)
 
-    // Provide user-friendly error messages
     if (errMessage.includes('ANTHROPIC_API_KEY')) {
       return NextResponse.json({ error: errMessage }, { status: 500 })
     }
@@ -273,6 +492,9 @@ export async function POST(req: NextRequest) {
     }
     if (errMessage.includes('rate') || errMessage.includes('429')) {
       return NextResponse.json({ error: 'AI service is temporarily busy. Please try again in a moment.' }, { status: 429 })
+    }
+    if (errMessage.includes('Could not extract')) {
+      return NextResponse.json({ error: errMessage }, { status: 422 })
     }
     return NextResponse.json({ error: errMessage }, { status: 500 })
   }

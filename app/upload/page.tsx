@@ -175,58 +175,47 @@ export default function UploadPage() {
       return
     }
 
-    // File uploaded → Step 1: Extract trades via Claude
+    // File uploaded → Send to /api/analyse (extraction + analysis in one call)
     setPhase('analysing')
-    setLoadingMsg('Reading your file with AI... this may take 10-20 seconds')
+    setLoadingMsg('AI is reading your file and analysing trades... this takes 20-60 seconds')
     setLoadingPct(10)
 
     try {
+      const ctx = getContext()
       const fd = new FormData()
       fd.append('file', files[0].file)
-      const extractRes = await fetch('/api/extract', { method: 'POST', body: fd })
-      setLoadingPct(40)
-      const extractData = await extractRes.json()
+      fd.append('context', JSON.stringify(ctx))
 
-      if (!extractRes.ok) {
-        setError(extractData.error || 'Could not extract trades from this file')
+      // Simulate progress while waiting
+      const progressTimer = setInterval(() => {
+        setLoadingPct(prev => Math.min(prev + 3, 85))
+      }, 2000)
+
+      const res = await fetch('/api/analyse', { method: 'POST', body: fd })
+      clearInterval(progressTimer)
+      setLoadingPct(90)
+
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'AI analysis failed')
         setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
         return
       }
 
-      const extractedTrades = extractData.trades
-      const detectedBroker = extractData.broker || 'Unknown'
+      const extractedTrades = data.trades
+      const detectedBroker = data.broker || 'Unknown'
       setBroker(detectedBroker)
 
-      // Step 2: Analyse trades with AI psychology coaching
-      setLoadingMsg('AI is analysing your trading psychology... 10-30 seconds')
-      setLoadingPct(50)
-
-      const ctx = getContext()
-      const analyseRes = await fetch('/api/analyse', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trades: extractedTrades,
-          context: { broker: detectedBroker, market: extractData.market, currency: extractData.currency, ...ctx }
-        }),
-      })
-      setLoadingPct(85)
-      const analyseData = await analyseRes.json()
-      if (!analyseRes.ok) {
-        setError(analyseData.error || 'AI analysis failed')
-        setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
-        return
-      }
-
       setLoadingPct(95)
-      const resultData = { trades: extractedTrades, analysis: analyseData.analysis, broker: detectedBroker }
+      const resultData = { trades: extractedTrades, analysis: data.analysis, broker: detectedBroker }
       setResults(resultData)
       sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
 
-      // Step 3: Save session to Supabase (non-blocking, only if authenticated)
+      // Save session to Supabase (non-blocking, only if authenticated)
       try {
         fetch('/api/sessions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trades: extractedTrades, analysis: analyseData.analysis, broker: detectedBroker }),
+          body: JSON.stringify({ trades: extractedTrades, analysis: data.analysis, broker: detectedBroker }),
         }).catch(() => { /* silently fail for unauthenticated users */ })
       } catch { /* ignore */ }
 
@@ -757,7 +746,7 @@ export default function UploadPage() {
         <div className="card">
           <div className="card-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700 }}>
-              Analyse Your Trades
+              📤 Analyse Your Trades
             </div>
             <span className="badge badge-free">Free &middot; No login</span>
           </div>
@@ -766,7 +755,7 @@ export default function UploadPage() {
             {/* Auto-detect bar */}
             <div className="autodetect-bar">
               <span className="autodetect-icon">&#128270;</span>
-              <span>Columns, broker &amp; format will be <strong>auto-detected</strong> from your file</span>
+              <span>Market, exchange &amp; currency will be <strong>auto-detected</strong> from your file</span>
               <span className={`autodetect-badge${broker ? ' detected' : ''}`}>
                 {broker === 'Demo' ? 'Demo data' : broker ? `${broker} detected` : 'Awaiting file\u2026'}
               </span>
@@ -779,13 +768,13 @@ export default function UploadPage() {
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag') }}
                   onDragLeave={e => e.currentTarget.classList.remove('drag')}
                   onDrop={e => { e.currentTarget.classList.remove('drag'); handleDrop(e) }}>
-                  <input ref={inputRef} type="file" accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.html,.htm" multiple
+                  <input ref={inputRef} type="file" accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" multiple
                     style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
                     onChange={e => { if (e.target.files) addFiles(Array.from(e.target.files)); e.target.value = '' }} />
                   <div className="dz-icon">&#128194;</div>
                   <div className="dz-title">Drop files here or click to browse</div>
-                  <div className="dz-sub">CSV, Excel, PDF, HTML, screenshots — any broker worldwide</div>
-                  <div className="dz-tags"><span>CSV</span><span>TSV</span><span>XLSX</span><span>XLS</span><span>PDF</span><span>HTML</span><span>PNG</span><span>JPG</span></div>
+                  <div className="dz-sub">PDF, CSV, Excel, screenshots — up to 40 files · any broker worldwide</div>
+                  <div className="dz-tags"><span>PDF</span><span>CSV</span><span>XLSX</span><span>XLS</span><span>PNG</span><span>JPG</span><span>JPEG</span></div>
                 </label>
                 <BrokerGuide />
               </>
