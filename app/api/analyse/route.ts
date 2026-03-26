@@ -194,6 +194,7 @@ Return this exact JSON structure:
 }`
 
 export const runtime = 'nodejs'
+export const maxDuration = 90
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FILE EXTRACTION — Send file directly to Claude for trade extraction
@@ -314,7 +315,7 @@ async function extractTradesFromFile(client: Anthropic, file: File) {
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
+    max_tokens: 16000,
     messages: [{ role: 'user', content }],
   })
 
@@ -377,7 +378,7 @@ async function analyseTradesWithAI(client: Anthropic, tradesStr: string, context
     try {
       const message = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
+        max_tokens: 16000,
         system: SYSTEM_PROMPT,
         messages: [
           { role: 'user', content: USER_PROMPT_TEMPLATE(tradesStr, contextStr) },
