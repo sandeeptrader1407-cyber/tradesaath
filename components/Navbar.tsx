@@ -56,7 +56,7 @@ function NavLinks() {
         <Link href="/dashboard" className="nav-app-link">📊 Dashboard</Link>
         <Link href="/upload" className="nav-app-link">📤 Upload</Link>
         <Link href="/journal" className="nav-app-link">📓 Journal</Link>
-        <Link href="/pricing" className="nav-app-link">🎯 AI Coach</Link>
+        <Link href="/coach" className="nav-app-link">🎯 AI Coach</Link>
       </>
     )
   }
@@ -82,7 +82,7 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>
         <Link href="/upload" onClick={closeMenu} className="nav-app-link">📤 Upload</Link>
         <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>
-        <Link href="/pricing" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>
+        <Link href="/coach" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>
       </>
     )
   }
@@ -94,6 +94,20 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
       <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
       <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
     </>
+  )
+}
+
+function LogoLink() {
+  const { isSignedIn, isLoaded } = useUser()
+
+  if (!isLoaded) return <Link className="nav-logo" href="/"><div className="nav-logo-dot"></div>TradeSaath</Link>
+
+  const href = isSignedIn ? '/dashboard' : '/'
+
+  return (
+    <Link className="nav-logo" href={href}>
+      <div className="nav-logo-dot"></div>TradeSaath
+    </Link>
   )
 }
 
@@ -126,9 +140,7 @@ export default function Navbar() {
   return (
     <>
       <nav>
-        <Link className="nav-logo" href="/">
-          <div className="nav-logo-dot"></div>TradeSaath
-        </Link>
+        <LogoLink />
         <div className="nav-links">
           <ClerkErrorBoundary fallback={
             <>

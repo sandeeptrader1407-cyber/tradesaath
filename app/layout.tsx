@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import Onboarding from '@/components/Onboarding'
 import AuthSync from '@/components/AuthSync'
+import AiChat from '@/components/AiChat'
 
 export const metadata: Metadata = {
   title: 'TradeSaath – AI Trading Psychology Coach',
@@ -23,6 +24,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <Footer />
+          <AiChat />
           <Onboarding />
         </body>
       </html>

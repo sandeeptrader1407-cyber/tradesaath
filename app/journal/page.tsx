@@ -51,8 +51,24 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<'sessions' | 'journey'>('sessions')
+  const [journeyStep, setJourneyStep] = useState(0)
+  const [journeyData, setJourneyData] = useState<{
+    experience: string; market: string; role: string; struggles: string[]; story: string
+    afterLoss: string[]; goal: string; perfectDay: string; oneChange: string
+  }>({
+    experience: '', market: '', role: '', struggles: [], story: '',
+    afterLoss: [], goal: '', perfectDay: '', oneChange: '',
+  })
+  const [journeySaved, setJourneySaved] = useState(false)
 
   useEffect(() => {
+    // Load saved journey data
+    const saved = localStorage.getItem('tradesaath_journey')
+    if (saved) {
+      try { setJourneyData(JSON.parse(saved)); setJourneySaved(true) } catch { /* ignore */ }
+    }
+    // Fetch sessions
     fetch('/api/sessions')
       .then(r => r.json())
       .then(d => { setSessions(d.sessions || []); setLoading(false) })
@@ -144,7 +160,260 @@ export default function JournalPage() {
           <Link href="/upload" className="btn btn-ghost btn-sm">New Analysis &rarr;</Link>
         </div>
 
-        <div className="journal-layout">
+        {/* Tab Switcher — Sessions | Trading Journey */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--s2)', borderRadius: 'var(--radius-sm)', padding: 3, width: 'fit-content' }}>
+          <button onClick={() => setTab('sessions')} style={{
+            padding: '7px 18px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: tab === 'sessions' ? 'var(--accent)' : 'transparent',
+            color: tab === 'sessions' ? 'var(--bg)' : 'var(--muted)',
+          }}>Sessions</button>
+          <button onClick={() => setTab('journey')} style={{
+            padding: '7px 18px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: tab === 'journey' ? 'var(--accent)' : 'transparent',
+            color: tab === 'journey' ? 'var(--bg)' : 'var(--muted)',
+          }}>Trading Journey</button>
+        </div>
+
+        {/* Trading Journey Tab */}
+        {tab === 'journey' && (
+          <div style={{ maxWidth: 700 }}>
+            {/* Self-Profiling Questionnaire */}
+            {!journeySaved ? (
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div className="card-head">Your Trading Profile</div>
+                <div className="card-body">
+                  <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 16, lineHeight: 1.7 }}>
+                    Help TradeSaath understand you better. This powers personalized coaching and insights.
+                  </div>
+
+                  {/* Step indicator */}
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+                    {[0, 1].map(s => (
+                      <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: journeyStep >= s ? 'var(--accent)' : 'rgba(255,255,255,.06)' }} />
+                    ))}
+                  </div>
+
+                  {journeyStep === 0 && (
+                    <>
+                      {/* Story */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 6 }}>Tell us your trading story</label>
+                        <textarea value={journeyData.story} onChange={e => setJourneyData(d => ({ ...d, story: e.target.value }))}
+                          placeholder="How did you start trading? What keeps you going? Any memorable wins or losses?"
+                          style={{ width: '100%', minHeight: 80, padding: '10px 14px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13, resize: 'vertical', lineHeight: 1.7 }} />
+                      </div>
+
+                      {/* Quick Profile Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6 }}>Trading experience</label>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['< 6 months', '6-12 months', '1-3 years', '3+ years'].map(opt => (
+                              <button key={opt} onClick={() => setJourneyData(d => ({ ...d, experience: opt }))}
+                                className={`j-pill${journeyData.experience === opt ? ' on' : ''}`}
+                                style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6 }}>Primary market</label>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['NSE Options', 'Equity', 'Crypto', 'Forex'].map(opt => (
+                              <button key={opt} onClick={() => setJourneyData(d => ({ ...d, market: opt }))}
+                                className={`j-pill${journeyData.market === opt ? ' on' : ''}`}
+                                style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6 }}>Trading is your...</label>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['Primary income', 'Side income', 'Learning'].map(opt => (
+                              <button key={opt} onClick={() => setJourneyData(d => ({ ...d, role: opt }))}
+                                className={`j-pill${journeyData.role === opt ? ' on' : ''}`}
+                                style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6 }}>Biggest struggles (pick all)</label>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['Revenge trading', 'Cutting losses', 'FOMO', 'Overtrading', 'No system'].map(opt => (
+                              <button key={opt} onClick={() => setJourneyData(d => {
+                                const s = d.struggles.includes(opt) ? d.struggles.filter(x => x !== opt) : [...d.struggles, opt]
+                                return { ...d, struggles: s }
+                              })}
+                                className={`j-pill${journeyData.struggles.includes(opt) ? ' on' : ''}`}
+                                style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button className="btn btn-accent btn-sm" style={{ marginTop: 18 }} onClick={() => setJourneyStep(1)}>
+                        Next &rarr;
+                      </button>
+                    </>
+                  )}
+
+                  {journeyStep === 1 && (
+                    <>
+                      {/* Deep questions */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 6 }}>How do you feel after a losing day?</label>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {['Angry/frustrated', 'Anxious/worried', 'Want to trade more', 'Give up/hopeless', 'Calm/accepting'].map(opt => (
+                            <button key={opt} onClick={() => setJourneyData(d => {
+                              const a = d.afterLoss.includes(opt) ? d.afterLoss.filter(x => x !== opt) : [...d.afterLoss, opt]
+                              return { ...d, afterLoss: a }
+                            })}
+                              className={`j-pill${journeyData.afterLoss.includes(opt) ? ' on' : ''}`}
+                              style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 6 }}>What&apos;s your trading goal?</label>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {['Consistent income', 'Capital growth', 'Stop losing money', 'Go full-time'].map(opt => (
+                            <button key={opt} onClick={() => setJourneyData(d => ({ ...d, goal: opt }))}
+                              className={`j-pill${journeyData.goal === opt ? ' on' : ''}`}
+                              style={{ padding: '5px 12px', fontSize: 11 }}>{opt}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 6 }}>Describe your perfect trading day</label>
+                        <textarea value={journeyData.perfectDay} onChange={e => setJourneyData(d => ({ ...d, perfectDay: e.target.value }))}
+                          placeholder="What does an ideal session look like for you?"
+                          style={{ width: '100%', minHeight: 60, padding: '10px 14px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13, resize: 'vertical', lineHeight: 1.7 }} />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 6 }}>If you could change ONE thing about your trading?</label>
+                        <textarea value={journeyData.oneChange} onChange={e => setJourneyData(d => ({ ...d, oneChange: e.target.value }))}
+                          placeholder="What would make the biggest difference?"
+                          style={{ width: '100%', minHeight: 60, padding: '10px 14px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13, resize: 'vertical', lineHeight: 1.7 }} />
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setJourneyStep(0)}>&larr; Back</button>
+                        <button className="btn btn-accent btn-sm" onClick={() => {
+                          localStorage.setItem('tradesaath_journey', JSON.stringify(journeyData))
+                          setJourneySaved(true)
+                        }}>
+                          Save Profile &rarr;
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Saved profile summary */
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Your Trading Profile</span>
+                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setJourneySaved(false)}>Edit</button>
+                </div>
+                <div className="card-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                    {journeyData.experience && (
+                      <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Experience</div><div style={{ fontSize: 13, fontWeight: 600 }}>{journeyData.experience}</div></div>
+                    )}
+                    {journeyData.market && (
+                      <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Market</div><div style={{ fontSize: 13, fontWeight: 600 }}>{journeyData.market}</div></div>
+                    )}
+                    {journeyData.role && (
+                      <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Role</div><div style={{ fontSize: 13, fontWeight: 600 }}>{journeyData.role}</div></div>
+                    )}
+                    {journeyData.goal && (
+                      <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Goal</div><div style={{ fontSize: 13, fontWeight: 600 }}>{journeyData.goal}</div></div>
+                    )}
+                  </div>
+                  {journeyData.struggles.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>Biggest Struggles</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {journeyData.struggles.map(s => (
+                          <span key={s} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 12, background: 'rgba(244,63,94,.08)', color: 'var(--red)', fontWeight: 600 }}>{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {journeyData.story && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>Your Story</div>
+                      <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>{journeyData.story}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Session Timeline */}
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Your Trading Journey</div>
+              <div className="card-body">
+                <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 16 }}>
+                  A timeline of your growth as a trader. Each session adds to your story.
+                </div>
+
+                {sessions.slice().reverse().map((s, i) => {
+                  const d = new Date(s.created_at)
+                  const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  const pnl = s.total_pnl || 0
+                  const dqs = s.dqs_score || 0
+                  const isGreen = pnl >= 0
+                  const isFirstSession = i === 0
+
+                  return (
+                    <div key={s.id} style={{
+                      display: 'flex', gap: 14, marginBottom: 0, padding: '14px 0',
+                      borderLeft: `2px solid ${isGreen ? 'rgba(54,211,153,.3)' : 'rgba(240,93,108,.3)'}`,
+                      marginLeft: 8, paddingLeft: 18, position: 'relative',
+                    }}>
+                      <div style={{
+                        position: 'absolute', left: -6, top: 18, width: 10, height: 10, borderRadius: '50%',
+                        background: isGreen ? 'var(--green)' : 'var(--red)',
+                        border: '2px solid var(--bg)',
+                      }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{dateStr}</span>
+                          {isFirstSession && <span style={{ fontSize: 9, padding: '2px 8px', background: 'rgba(62,232,196,.1)', color: 'var(--accent)', borderRadius: 10, fontWeight: 700 }}>FIRST SESSION</span>}
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{s.broker || 'Trades'}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+                          <span style={{ color: isGreen ? 'var(--green)' : 'var(--red)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{fmtPnl(pnl)}</span>
+                          <span style={{ color: 'var(--muted)' }}>{s.trade_count || 0} trades</span>
+                          <span style={{ color: 'var(--muted)' }}>WR {s.win_rate || 0}%</span>
+                          <span style={{ color: dqs >= 60 ? 'var(--green)' : dqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>DQS {dqs}</span>
+                        </div>
+                        {s.analysis?.summary && (
+                          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 6, lineHeight: 1.6 }}>
+                            {s.analysis.summary.slice(0, 150)}{s.analysis.summary.length > 150 ? '…' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {sessions.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>
+                    Upload your first session to start your journey.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sessions Tab */}
+        {tab === 'sessions' && <div className="journal-layout">
           {/* Sidebar */}
           <div className="journal-sidebar">
             <div className="j-sb-head">
@@ -297,7 +566,7 @@ export default function JournalPage() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </div>
     </section>
   )

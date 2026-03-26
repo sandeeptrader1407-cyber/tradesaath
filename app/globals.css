@@ -915,3 +915,24 @@ body.day .broker-guide-body { background: #f8f9fa; border-color: #e0e0e0 }
   .kpi-val { font-size:14px }
   .td-grid { grid-template-columns:repeat(3,1fr) !important }
 }
+
+/* ── Progress bar ── */
+.progress-wrap { padding: 0 }
+.progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s var(--ease) }
+
+/* ── Results nav ── */
+.results-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px }
+
+/* ── Vicious cycle grid — 10 stages ── */
+.cycle-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px }
+@media(max-width:900px) { .cycle-grid { grid-template-columns: repeat(3, 1fr) } }
+@media(max-width:480px) { .cycle-grid { grid-template-columns: repeat(2, 1fr) } }
+.cycle-stage { text-align: center; padding: 10px 6px; background: var(--s2); border: 1px solid var(--border); border-radius: var(--radius-sm); opacity: .4; transition: all .3s var(--ease); position: relative }
+.cycle-stage.active { opacity: 1; border-color: var(--accent); background: rgba(62,232,196,.06); box-shadow: 0 0 12px rgba(62,232,196,.1) }
+.cycle-icon { font-size: 20px; margin-bottom: 4px }
+.cycle-label { font-size: 10px; font-weight: 600; color: var(--text2); line-height: 1.3 }
+.cycle-arrow { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 10px; z-index: 1 }
+
+/* ── AI Chat FAB animation ── */
+.ai-chat-fab:hover { transform: scale(1.1) !important; box-shadow: 0 6px 24px rgba(62,232,196,.4) }

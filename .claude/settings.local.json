@@ -58,7 +58,19 @@
       "Bash(npm uninstall:*)",
       "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/real_test.pdf;type=application/pdf;filename=trades.pdf\" -F \"mode=detect\")",
       "Bash(node -e \"console.log\\(require\\(''./node_modules/next/package.json''\\).version\\)\")",
-      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test_trades.png;type=image/png;filename=trades.png\" -F \"mode=detect\")"
+      "Bash(curl -s -X POST http://localhost:3000/api/parse -F \"file=@C:/Users/SK/AppData/Local/Temp/test_trades.png;type=image/png;filename=trades.png\" -F \"mode=detect\")",
+      "Bash(pandoc \"C:\\\\Users\\\\SK\\\\Downloads\\\\TradeSaath_V12_Complete_Feature_Spec.docx\" -o /tmp/tradesaath_spec.md)",
+      "Read(//tmp/**)",
+      "Bash(find C:/Users/SK/Desktop/tradesaath/components -name *.tsx -o -name *.ts)",
+      "Bash(find C:/Users/SK/Desktop/tradesaath/hooks -name *.ts)",
+      "Bash(find C:/Users/SK/Desktop/tradesaath/lib -name *.ts)",
+      "Bash(python3:*)",
+      "Bash(/c/Python314/python.exe -c \"import openpyxl; wb = openpyxl.load_workbook\\(''C:/Users/SK/Desktop/tradesaath/TradeSaath_V12_Feature_Audit.xlsx''\\); ws = wb.active; [print\\(f''{row[0].value}|{row[1].value}|{row[2].value}|{row[3].value}|{row[4].value}''\\) for row in ws.iter_rows\\(min_row=1, max_row=ws.max_row, min_col=1, max_col=5\\)]\")",
+      "Bash(unzip -p \"TradeSaath_V12_Feature_Audit.xlsx\" \"xl/worksheets/sheet1.xml\")",
+      "Bash(find C:UsersSK -name *Feature_Audit* -o -name TradeSaath_V12*)",
+      "Bash(/c/Python314/python.exe -u:*)",
+      "Bash(/c/Python314/python.exe:*)",
+      "Bash(/c/Python314/python.exe -c \"print\\(''test''\\)\")"
     ]
   }
 }

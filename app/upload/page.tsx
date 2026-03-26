@@ -1,11 +1,8 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import PreviewTable from '@/components/PreviewTable'
-import ColumnMapper from '@/components/ColumnMapper'
 import BrokerGuide from '@/components/BrokerGuide'
 import { useRazorpay } from '@/hooks/useRazorpay'
-import type { ColumnMapping, DetectionResult } from '@/lib/parsers/types'
 
 /* ─── Types ─── */
 interface Trade {
@@ -13,18 +10,25 @@ interface Trade {
   qty: number; entry: number; exit: number; pnl: number; cumPnl: number
   fills: { qty: number; price: number }[]
 }
+interface VsComparison {
+  whatYouDid: string; whatYouShouldHaveDone: string; potentialSaving: number; actionItem: string
+}
 interface PerTrade {
   tradeIndex: number; tag: string; tagColor: string; label: string
   quickSummary: string; psychologyNote: string; technicalNote: string
   counterfactual: string; sessionBadge: string; timeGap: number; timeGapColor: string
+  actionItem?: string; vsComparison?: VsComparison; cycleStage?: number
 }
+interface MistakeCost { name: string; icon: string; count: number; cost: number }
 interface Analysis {
-  summary: string; dqsScore: number
+  summary: string; dqsScore: number; sessionNarrative?: string
   dqsFactors: { name: string; score: number; color: string }[]
+  momentumIndicators?: { name: string; score: number; description: string }[]
   perTrade: PerTrade[]
   patterns: { name: string; icon: string; description: string; costInRupees: number; frequency: string }[]
-  financialImpact: { totalLost: number; potentialPnl: number; message: string }
+  financialImpact: { totalLost: number; potentialPnl: number; message: string; mistakeCosts?: MistakeCost[] }
   rulesForNextSession: string[]; bestCase: string; worstCase: string
+  crossUserInsights?: string[]
   momentum?: { name: string; value: number; color: string; description: string }[]
   viciousCycle?: { stage: string; active: boolean; icon: string }[]
   freeInsights?: { name: string; score: number; color: string; description: string }[]
@@ -69,7 +73,7 @@ function fmtPnl(n: number) { return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(n)
 
 /* ─── Helpers ─── */
 interface UploadedFile { file: File; name: string; size: string }
-type Phase = 'idle' | 'detecting' | 'preview' | 'mapping' | 'analysing' | 'results'
+type Phase = 'idle' | 'analysing' | 'results'
 
 /* ═══════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -84,8 +88,6 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null)
   const [ocrWarning, setOcrWarning] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
-  const [detection, setDetection] = useState<DetectionResult | null>(null)
-  const [confirmedMapping, setConfirmedMapping] = useState<ColumnMapping | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   /* Results state — inline, no redirect */
@@ -107,7 +109,7 @@ export default function UploadPage() {
 
   function resetAll() {
     setFiles([]); setBroker(null); setError(null); setPhase('idle')
-    setDetection(null); setConfirmedMapping(null); setLoading(false); setLoadingPct(0)
+    setLoading(false); setLoadingPct(0)
     setLoadingMsg(null); setOcrWarning(null)
     setResults(null); setExpandedTrades(new Set([0])); setDeepDives(new Set())
     setFilter('all'); setSelectedTrade(0); setUnlocked(false); setPayError(null)
@@ -117,12 +119,12 @@ export default function UploadPage() {
   function addFiles(newFiles: File[]) {
     const added = newFiles.slice(0, 40 - files.length).map(f => ({ file: f, name: f.name, size: formatSize(f.size) }))
     setFiles(prev => [...prev, ...added])
-    setError(null); setPhase('idle'); setDetection(null); setConfirmedMapping(null); setBroker(null)
+    setError(null); setPhase('idle'); setBroker(null)
   }
 
   function removeFile(idx: number) {
     setFiles(prev => prev.filter((_, i) => i !== idx))
-    setError(null); setPhase('idle'); setDetection(null); setConfirmedMapping(null); setBroker(null)
+    setError(null); setPhase('idle'); setBroker(null)
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -131,88 +133,111 @@ export default function UploadPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files.length])
 
-  /* ─── Phase 1: Detect broker/columns ─── */
-  async function runDetection() {
-    setError(null); setLoading(true); setLoadingPct(10)
+  /* ─── Collect context from form ─── */
+  function getContext() {
+    const ctx: Record<string, string> = {}
+    document.querySelectorAll<HTMLSelectElement>('.ctx-select').forEach(sel => {
+      if (sel.value) {
+        const label = sel.closest('.ctx-q')?.querySelector('.ctx-label')?.textContent || ''
+        ctx[label] = sel.value
+      }
+    })
+    const notes = document.querySelector<HTMLTextAreaElement>('.ctx-textarea')?.value
+    if (notes) ctx['Special notes'] = notes
+    return ctx
+  }
+
+  /* ─── Run Analysis — simplified flow ─── */
+  async function runAnalysis() {
+    setError(null); setLoading(true); setLoadingPct(5)
 
     // No file → demo data
     if (files.length === 0) {
-      setLoadingPct(30); setPhase('analysing')
+      setLoadingMsg('Analysing demo trades...')
+      setLoadingPct(20); setPhase('analysing')
       try {
+        const ctx = getContext()
         const res = await fetch('/api/analyse', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trades: DEMO_TRADES, context: { broker: 'Demo' } }),
+          body: JSON.stringify({ trades: DEMO_TRADES, context: { broker: 'Demo', ...ctx } }),
         })
         setLoadingPct(90)
         const data = await res.json()
-        if (!res.ok) { setError(data.error || 'AI analysis failed'); setLoading(false); setLoadingPct(0); setPhase('idle'); return }
+        if (!res.ok) { setError(data.error || 'AI analysis failed'); setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle'); return }
         setLoadingPct(100)
-        setResults({ trades: DEMO_TRADES, analysis: data.analysis, broker: 'Demo' })
+        const resultData = { trades: DEMO_TRADES, analysis: data.analysis, broker: 'Demo' }
+        setResults(resultData)
         setBroker('Demo')
+        sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
         setPhase('results')
-        setLoading(false); setLoadingPct(0)
-      } catch { setError('Failed to connect to AI server'); setLoading(false); setLoadingPct(0); setPhase('idle') }
+        setLoading(false); setLoadingPct(0); setLoadingMsg(null)
+      } catch { setError('Failed to connect to AI server'); setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle') }
       return
     }
 
-    // Detect — works for all file types including images and scanned PDFs
-    setPhase('detecting')
-    const isImageOrPdf = /\.(png|jpg|jpeg|gif|webp|pdf)$/i.test(files[0].name)
-    if (isImageOrPdf) {
-      setLoadingMsg('Scanning your file with OCR... this may take a few seconds')
-    }
-    try {
-      setLoadingPct(30)
-      const fd = new FormData(); fd.append('file', files[0].file); fd.append('mode', 'detect')
-      const res = await fetch('/api/parse', { method: 'POST', body: fd })
-      setLoadingPct(70)
-      const data = await res.json()
-      setLoadingMsg(null)
-      if (!res.ok) { setError(data.error || 'Failed to read file'); setLoading(false); setLoadingPct(0); setPhase('idle'); return }
-      setLoadingPct(100); setDetection(data); setBroker(data.broker)
-      if (data.ocrUsed && data.warning) setOcrWarning(data.warning)
-      await new Promise(r => setTimeout(r, 300))
-      setLoading(false); setLoadingPct(0)
-      if (data.confidence >= 0.7) { setConfirmedMapping(data.mapping); setPhase('preview') }
-      else { setPhase('mapping') }
-    } catch { setLoadingMsg(null); setError('Failed to connect to server'); setLoading(false); setLoadingPct(0); setPhase('idle') }
-  }
-
-  /* ─── Phase 2: Parse + AI analyse ─── */
-  async function runAnalysis() {
-    if (!detection || !confirmedMapping) return
-    setError(null); setLoading(true); setLoadingPct(10); setPhase('analysing')
+    // File uploaded → Step 1: Extract trades via Claude
+    setPhase('analysing')
+    setLoadingMsg('Reading your file with AI... this may take 10-20 seconds')
+    setLoadingPct(10)
 
     try {
-      // Parse
-      setLoadingPct(20)
       const fd = new FormData()
-      fd.append('file', files[0].file); fd.append('mode', 'analyse')
-      fd.append('mapping', JSON.stringify(confirmedMapping))
-      if (broker) fd.append('broker', broker)
-      const parseRes = await fetch('/api/parse', { method: 'POST', body: fd })
-      setLoadingPct(35)
-      const parseData = await parseRes.json()
-      if (!parseRes.ok) { setError(parseData.error || 'Parse failed'); setLoading(false); setLoadingPct(0); setPhase('preview'); return }
+      fd.append('file', files[0].file)
+      const extractRes = await fetch('/api/extract', { method: 'POST', body: fd })
+      setLoadingPct(40)
+      const extractData = await extractRes.json()
 
-      // AI
-      setLoadingPct(45)
+      if (!extractRes.ok) {
+        setError(extractData.error || 'Could not extract trades from this file')
+        setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
+        return
+      }
+
+      const extractedTrades = extractData.trades
+      const detectedBroker = extractData.broker || 'Unknown'
+      setBroker(detectedBroker)
+
+      // Step 2: Analyse trades with AI psychology coaching
+      setLoadingMsg('AI is analysing your trading psychology... 10-30 seconds')
+      setLoadingPct(50)
+
+      const ctx = getContext()
       const analyseRes = await fetch('/api/analyse', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trades: parseData.trades, context: { broker: parseData.broker } }),
+        body: JSON.stringify({
+          trades: extractedTrades,
+          context: { broker: detectedBroker, market: extractData.market, currency: extractData.currency, ...ctx }
+        }),
       })
-      setLoadingPct(90)
+      setLoadingPct(85)
       const analyseData = await analyseRes.json()
-      if (!analyseRes.ok) { setError(analyseData.error || 'AI analysis failed'); setLoading(false); setLoadingPct(0); setPhase('preview'); return }
+      if (!analyseRes.ok) {
+        setError(analyseData.error || 'AI analysis failed')
+        setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
+        return
+      }
+
+      setLoadingPct(95)
+      const resultData = { trades: extractedTrades, analysis: analyseData.analysis, broker: detectedBroker }
+      setResults(resultData)
+      sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
+
+      // Step 3: Save session to Supabase (non-blocking, only if authenticated)
+      try {
+        fetch('/api/sessions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trades: extractedTrades, analysis: analyseData.analysis, broker: detectedBroker }),
+        }).catch(() => { /* silently fail for unauthenticated users */ })
+      } catch { /* ignore */ }
 
       setLoadingPct(100)
-      const resultData = { trades: parseData.trades, analysis: analyseData.analysis, broker: parseData.broker }
-      setResults(resultData)
-      // Also save to sessionStorage for /results page compatibility
-      sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
       setPhase('results')
-      setLoading(false); setLoadingPct(0)
-    } catch { setError('Failed to connect to server'); setLoading(false); setLoadingPct(0); setPhase('preview') }
+      setLoading(false); setLoadingPct(0); setLoadingMsg(null)
+
+    } catch {
+      setError('Failed to connect to server. Please try again.')
+      setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
+    }
   }
 
   /* ─── Results helpers ─── */
@@ -252,13 +277,20 @@ export default function UploadPage() {
       return true
     })
 
-    // Compute momentum indicators from analysis data
-    const momentum = analysis.momentum || [
-      { name: 'Conviction Score', value: Math.min(100, Math.round(winRate * 1.3)), color: 'blue', description: 'Confidence in trade execution' },
-      { name: 'Trend Alignment', value: Math.min(100, Math.round(wins / Math.max(trades.length, 1) * 130)), color: 'accent', description: 'How often you traded with the trend' },
-      { name: 'Session Discipline', value: analysis.dqsScore, color: 'gold', description: 'Rule-following and emotional control' },
-      { name: 'Size Consistency', value: Math.min(100, 70 + Math.round(Math.random() * 20)), color: 'purple', description: 'Position sizing uniformity' },
-    ]
+    // Use AI-returned momentum indicators, fallback to computed
+    const momentum = analysis.momentumIndicators
+      ? analysis.momentumIndicators.map((m, i) => ({
+          name: m.name,
+          value: m.score,
+          color: ['gold', 'red', 'accent', 'blue'][i % 4],
+          description: m.description,
+        }))
+      : (analysis.momentum || [
+          { name: 'Rule Following', value: Math.min(100, Math.round(winRate * 1.3)), color: 'gold', description: 'Your first 3 trades followed the plan — then emotions took over' },
+          { name: 'Staying Calm', value: Math.min(100, Math.round(wins / Math.max(trades.length, 1) * 100)), color: 'red', description: 'Your calmest trades made money. Emotional ones didn\'t.' },
+          { name: 'Entry Timing', value: analysis.dqsScore, color: 'accent', description: 'Morning entries were sharp and precise — that\'s real skill' },
+          { name: 'Exit Discipline', value: Math.min(100, Math.round(avgWin > 0 && avgLoss > 0 ? (avgWin / (avgWin + avgLoss)) * 100 : 40)), color: 'blue', description: 'Pre-set stops would have saved significant money' },
+        ])
 
     // Vicious cycle stages
     const cycleStages = analysis.viciousCycle || CYCLE_STAGES.map((s, i) => ({
@@ -365,6 +397,18 @@ export default function UploadPage() {
               </div>
             </div>
           </div>
+
+          {/* Session Narrative — Story Arc */}
+          {analysis.sessionNarrative && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Your Session Story<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                  {analysis.sessionNarrative}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Session Momentum Indicators */}
           <div className="card" style={{ marginBottom: 14 }}>
@@ -533,6 +577,33 @@ export default function UploadPage() {
                               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Counterfactual — What If?</div>
                               {pt.counterfactual}
                             </div>
+
+                            {/* What You Did vs What You Should Have Done */}
+                            {pt.vsComparison && (
+                              <div className="detail-section" style={{ borderLeft: '3px solid var(--orange)' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange)', marginBottom: 8 }}>What You Did vs What You Should Have Done</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                                  <div style={{ padding: '10px 12px', background: 'rgba(240,93,108,.06)', borderRadius: 8, fontSize: 12, lineHeight: 1.7, color: 'var(--text2)' }}>
+                                    <strong style={{ color: 'var(--red)', fontSize: 11 }}>WHAT YOU DID</strong><br />{pt.vsComparison.whatYouDid}
+                                  </div>
+                                  <div style={{ padding: '10px 12px', background: 'rgba(54,211,153,.06)', borderRadius: 8, fontSize: 12, lineHeight: 1.7, color: 'var(--text2)' }}>
+                                    <strong style={{ color: 'var(--green)', fontSize: 11 }}>WHAT YOU SHOULD HAVE DONE</strong><br />{pt.vsComparison.whatYouShouldHaveDone}
+                                  </div>
+                                </div>
+                                {pt.vsComparison.potentialSaving > 0 && (
+                                  <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, marginBottom: 6 }}>
+                                    Potential saving: {fmtPnl(pt.vsComparison.potentialSaving)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action Item */}
+                            {pt.actionItem && (
+                              <div style={{ padding: '10px 14px', background: 'rgba(62,232,196,.06)', borderRadius: 8, borderLeft: '3px solid var(--accent)', fontSize: 12, lineHeight: 1.7, color: 'var(--text2)', marginBottom: 8 }}>
+                                <strong style={{ color: 'var(--accent)' }}>Action:</strong> {pt.actionItem}
+                              </div>
+                            )}
                           </>
                         )}
 
@@ -629,6 +700,49 @@ export default function UploadPage() {
               )}
             </div>
           </div>
+
+          {/* Cross-User Insights */}
+          {analysis.crossUserInsights && analysis.crossUserInsights.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Cross-User Pattern Insights<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 10 }}>Anonymized patterns from other traders with similar behaviors</div>
+                {analysis.crossUserInsights.map((insight, i) => (
+                  <div key={i} style={{ padding: '10px 14px', background: 'var(--s2)', borderRadius: 8, marginBottom: 6, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, borderLeft: '3px solid var(--purple)' }}>
+                    {insight}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mistake Cost Calculator */}
+          {analysis.financialImpact.mistakeCosts && analysis.financialImpact.mistakeCosts.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">What Your Lessons Cost<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="mc-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Learning cost — money lost to emotional decisions</div>
+                    <div className="mc-total">{fmtPnl(analysis.financialImpact.totalLost)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>If you&apos;d followed your rules:</div>
+                    <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>{fmtPnl(analysis.financialImpact.potentialPnl)}</div>
+                  </div>
+                </div>
+                {analysis.financialImpact.mistakeCosts.map((mc, i) => (
+                  <div key={i} className="mc-row">
+                    <span className="mc-row-icon">{mc.icon}</span>
+                    <span className="mc-row-name">{mc.name}</span>
+                    <span className="mc-row-count">{mc.count}x</span>
+                    <div className="mc-row-bar"><div className="mc-row-fill" style={{ width: `${Math.min(100, Math.abs(mc.cost) / Math.max(Math.abs(analysis.financialImpact.totalLost), 1) * 100)}%` }} /></div>
+                    <span className="mc-row-cost">{fmtPnl(mc.cost)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     )
@@ -659,7 +773,7 @@ export default function UploadPage() {
             </div>
 
             {/* Dropzone */}
-            {phase !== 'mapping' && phase !== 'preview' && phase !== 'analysing' && (
+            {phase === 'idle' && (
               <>
                 <label className="dropzone"
                   onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag') }}
@@ -690,19 +804,8 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Column Mapper */}
-            {phase === 'mapping' && detection && (
-              <ColumnMapper headers={detection.headers} sampleRow={detection.preview[0] || {}} initialMapping={detection.mapping}
-                onConfirm={m => { setConfirmedMapping(m); setPhase('preview') }} onCancel={() => { setPhase('idle'); setDetection(null); setConfirmedMapping(null) }} />
-            )}
-
-            {/* Preview Table */}
-            {(phase === 'preview' || phase === 'analysing') && detection && confirmedMapping && (
-              <PreviewTable headers={detection.headers} rows={detection.preview} mapping={confirmedMapping} />
-            )}
-
             {/* Trading Context — all 8 questions */}
-            {(phase === 'idle' || phase === 'preview') && (
+            {phase === 'idle' && (
               <div className="ctx-box">
                 <div className="ctx-header">
                   <span className="label" style={{ fontSize: 13, fontWeight: 600 }}>Trading Context</span>
@@ -806,20 +909,12 @@ export default function UploadPage() {
             <div className="analyse-row">
               {phase === 'idle' && (
                 <>
-                  <button className="btn btn-accent btn-lg" onClick={runDetection} disabled={loading}>
-                    {loading ? '⏳ Reading file…' : 'Run Free Analysis'}
+                  <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={loading}>
+                    {loading ? '⏳ Reading file…' : '🔍 Run Free Analysis'}
                   </button>
                   <span className="analyse-note">
                     No login required &middot; {files.length === 0 ? 'runs with demo data if no file' : `${files.length} file${files.length > 1 ? 's' : ''} ready`}
                   </span>
-                </>
-              )}
-              {phase === 'preview' && (
-                <>
-                  <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={loading}>
-                    {loading ? '⏳ Analysing…' : 'Looks good — Run Analysis'}
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => setPhase('mapping')} disabled={loading}>Fix column mapping</button>
                 </>
               )}
               {phase === 'analysing' && (
