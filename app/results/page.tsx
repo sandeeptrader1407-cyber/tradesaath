@@ -29,7 +29,7 @@ interface Trade {
   in_trade_behavior?: InTradeBehavior
   what_you_did_vs_should_have?: WhatVsShould
   psychology_coaching?: string; technical_analysis?: string
-  counterfactual?: string
+  counterfactual?: string; last_5_trades_context?: string
 }
 interface Momentum { name: string; score: number; color: string; desc: string }
 interface CycleStage { stage: string; count: number; icon: string; desc: string }
@@ -115,7 +115,24 @@ export default function ResultsPage() {
   useEffect(() => {
     const stored = sessionStorage.getItem('tradesaath_results')
     if (stored) {
-      try { setData(JSON.parse(stored)) } catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(stored)
+        // Sort trades chronologically by time
+        if (parsed.trades && parsed.trades.length > 0) {
+          parsed.trades.sort((a: Trade, b: Trade) => {
+            const timeA = (a.time || '00:00').replace(/:/g, '')
+            const timeB = (b.time || '00:00').replace(/:/g, '')
+            return parseInt(timeA) - parseInt(timeB)
+          })
+          let cumPnl = 0
+          parsed.trades.forEach((t: Trade, i: number) => {
+            t.index = i
+            cumPnl += t.pnl || 0
+            t.cum_pnl = cumPnl
+          })
+        }
+        setData(parsed)
+      } catch { /* ignore */ }
     }
   }, [])
 
@@ -325,6 +342,17 @@ export default function ResultsPage() {
                   const isActive = expandedTrade === t.index
                   const tagStyle = ts[t.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
                   const tradeIsLocked = t.index > 0 && !unlocked
+                  const sess = SESSION_COLORS[t.session] || SESSION_COLORS.morning
+                  const prevTrade = t.index > 0 ? trades.find(tr => tr.index === t.index - 1) : null
+                  let timeGapMin = 0
+                  let timeGapLabel = ''
+                  if (prevTrade) {
+                    const [h1, m1] = (prevTrade.time || '0:0').split(':').map(Number)
+                    const [h2, m2] = (t.time || '0:0').split(':').map(Number)
+                    timeGapMin = (h2 * 60 + m2) - (h1 * 60 + m1)
+                    if (timeGapMin > 0) timeGapLabel = `${timeGapMin}m`
+                  }
+                  const gapColor = timeGapMin >= 10 ? 'var(--green)' : timeGapMin >= 2 ? 'var(--gold)' : timeGapMin > 0 ? 'var(--red)' : 'var(--muted)'
                   return (
                     <div key={t.index}
                       onClick={() => setExpandedTrade(t.index)}
@@ -335,17 +363,23 @@ export default function ResultsPage() {
                         background: isActive ? 'rgba(93,120,255,.06)' : 'transparent',
                         transition: 'all .15s',
                       }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--muted)', width: 22 }}>#{t.index + 1}</span>
                         <span style={{ fontSize: 10, color: 'var(--muted)' }}>{t.time}</span>
-                        <span style={{ fontWeight: 700, fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.symbol}</span>
+                        <span style={{ padding: '1px 5px', borderRadius: 6, fontSize: 8, fontWeight: 700, background: sess.bg, color: sess.color }}>{sess.label}</span>
+                        {timeGapLabel && (
+                          <span style={{ fontSize: 8, color: gapColor, fontWeight: 600 }}>⏱{timeGapLabel}</span>
+                        )}
                         <span style={{
                           fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                           background: t.side === 'BUY' ? 'rgba(54,211,153,.15)' : 'rgba(240,93,108,.15)',
                           color: t.side === 'BUY' ? 'var(--green)' : 'var(--red)',
                         }}>{t.side}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        <span style={{ fontWeight: 700, fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.symbol}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
                         <span style={{
                           fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700,
                           color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)',
@@ -553,7 +587,49 @@ export default function ResultsPage() {
                           </div>
                         )}
 
-                        {/* 7. Psychology Coaching */}
+                        {/* 7. Last 5 Trades Context */}
+                        {(() => {
+                          const tIdx = selectedTrade.index
+                          const prev5 = trades.filter(tr => tr.index < tIdx).slice(-5)
+                          if (prev5.length === 0 && !selectedTrade.last_5_trades_context) {
+                            return selectedTrade.last_5_trades_context ? (
+                              <div style={{
+                                padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                                borderLeft: '3px solid var(--accent)', background: 'rgba(93,120,255,.04)',
+                                fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                              }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>📊 Recent Momentum</div>
+                                {selectedTrade.last_5_trades_context}
+                              </div>
+                            ) : null
+                          }
+                          return (
+                            <div style={{
+                              padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid var(--accent)', background: 'rgba(93,120,255,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>📊 Recent Momentum (Last {prev5.length} Trades)</div>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                                {prev5.map(pt => (
+                                  <span key={pt.index} style={{
+                                    padding: '3px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    background: pt.pnl >= 0 ? 'rgba(54,211,153,.1)' : 'rgba(240,93,108,.1)',
+                                    color: pt.pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                                  }}>
+                                    #{pt.index + 1} {fmtPnl(pt.pnl)}
+                                  </span>
+                                ))}
+                              </div>
+                              {selectedTrade.last_5_trades_context && (
+                                <div style={{ fontSize: 12, color: 'var(--muted2)' }}>{selectedTrade.last_5_trades_context}</div>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        {/* 8. Psychology Coaching */}
                         {selectedTrade.psychology_coaching && (
                           <div style={{
                             padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
