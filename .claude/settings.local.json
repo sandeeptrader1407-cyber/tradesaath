@@ -83,7 +83,8 @@
       "Bash(curl -s \"http://localhost:3000/_next/static/css/app/layout.css?v=1774555114737\")",
       "Bash(rm -rf app/api/parse)",
       "Bash(rm -rf lib/parsers)",
-      "Bash(rm -rf components/PreviewTable.tsx components/ColumnMapper.tsx)"
+      "Bash(rm -rf components/PreviewTable.tsx components/ColumnMapper.tsx)",
+      "Bash(grep -E \"\\\\.tsx?$\")"
     ]
   }
 }
