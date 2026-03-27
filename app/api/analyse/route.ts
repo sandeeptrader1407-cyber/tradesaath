@@ -64,17 +64,31 @@ export async function POST(req: NextRequest) {
 
 User context: ${contextStr || 'none provided'}
 
+CRITICAL P&L CALCULATION RULES:
+- This is a broker contract note with individual BUY and SELL orders
+- You must PAIR buy and sell orders for the SAME instrument (same strike, same expiry, same CE/PE type)
+- Group all orders for the same instrument: calculate average buy price, average sell price, total quantity
+- P&L per paired trade = (Avg Sell Price - Avg Buy Price) x Quantity
+- If entry and exit price are the same, P&L is 0 — NEVER show profit for identical prices
+- Return PAIRED trades (one row per instrument), NOT individual orders
+- Calculate cumulative P&L (cum_pnl) as running total across all paired trades in chronological order
+- Use the Net Amount column from the contract note if available for accurate calculation
+- Account for brokerage/charges if visible in the document
+
 INSTRUCTIONS:
 1. Extract ALL trades from the file. For broker contract notes, use the Trade Annexure section.
-2. Pair buy and sell orders for the same instrument to calculate P&L per trade pair.
-3. Calculate cumulative P&L (running total) across all trades in chronological order.
-4. Assign each trade pair a psychology tag: win, fomo, revenge, averaging, panic, against_trend, hope_hold, decision_fatigue
-5. Map each trade to a stage in the Vicious Cycle of retail traders.
-6. Generate session analysis including momentum scores and vicious cycle detection.
-7. For EVERY trade, provide full rich analysis including all fields below.
-8. Calculate time gap between consecutive trades.
-9. Score entry and exit efficiency (0-100) based on optimal price action.
-10. Determine what the trader SHOULD have done vs what they actually did.
+2. You MUST return ALL paired trades from the file. Do not skip or summarize. This file may have 100+ trades — return EVERY single one.
+3. Pair buy and sell orders for the same instrument to calculate P&L per trade pair.
+4. Calculate cumulative P&L (running total) across all trades in chronological order.
+5. Assign each trade pair a psychology tag: win, fomo, revenge, averaging, panic, against_trend, hope_hold, decision_fatigue
+6. Map each trade to a stage in the Vicious Cycle of retail traders.
+7. Generate session analysis including momentum scores and vicious cycle detection.
+
+RESPONSE SIZE OPTIMIZATION — THIS IS CRITICAL:
+- For the FIRST trade (index 0): provide ALL fields with full detail. This is what the user sees for free — it must be impressive and specific enough to make them want to upgrade. Reference their actual trade data, actual prices, actual timing.
+- For trades index 1 and above: provide ONLY these basic fields: index, time, symbol, side, qty, entry, exit, pnl, cum_pnl, tag, label, session
+- Do NOT include quick_summary, psychology_coaching, technical_analysis, what_you_did_vs_should_have, entry_exit_efficiency, entry_timing, in_trade_behavior, vicious_cycle_stage, or counterfactual for trades index 1+
+- This keeps the response small enough to return ALL trades even for 100+ trade files
 
 Return ONLY valid JSON with NO markdown backticks, NO explanation before or after:
 {
@@ -100,14 +114,14 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
     {"name": "Exit Discipline", "score": 0-100, "color": "green/red/gold/accent", "desc": "explanation"}
   ],
   "vicious_cycle": [
-    {"stage": "Disciplined Win", "count": number, "icon": "✓", "desc": "text"},
-    {"stage": "FOMO Re-entry", "count": number, "icon": "⚡", "desc": "text"},
-    {"stage": "Against Trend", "count": number, "icon": "↙", "desc": "text"},
-    {"stage": "Hope & Hold", "count": number, "icon": "🙏", "desc": "text"},
-    {"stage": "Averaging Down", "count": number, "icon": "📉", "desc": "text"},
-    {"stage": "Panic Exit", "count": number, "icon": "💨", "desc": "text"},
-    {"stage": "Revenge Trade", "count": number, "icon": "⚔", "desc": "text"},
-    {"stage": "Decision Fatigue", "count": number, "icon": "😵", "desc": "text"}
+    {"stage": "Disciplined Win", "count": number, "icon": "check", "desc": "text"},
+    {"stage": "FOMO Re-entry", "count": number, "icon": "zap", "desc": "text"},
+    {"stage": "Against Trend", "count": number, "icon": "arrow", "desc": "text"},
+    {"stage": "Hope & Hold", "count": number, "icon": "pray", "desc": "text"},
+    {"stage": "Averaging Down", "count": number, "icon": "down", "desc": "text"},
+    {"stage": "Panic Exit", "count": number, "icon": "wind", "desc": "text"},
+    {"stage": "Revenge Trade", "count": number, "icon": "sword", "desc": "text"},
+    {"stage": "Decision Fatigue", "count": number, "icon": "dizzy", "desc": "text"}
   ],
   "technical_insights": [
     {"name": "Trend Alignment", "score": 0-100, "color": "green/red/gold", "desc": "text"},
@@ -129,8 +143,8 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
       "tag": "win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue",
       "label": "Disciplined Win / FOMO Entry / Revenge Trade / Averaging Down / Panic Exit / Against Trend / Hope & Hold / Decision Fatigue",
       "session": "morning/midday/afternoon",
-      "time_gap_from_last": "2m 30s or first trade",
-      "quick_summary": "2-3 sentence summary of what happened in this trade and WHY psychologically",
+      "time_gap_from_last": "first trade",
+      "quick_summary": "2-3 sentence summary of what happened in this trade and WHY psychologically. Be very specific about THIS trade.",
       "vicious_cycle_stage": "Which of the 8 vicious cycle stages this trade maps to and a 1-sentence explanation of why",
       "entry_exit_efficiency": {
         "entry_score": 0-100,
@@ -148,17 +162,27 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
         "during_trade": "patience/premature exit/held too long/moved stop loss/averaged down"
       },
       "what_you_did_vs_should_have": {
-        "actual_entry": number,
-        "actual_exit": number,
-        "actual_sl": "none/mental/hard",
-        "ideal_entry": number,
-        "ideal_exit": number,
-        "ideal_sl": number,
-        "potential_pnl": number
+        "what_you_did": "Plain English description of actual behavior — entry logic, hold behavior, exit decision. 2-3 sentences.",
+        "what_to_do_instead": "Actionable behavioral advice — e.g. wait for confirmation, set hard SL at support, exit at first reversal sign, avoid trading against trend, follow 15-min cool-down rule after loss. 2-3 sentences.",
+        "key_lesson": "One sentence takeaway for this specific trade"
       },
-      "psychology_coaching": "Detailed 3-4 sentence coaching paragraph. Be specific about THIS trade. Reference the exact entry/exit prices, the psychology tag, and give actionable advice.",
+      "psychology_coaching": "Detailed 3-4 sentence coaching paragraph. Be specific about THIS trade. Reference the exact entry/exit prices, the psychology tag, and give actionable advice. Make it impressive enough that the user wants to unlock all trades.",
       "technical_analysis": "Detailed 3-4 sentence TA paragraph. Discuss the price action, where support/resistance likely was, whether the entry was with or against the trend.",
-      "counterfactual": "What-if scenario: If you had done X instead of Y, your P&L would have been Z. Be specific with numbers."
+      "counterfactual": "What-if scenario: If you had done X instead of Y, your P&L would have been Z. Be specific with behavioral changes, not fake price numbers."
+    },
+    {
+      "index": 1,
+      "time": "HH:MM",
+      "symbol": "instrument name",
+      "side": "BUY or SELL",
+      "qty": number,
+      "entry": number,
+      "exit": number,
+      "pnl": number,
+      "cum_pnl": number,
+      "tag": "tag",
+      "label": "label",
+      "session": "morning/midday/afternoon"
     }
   ]
 }
@@ -167,11 +191,11 @@ IMPORTANT RULES:
 - cum_pnl is the running cumulative P&L. Trade 0 cum_pnl = trade 0 pnl. Trade 1 cum_pnl = trade 0 pnl + trade 1 pnl. etc.
 - session: morning = before 10:30, midday = 10:30-13:30, afternoon = after 13:30 (adjust for market timezone)
 - time_gap_from_last: first trade says "first trade", others show gap like "2m 30s" or "45m"
-- Provide ALL fields for EVERY trade. Do not skip any fields for any trade.
+- RETURN ALL TRADES. If there are 50 trades, return 50 entries. If there are 139 trades, return 139 entries.
 - entry_score/exit_score: 100 = perfect timing, 0 = worst possible timing relative to the candle/session
 - Be brutally honest in psychology_coaching. This is for the trader's growth.
-- what_you_did_vs_should_have: ideal values should reflect what a disciplined trader would have done
-- counterfactual must include specific rupee/dollar amounts`
+- what_you_did_vs_should_have: use plain English behavioral descriptions, NOT fabricated price numbers
+- counterfactual must describe behavioral changes, not made-up price targets`
     });
 
     console.log('Sending to Claude API...');
@@ -186,7 +210,7 @@ IMPORTANT RULES:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 32000,
+        max_tokens: 16000,
         messages: [{ role: 'user', content }]
       })
     });

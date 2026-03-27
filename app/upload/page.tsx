@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
+import { useRazorpay } from '@/hooks/useRazorpay'
+import { useRouter } from 'next/navigation'
 
 /* ─── Types ─── */
 interface EntryExitEfficiency {
@@ -14,22 +17,20 @@ interface InTradeBehavior {
   discipline: string; description: string; during_trade: string
 }
 interface WhatVsShould {
-  actual_entry: number; actual_exit: number; actual_sl: string
-  ideal_entry: number; ideal_exit: number; ideal_sl: number
-  potential_pnl: number
+  what_you_did: string; what_to_do_instead: string; key_lesson: string
 }
 interface Trade {
   index: number; time: string; symbol: string; side: string
   qty: number; entry: number; exit: number; pnl: number; cum_pnl: number
   tag: string; label: string; session: string
-  time_gap_from_last: string; quick_summary: string
-  vicious_cycle_stage: string
-  entry_exit_efficiency: EntryExitEfficiency
-  entry_timing: EntryTiming
-  in_trade_behavior: InTradeBehavior
-  what_you_did_vs_should_have: WhatVsShould
-  psychology_coaching: string; technical_analysis: string
-  counterfactual: string
+  time_gap_from_last?: string; quick_summary?: string
+  vicious_cycle_stage?: string
+  entry_exit_efficiency?: EntryExitEfficiency
+  entry_timing?: EntryTiming
+  in_trade_behavior?: InTradeBehavior
+  what_you_did_vs_should_have?: WhatVsShould
+  psychology_coaching?: string; technical_analysis?: string
+  counterfactual?: string
 }
 interface Momentum { name: string; score: number; color: string; desc: string }
 interface CycleStage { stage: string; count: number; icon: string; desc: string }
@@ -46,10 +47,11 @@ interface AnalysisResult {
 }
 
 function fmtPnl(n: number) {
+  if (n == null || isNaN(n)) return '₹0'
   return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(Math.round(n)).toLocaleString('en-IN')
 }
 function fmtPrice(n: number) {
-  if (n == null) return '—'
+  if (n == null || isNaN(n)) return '—'
   return '\u20B9' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -70,9 +72,14 @@ const SESSION_COLORS: Record<string, { bg: string; color: string; label: string 
   afternoon: { bg: 'rgba(157,122,247,.15)', color: '#9d7af7', label: 'Afternoon' },
 }
 
+const CYCLE_ICONS: Record<string, string> = {
+  check: '✓', zap: '⚡', arrow: '↙', pray: '🙏',
+  down: '📉', wind: '💨', sword: '⚔', dizzy: '😵',
+}
+
 /* ─── Half-gauge SVG ─── */
 function HalfGauge({ score, label, color }: { score: number; label: string; color: string }) {
-  const pct = Math.max(0, Math.min(100, score))
+  const pct = Math.max(0, Math.min(100, score || 0))
   const angle = (pct / 100) * 180
   const rad = (angle - 180) * (Math.PI / 180)
   const r = 40
@@ -88,10 +95,88 @@ function HalfGauge({ score, label, color }: { score: number; label: string; colo
         {pct > 0 && (
           <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${x} ${y}`} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" />
         )}
-        <text x={cx} y={cy - 8} textAnchor="middle" fill={color} fontSize="16" fontWeight="800" fontFamily="'JetBrains Mono', monospace">{score}</text>
+        <text x={cx} y={cy - 8} textAnchor="middle" fill={color} fontSize="16" fontWeight="800" fontFamily="'JetBrains Mono', monospace">{score || 0}</text>
         <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--muted)" fontSize="6">/100</text>
       </svg>
       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: -4, fontWeight: 600 }}>{label}</div>
+    </div>
+  )
+}
+
+/* ─── Paywall Plans Component ─── */
+function PaywallPlans({ tradeCount, onPay, payLoading }: { tradeCount: number; onPay: (plan: string) => void; payLoading: boolean }) {
+  const plans = [
+    {
+      id: 'single',
+      name: 'Single Report',
+      price: '₹99',
+      period: 'one-time',
+      features: ['This session — all trades unlocked', 'Full psychology coaching', 'Technical analysis per trade', 'Counterfactual scenarios'],
+      cta: 'Buy Report',
+      highlight: false,
+    },
+    {
+      id: 'pro_monthly',
+      name: 'Pro Monthly',
+      price: '₹799',
+      period: '/month',
+      features: ['Unlimited sessions', 'Dashboard + Journal', 'AI Coach access', 'Priority analysis'],
+      cta: 'Get Pro',
+      highlight: true,
+    },
+    {
+      id: 'pro_yearly',
+      name: 'Pro Yearly',
+      price: '₹499',
+      period: '/month',
+      features: ['Save 38% vs monthly', 'Billed ₹5,988/year', 'Everything in Pro', 'Priority support'],
+      cta: 'Get Pro',
+      highlight: false,
+    },
+  ]
+
+  return (
+    <div style={{ padding: '28px 20px', background: 'rgba(255,255,255,.02)', borderTop: '1px solid var(--border)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Unlock All {tradeCount} Trades</div>
+        <div style={{ fontSize: 13, color: 'var(--muted2)' }}>Full psychology coaching, technical analysis, counterfactuals for every trade.</div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, maxWidth: 700, margin: '0 auto' }}>
+        {plans.map(p => (
+          <div key={p.id} style={{
+            padding: '20px 16px', borderRadius: 12, textAlign: 'center',
+            background: p.highlight ? 'rgba(93,120,255,.08)' : 'var(--s2)',
+            border: p.highlight ? '1px solid var(--accent)' : '1px solid var(--border)',
+            position: 'relative',
+          }}>
+            {p.highlight && (
+              <div style={{
+                position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                background: 'var(--accent)', color: '#000', fontSize: 9, fontWeight: 800,
+                padding: '2px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1,
+              }}>Popular</div>
+            )}
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{p.name}</div>
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 24, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>{p.price}</span>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.period}</span>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              {p.features.map((f, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 3 }}>{f}</div>
+              ))}
+            </div>
+            <button
+              className={`btn ${p.highlight ? 'btn-accent' : 'btn-ghost'}`}
+              style={{ width: '100%', fontSize: 12, padding: '8px 12px' }}
+              onClick={() => onPay(p.id)}
+              disabled={payLoading}
+            >
+              {payLoading ? '...' : `${p.cta} →`}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -107,7 +192,13 @@ export default function UploadPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [expandedTrade, setExpandedTrade] = useState<number>(0)
   const [sideFilter, setSideFilter] = useState<string>('all')
+  const [unlocked, setUnlocked] = useState(false)
+  const [paySuccess, setPaySuccess] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const { user, isSignedIn } = useUser()
+  const { pay, loading: payLoading } = useRazorpay()
+  const router = useRouter()
 
   function formatSize(bytes: number) {
     if (bytes < 1024) return bytes + ' B'
@@ -118,6 +209,7 @@ export default function UploadPage() {
   function reset() {
     setFile(null); setLoading(false); setLoadingPct(0)
     setError(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
+    setUnlocked(false); setPaySuccess(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -189,6 +281,27 @@ export default function UploadPage() {
     }
   }
 
+  /* ─── Payment handler ─── */
+  function handlePay(plan: string) {
+    if (!isSignedIn) {
+      // Redirect to sign-in with return URL
+      router.push('/sign-in?redirect_url=/upload')
+      return
+    }
+    pay({
+      plan,
+      email: user?.primaryEmailAddress?.emailAddress,
+      onSuccess: () => {
+        setUnlocked(true)
+        setPaySuccess(`Payment successful! All ${result?.trades?.length || 0} trades unlocked.`)
+        setTimeout(() => setPaySuccess(null), 5000)
+      },
+      onError: (err) => {
+        setError(err || 'Payment failed. Please try again.')
+      },
+    })
+  }
+
   /* ─── Filtered trades for sidebar ─── */
   const filteredTrades = useMemo(() => {
     if (!result) return []
@@ -196,6 +309,7 @@ export default function UploadPage() {
     if (sideFilter === 'all') return trades
     if (sideFilter === 'BUY') return trades.filter(t => t.side === 'BUY')
     if (sideFilter === 'SELL') return trades.filter(t => t.side === 'SELL')
+    if (sideFilter === 'wins') return trades.filter(t => t.pnl > 0)
     if (sideFilter === 'losses') return trades.filter(t => t.pnl < 0)
     return trades
   }, [result, sideFilter])
@@ -207,16 +321,27 @@ export default function UploadPage() {
     const { kpis, trades, momentum, vicious_cycle, technical_insights } = result
     const ts = TAG_STYLES
     const selectedTrade = trades[expandedTrade]
-    const isLocked = expandedTrade > 0
+    const isLocked = expandedTrade > 0 && !unlocked
 
     return (
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
 
+          {/* Success banner */}
+          {paySuccess && (
+            <div style={{
+              padding: '12px 20px', marginBottom: 14, borderRadius: 10,
+              background: 'rgba(54,211,153,.12)', border: '1px solid rgba(54,211,153,.3)',
+              color: 'var(--green)', fontSize: 14, fontWeight: 600, textAlign: 'center',
+            }}>
+              ✅ {paySuccess}
+            </div>
+          )}
+
           {/* Nav */}
           <div className="results-nav">
             <button className="btn btn-ghost btn-sm" onClick={reset}>&larr; New Analysis</button>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Free tier &middot; {result.broker} &middot; {result.market}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{unlocked ? 'Pro' : 'Free tier'} &middot; {result.broker} &middot; {result.market}</span>
           </div>
 
           {/* KPI Strip */}
@@ -248,7 +373,7 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Momentum + Vicious Cycle + Technical row */}
+          {/* Momentum */}
           {momentum && momentum.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Session Momentum<span className="badge badge-free">FREE</span></div>
@@ -269,6 +394,7 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* Vicious Cycle */}
           {vicious_cycle && vicious_cycle.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
@@ -276,7 +402,7 @@ export default function UploadPage() {
                 <div className="cycle-grid">
                   {vicious_cycle.map((s, i) => (
                     <div key={i} className={`cycle-stage${s.count > 0 ? ' active' : ''}`}>
-                      <div className="cycle-icon">{s.icon}</div>
+                      <div className="cycle-icon">{CYCLE_ICONS[s.icon] || s.icon}</div>
                       <div className="cycle-label">{s.stage}</div>
                       {s.count > 0 && <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>{s.count}x</div>}
                       {s.count > 0 && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{s.desc}</div>}
@@ -287,6 +413,7 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* Technical Insights */}
           {technical_insights && technical_insights.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
@@ -309,7 +436,7 @@ export default function UploadPage() {
 
           {/* ═══ Per-Trade: Sidebar + Detail ═══ */}
           <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Per-Trade Analysis<span className="badge badge-free">Trade 1 FREE</span></div>
+            <div className="card-head">Per-Trade Analysis<span className="badge badge-free">{unlocked ? 'ALL UNLOCKED' : 'Trade 1 FREE'}</span></div>
             <div className="card-body" style={{ padding: 0 }}>
               <div style={{ display: 'flex', minHeight: 500 }}>
 
@@ -333,18 +460,18 @@ export default function UploadPage() {
                     </div>
                   </div>
 
-                  {/* Filter tabs */}
+                  {/* Filter tabs — ALL / BUY / SELL / WIN / LOSS */}
                   <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-                    {['all', 'BUY', 'SELL', 'losses'].map(f => (
+                    {['all', 'BUY', 'SELL', 'wins', 'losses'].map(f => (
                       <button key={f} onClick={() => setSideFilter(f)} style={{
-                        flex: 1, padding: '8px 4px', fontSize: 10, fontWeight: 700,
-                        textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'pointer',
+                        flex: 1, padding: '8px 2px', fontSize: 9, fontWeight: 700,
+                        textTransform: 'uppercase', letterSpacing: 0.3, cursor: 'pointer',
                         background: sideFilter === f ? 'var(--accent)' : 'transparent',
                         color: sideFilter === f ? '#000' : 'var(--muted)',
                         border: 'none', borderRight: '1px solid var(--border)',
                         transition: 'all .15s',
                       }}>
-                        {f === 'losses' ? '📉 Loss' : f === 'all' ? 'All' : f}
+                        {f === 'losses' ? '📉Loss' : f === 'wins' ? '✅Win' : f === 'all' ? 'All' : f}
                       </button>
                     ))}
                   </div>
@@ -353,6 +480,7 @@ export default function UploadPage() {
                   {filteredTrades.map((t) => {
                     const isActive = expandedTrade === t.index
                     const tagStyle = ts[t.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
+                    const tradeIsLocked = t.index > 0 && !unlocked
                     return (
                       <div key={t.index}
                         onClick={() => setExpandedTrade(t.index)}
@@ -366,7 +494,7 @@ export default function UploadPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--muted)', width: 22 }}>#{t.index + 1}</span>
                           <span style={{ fontSize: 10, color: 'var(--muted)' }}>{t.time}</span>
-                          <span style={{ fontWeight: 700, fontSize: 12, flex: 1 }}>{t.symbol}</span>
+                          <span style={{ fontWeight: 700, fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.symbol}</span>
                           <span style={{
                             fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                             background: t.side === 'BUY' ? 'rgba(54,211,153,.15)' : 'rgba(240,93,108,.15)',
@@ -382,7 +510,7 @@ export default function UploadPage() {
                             padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600,
                             background: tagStyle.bg, color: tagStyle.color,
                           }}>{t.label}</span>
-                          {t.index > 0 && <span style={{ fontSize: 9, marginLeft: 'auto' }}>🔒</span>}
+                          {tradeIsLocked && <span style={{ fontSize: 9, marginLeft: 'auto' }}>🔒</span>}
                         </div>
                       </div>
                     )
@@ -440,16 +568,21 @@ export default function UploadPage() {
                           <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
                             Full psychology coaching, technical analysis, entry/exit efficiency, and counterfactual analysis for all {trades.length} trades.
                           </div>
-                          <button className="btn btn-accent" style={{ fontSize: 14, padding: '10px 32px' }}>
-                            Upgrade to Pro — ₹99
-                          </button>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button className="btn btn-accent" style={{ fontSize: 12, padding: '8px 20px' }} onClick={() => handlePay('single')}>
+                              Buy Report — ₹99
+                            </button>
+                            <button className="btn btn-ghost" style={{ fontSize: 12, padding: '8px 20px' }} onClick={() => handlePay('pro_monthly')}>
+                              Get Pro — ₹799/mo
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <>
                           {/* Time gap badge */}
                           {selectedTrade.time_gap_from_last && (
                             <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14 }}>
-                              ⏱️ {selectedTrade.time_gap_from_last === 'first trade' ? 'First trade of session' : `${selectedTrade.time_gap_from_last} since last trade`}
+                              ⏱ {selectedTrade.time_gap_from_last === 'first trade' ? 'First trade of session' : `${selectedTrade.time_gap_from_last} since last trade`}
                             </div>
                           )}
 
@@ -460,7 +593,7 @@ export default function UploadPage() {
                               { label: 'Exit', val: fmtPrice(selectedTrade.exit) },
                               { label: 'Qty', val: String(selectedTrade.qty) },
                               { label: 'Net P&L', val: fmtPnl(selectedTrade.pnl), color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)' },
-                              { label: 'Cum. P&L', val: fmtPnl(selectedTrade.cum_pnl || selectedTrade.pnl), color: (selectedTrade.cum_pnl || selectedTrade.pnl) >= 0 ? 'var(--green)' : 'var(--red)' },
+                              { label: 'Cum. P&L', val: fmtPnl(selectedTrade.cum_pnl ?? selectedTrade.pnl), color: (selectedTrade.cum_pnl ?? selectedTrade.pnl) >= 0 ? 'var(--green)' : 'var(--red)' },
                             ].map((c, ci) => (
                               <div key={ci} style={{ padding: '10px 12px', background: 'var(--s2)', borderRadius: 8 }}>
                                 <div style={{ fontSize: 9, color: 'var(--muted)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>{c.label}</div>
@@ -473,7 +606,7 @@ export default function UploadPage() {
                           {selectedTrade.quick_summary && (
                             <div style={{
                               padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
-                              borderLeft: `3px solid var(--accent)`, background: 'rgba(93,120,255,.04)',
+                              borderLeft: '3px solid var(--accent)', background: 'rgba(93,120,255,.04)',
                               fontSize: 13, color: 'var(--text2)', lineHeight: 1.8,
                             }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Quick Summary</div>
@@ -483,9 +616,7 @@ export default function UploadPage() {
 
                           {/* Entry/Exit Efficiency */}
                           {selectedTrade.entry_exit_efficiency && (
-                            <div style={{
-                              marginBottom: 16, padding: '16px', background: 'var(--s2)', borderRadius: 10,
-                            }}>
+                            <div style={{ marginBottom: 16, padding: '16px', background: 'var(--s2)', borderRadius: 10 }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Entry / Exit Efficiency</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                 <HalfGauge score={selectedTrade.entry_exit_efficiency.entry_score} label="Entry Score" color="var(--green)" />
@@ -549,30 +680,29 @@ export default function UploadPage() {
                             </div>
                           )}
 
-                          {/* What You Did vs Should Have Done */}
+                          {/* What You Did vs Should Have Done — TEXT version */}
                           {selectedTrade.what_you_did_vs_should_have && (
                             <div style={{ marginBottom: 16 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>What You Did vs Should Have Done</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>What You Did vs What To Do Instead</div>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                 {/* Actual — Red */}
                                 <div style={{ padding: '14px 16px', borderRadius: 10, borderLeft: '3px solid var(--red)', background: 'rgba(240,93,108,.04)' }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', marginBottom: 8, textTransform: 'uppercase' }}>What You Did</div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Entry:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.actual_entry)}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Exit:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.actual_exit)}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>SL:</span> <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedTrade.what_you_did_vs_should_have.actual_sl}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>P&L:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(selectedTrade.pnl)}</span></div>
+                                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                                    {selectedTrade.what_you_did_vs_should_have.what_you_did}
                                   </div>
                                 </div>
                                 {/* Ideal — Green */}
                                 <div style={{ padding: '14px 16px', borderRadius: 10, borderLeft: '3px solid var(--green)', background: 'rgba(54,211,153,.04)' }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 8, textTransform: 'uppercase' }}>What You Should Have Done</div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Entry:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_entry)}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Exit:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_exit)}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>SL:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_sl)}</span></div>
-                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Potential P&L:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--green)' }}>{fmtPnl(selectedTrade.what_you_did_vs_should_have.potential_pnl)}</span></div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 8, textTransform: 'uppercase' }}>What To Do Instead</div>
+                                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                                    {selectedTrade.what_you_did_vs_should_have.what_to_do_instead}
                                   </div>
+                                  {selectedTrade.what_you_did_vs_should_have.key_lesson && (
+                                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--green)' }}>
+                                      KEY LESSON: {selectedTrade.what_you_did_vs_should_have.key_lesson}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -614,28 +744,37 @@ export default function UploadPage() {
                             </div>
                           )}
 
-                          {/* Counterfactual — locked for free tier */}
-                          <div style={{
-                            padding: '12px 16px', borderRadius: '0 8px 8px 0',
-                            borderLeft: '3px solid var(--teal, #2dd4bf)', background: 'rgba(45,212,191,.04)',
-                            fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
-                            position: 'relative', overflow: 'hidden',
-                          }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--teal, #2dd4bf)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-                              🔒 Counterfactual — What If?
-                            </div>
-                            <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
-                              {selectedTrade.counterfactual || 'If you had waited for the pullback confirmation and entered 15 points lower, your risk-reward would have improved to 2.8x and your P&L would have been +₹4,200 instead.'}
-                            </div>
+                          {/* Counterfactual */}
+                          {selectedTrade.counterfactual && (
                             <div style={{
-                              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                              padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                              position: 'relative', overflow: 'hidden',
                             }}>
-                              <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }}>
-                                🔒 Upgrade to unlock
-                              </button>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                🔒 Counterfactual — What If?
+                              </div>
+                              <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                                {selectedTrade.counterfactual}
+                              </div>
+                              <div style={{
+                                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                              }}>
+                                <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')}>
+                                  🔒 Upgrade to unlock
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          )}
+
+                          {/* If no detailed fields exist (should not happen for trade 0, but safety) */}
+                          {!selectedTrade.quick_summary && !selectedTrade.psychology_coaching && (
+                            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                              Basic trade data shown. Detailed analysis available for Trade #1 (free) or all trades (Pro).
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -644,12 +783,8 @@ export default function UploadPage() {
               </div>
 
               {/* Bottom paywall */}
-              {trades.length > 1 && (
-                <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(255,255,255,.02)', borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Unlock All {trades.length} Trades</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 14 }}>Full psychology coaching, technical analysis, counterfactuals for every trade.</div>
-                  <button className="btn btn-accent">Upgrade to Pro — ₹99</button>
-                </div>
+              {trades.length > 1 && !unlocked && (
+                <PaywallPlans tradeCount={trades.length} onPay={handlePay} payLoading={payLoading} />
               )}
             </div>
           </div>
