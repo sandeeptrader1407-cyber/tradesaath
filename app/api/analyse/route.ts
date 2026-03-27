@@ -3,6 +3,98 @@ export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
 
+/* ─── Helper: call Claude with retry on 529 ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<{ ok: boolean; data?: any; error?: string; code?: string }> {
+  let response: Response | undefined;
+  const maxRetries = 3;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content }]
+      })
+    });
+
+    if (response.status === 529) {
+      console.log(`API overloaded, retry ${attempt + 1}/${maxRetries} in ${(attempt + 1) * 3}s...`);
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
+        continue;
+      }
+    }
+    break;
+  }
+
+  if (!response) {
+    return { ok: false, error: 'Failed to connect to AI service.', code: 'NETWORK' };
+  }
+  if (response.status === 529) {
+    return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await response.json() as any;
+
+  if (data.error) {
+    if (data.error.type === 'overloaded_error') {
+      return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
+    }
+    return { ok: false, error: 'Analysis failed. Please try again.' };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
+  console.log('Response length:', text.length, 'Stop:', data.stop_reason);
+
+  return { ok: true, data: text };
+}
+
+/* ─── Helper: parse JSON with truncation recovery ─── */
+function safeParseJSON(raw: string): { ok: boolean; data?: Record<string, unknown>; truncated?: boolean } {
+  let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  try {
+    return { ok: true, data: JSON.parse(cleaned) };
+  } catch {
+    console.error('JSON parse failed, attempting truncation recovery...');
+
+    const lastBrace = cleaned.lastIndexOf('}]');
+    const lastComma = cleaned.lastIndexOf('},');
+
+    if (lastBrace > 0 && lastBrace > lastComma) {
+      cleaned = cleaned.substring(0, lastBrace + 2);
+    } else if (lastComma > 0) {
+      cleaned = cleaned.substring(0, lastComma + 1);
+    }
+
+    const openBraces = (cleaned.match(/{/g) || []).length - (cleaned.match(/}/g) || []).length;
+    const openBrackets = (cleaned.match(/\[/g) || []).length - (cleaned.match(/\]/g) || []).length;
+    for (let i = 0; i < openBrackets; i++) cleaned += ']';
+    for (let i = 0; i < openBraces; i++) cleaned += '}';
+
+    try {
+      const data = JSON.parse(cleaned);
+      console.log('Truncation recovery succeeded');
+      return { ok: true, data, truncated: true };
+    } catch (e2: unknown) {
+      console.error('Recovery failed:', e2 instanceof Error ? e2.message : 'unknown');
+      return { ok: false };
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN HANDLER
+═══════════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -18,11 +110,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
-    // Convert file to base64
     const bytes = await file.arrayBuffer();
     const base64 = Buffer.from(bytes).toString('base64');
 
-    // Detect mime type
     const name = file.name.toLowerCase();
     let mediaType = 'application/pdf';
     if (name.endsWith('.csv') || name.endsWith('.tsv')) mediaType = 'text/csv';
@@ -30,90 +120,134 @@ export async function POST(req: NextRequest) {
     else if (name.endsWith('.png')) mediaType = 'image/png';
     else if (name.endsWith('.jpg') || name.endsWith('.jpeg')) mediaType = 'image/jpeg';
 
-    // For CSV/text files, send as text instead of document
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let content: any[];
+    let fileContent: any[];
     if (mediaType === 'text/csv') {
       const text = Buffer.from(bytes).toString('utf-8');
-      content = [
-        { type: 'text', text: 'Here is a trade file in CSV format:\n\n' + text },
-      ];
+      fileContent = [{ type: 'text', text: 'Here is a trade file in CSV format:\n\n' + text }];
     } else if (mediaType.startsWith('image/')) {
-      content = [
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-      ];
+      fileContent = [{ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } }];
     } else {
-      content = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-      ];
+      fileContent = [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }];
     }
 
-    // Parse user context
     let ctx: Record<string, string> = {};
     try { ctx = JSON.parse(context); } catch { /* ignore */ }
+    const contextStr = Object.entries(ctx).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
 
-    const contextStr = Object.entries(ctx)
-      .filter(([, v]) => v)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(', ');
+    console.log('=== CALL 1: Extract & pair all trades ===');
+    console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
 
-    // Add the analysis prompt
-    content.push({
-      type: 'text',
-      text: `You are TradeSaath, an elite AI trading psychology engine used by professional traders. Analyse this trade file with EXTREME depth and detail.
+    /* ═══════════════════════════════════════════
+       CALL 1: Extract & pair ALL trades (lean)
+    ═══════════════════════════════════════════ */
+    const call1Content = [
+      ...fileContent,
+      {
+        type: 'text',
+        text: `Extract ALL trades from this file and pair buy/sell orders for the same instrument.
 
-User context: ${contextStr || 'none provided'}
+CALCULATION ACCURACY IS CRITICAL:
+- You are a professional trading analyst. Every number must be precise.
+- Match BUY and SELL orders for the SAME instrument (same strike, same expiry, same CE/PE type)
+- P&L per paired trade = (Sell Price - Buy Price) x Quantity
+- For options: if lot size is embedded in the quantity, account for it
+- If multiple fills for same instrument, use average buy price and average sell price
+- If the contract note shows a Net Amount or Net P&L column, use those exact figures
+- cum_pnl is the running cumulative total: trade 0 cum_pnl = trade 0 pnl, trade 1 cum_pnl = trade 0 pnl + trade 1 pnl, etc.
+- If entry price equals exit price, P&L MUST be 0
+- Cross-verify: sum of all individual trade P&Ls must approximately equal the net P&L you report in KPIs
+- Win Rate = Winners / Total Trades x 100
+- Profit Factor = Gross Profit / |Gross Loss|
+- Double-check every calculation before returning
 
-CRITICAL P&L CALCULATION RULES:
-- This is a broker contract note with individual BUY and SELL orders
-- You must PAIR buy and sell orders for the SAME instrument (same strike, same expiry, same CE/PE type)
-- Group all orders for the same instrument: calculate average buy price, average sell price, total quantity
-- P&L per paired trade = (Avg Sell Price - Avg Buy Price) x Quantity
-- If entry and exit price are the same, P&L is 0 — NEVER show profit for identical prices
-- Return PAIRED trades (one row per instrument), NOT individual orders
-- Calculate cumulative P&L (cum_pnl) as running total across all paired trades in chronological order
-- Use the Net Amount column from the contract note if available for accurate calculation
-- Account for brokerage/charges if visible in the document
+PSYCHOLOGY TAG ASSIGNMENT — think like a trading psychologist:
+- "win" — clean entry and exit, followed the plan, good R:R
+- "fomo" — entered AFTER a big move already happened, chasing price
+- "revenge" — entered within 5 minutes of a losing trade, larger size or same instrument
+- "averaging" — added to a losing position
+- "panic" — exited at the worst possible price after holding through drawdown
+- "against_trend" — traded opposite to the clear market direction that day
+- "hope_hold" — held a losing position much longer than the plan would suggest
+- "decision_fatigue" — trade quality deteriorated late in the session, random entries
+- Look at the SEQUENCE of trades to detect patterns. A loss followed by an immediate same-instrument trade = revenge. Three losses in a row followed by a much larger position = tilt.
 
-INSTRUCTIONS:
-1. Extract ALL trades from the file. For broker contract notes, use the Trade Annexure section.
-2. Pair buy and sell orders for the same instrument to calculate P&L per trade pair.
-3. Calculate cumulative P&L (running total) across all trades in chronological order.
-4. Assign each trade pair a psychology tag: win, fomo, revenge, averaging, panic, against_trend, hope_hold, decision_fatigue
-5. Map each trade to a stage in the Vicious Cycle of retail traders.
-6. Generate session analysis including momentum scores and vicious cycle detection.
-
-RESPONSE SIZE RULES — CRITICAL FOR AVOIDING TRUNCATION:
-- If the file has MORE than 30 paired trades, return ONLY the top 30 most significant trades (largest absolute P&L, most problematic patterns like revenge/fomo/panic). Include "total_trades_in_file" and "trades_shown" fields.
-- If the file has 30 or fewer paired trades, return ALL of them. Set "total_trades_in_file" and "trades_shown" to the same number.
-- For the FIRST trade (index 0): provide ALL detail fields (quick_summary, psychology_coaching, technical_analysis, etc.)
-- For trades index 1+: provide ONLY: index, time, symbol, side, qty, entry, exit, pnl, cum_pnl, tag, label, session
-- Do NOT include quick_summary, psychology_coaching, technical_analysis, what_you_did_vs_should_have, entry_exit_efficiency, entry_timing, in_trade_behavior, vicious_cycle_stage, or counterfactual for trades index 1+
-
-Return ONLY valid JSON with NO markdown backticks, NO explanation before or after:
+Return ONLY valid JSON, NO markdown backticks, NO explanation:
 {
-  "broker": "detected broker name",
-  "market": "NSE/NYSE/Forex/Crypto",
-  "trade_date": "YYYY-MM-DD",
-  "currency": "INR or USD etc",
+  "broker":"detected broker name",
+  "market":"NSE/NYSE/Forex/Crypto",
+  "trade_date":"YYYY-MM-DD",
+  "currency":"INR or USD etc",
   "total_trades_in_file": number,
-  "trades_shown": number,
-  "kpis": {
-    "net_pnl": number,
-    "total_trades": number,
-    "wins": number,
-    "losses": number,
-    "win_rate": number,
-    "profit_factor": number,
-    "best_trade_pnl": number,
-    "worst_trade_pnl": number
+  "kpis":{
+    "net_pnl":number,"total_trades":number,"wins":number,"losses":number,
+    "win_rate":number,"profit_factor":number,"best_trade_pnl":number,"worst_trade_pnl":number
   },
-  "summary": "2-3 paragraph narrative about the session - what went well, what went wrong, the emotional arc",
+  "trades":[
+    {"index":0,"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":number,"entry":number,"exit":number,"pnl":number,"cum_pnl":number,"tag":"win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue","label":"Disciplined Win/FOMO Entry/etc","session":"morning/midday/afternoon"}
+  ]
+}
+
+RETURN EVERY SINGLE PAIRED TRADE. No limit. If there are 74 trades, return 74. If 139, return 139. The per-trade data is small so this will fit.`
+      }
+    ];
+
+    const call1 = await callClaude(apiKey, call1Content, 16000);
+    if (!call1.ok) {
+      return NextResponse.json({ error: call1.error, code: call1.code }, { status: call1.code === 'OVERLOADED' ? 529 : 500 });
+    }
+
+    const parsed1 = safeParseJSON(call1.data);
+    if (!parsed1.ok || !parsed1.data) {
+      return NextResponse.json({ error: 'Could not parse trade data. Please try a smaller file.', code: 'TRUNCATED' }, { status: 500 });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tradesData = parsed1.data as any;
+    console.log(`Call 1 done: ${tradesData.trades?.length || 0} trades extracted`);
+
+    /* ═══════════════════════════════════════════
+       CALL 2: Deep analysis (session + trade #1)
+    ═══════════════════════════════════════════ */
+    console.log('=== CALL 2: Deep analysis ===');
+
+    // Send the extracted trades as context (no file needed)
+    const tradesJson = JSON.stringify(tradesData.trades || []);
+    const call2Content = [
+      {
+        type: 'text',
+        text: `You are TradeSaath, a personal trading mentor who has been watching the trader's screen all day. Here is their trade data:
+
+Broker: ${tradesData.broker || 'unknown'}
+Market: ${tradesData.market || 'unknown'}
+Date: ${tradesData.trade_date || 'unknown'}
+User context: ${contextStr || 'none provided'}
+KPIs: Net P&L ${tradesData.kpis?.net_pnl}, ${tradesData.kpis?.total_trades} trades, ${tradesData.kpis?.wins} wins, ${tradesData.kpis?.losses} losses, Win rate ${tradesData.kpis?.win_rate}%
+
+Trades:
+${tradesJson}
+
+TONE AND STYLE — THIS IS CRITICAL:
+- Write like a personal trading mentor who has been watching the trader's screen all day
+- Use "you" and "your" — speak directly to the trader
+- Be specific — reference actual trade times, actual prices, actual symbols from the data above
+- Don't say generic things like "emotional decision-making" — say exactly WHAT emotion, WHEN it happened, and WHAT it cost them in rupees
+- For psychology coaching: be empathetic but honest. Acknowledge what went right before pointing out what went wrong
+- For the session summary: tell the STORY of the trading day — the arc from morning to afternoon, the turning points, the emotional shifts
+- Sound like a human mentor, not an AI report generator
+- Good examples of tone:
+  "Your first 3 trades were sharp — you were in the zone. But that trade at 14:32? That wasn't a trade, that was frustration talking."
+  "You know that feeling when you take a loss and immediately want to make it back? That's exactly what happened next."
+  "Here's what I want you to remember: your morning session proves you CAN trade well. The problem isn't skill — it's what happens after 2pm."
+
+Now provide the deep analysis. Return ONLY valid JSON, no backticks:
+{
+  "summary": "2-3 paragraph narrative telling the STORY of this trading day. Reference specific trades by time and symbol. Describe the emotional arc. What went right in the morning? Where did things go wrong? What was the turning point?",
   "momentum": [
-    {"name": "Rule Following", "score": 0-100, "color": "green/red/gold/accent", "desc": "explanation"},
-    {"name": "Staying Calm", "score": 0-100, "color": "green/red/gold/accent", "desc": "explanation"},
-    {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold/accent", "desc": "explanation"},
-    {"name": "Exit Discipline", "score": 0-100, "color": "green/red/gold/accent", "desc": "explanation"}
+    {"name": "Rule Following", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation referencing their trades"},
+    {"name": "Staying Calm", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"},
+    {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"},
+    {"name": "Exit Discipline", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"}
   ],
   "vicious_cycle": [
     {"stage": "Disciplined Win", "count": number, "icon": "check", "desc": "text"},
@@ -131,182 +265,102 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
     {"name": "Exit Quality", "score": 0-100, "color": "green/red/gold", "desc": "text"},
     {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold", "desc": "text"}
   ],
-  "trades": [
-    {
-      "index": 0,
-      "time": "HH:MM",
-      "symbol": "instrument name",
-      "side": "BUY or SELL",
-      "qty": number,
-      "entry": number,
-      "exit": number,
-      "pnl": number,
-      "cum_pnl": number,
-      "tag": "win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue",
-      "label": "Disciplined Win / FOMO Entry / Revenge Trade / Averaging Down / Panic Exit / Against Trend / Hope & Hold / Decision Fatigue",
-      "session": "morning/midday/afternoon",
-      "time_gap_from_last": "first trade",
-      "quick_summary": "2-3 sentence summary of what happened in this trade and WHY psychologically. Be very specific about THIS trade.",
-      "vicious_cycle_stage": "Which of the 8 vicious cycle stages this trade maps to and a 1-sentence explanation of why",
-      "entry_exit_efficiency": {
-        "entry_score": 0-100,
-        "exit_score": 0-100,
-        "risk_reward": "1.5x or 0.3x etc",
-        "optimal_rr": "What the optimal R:R could have been with better execution"
-      },
-      "entry_timing": {
-        "description": "Entry at HH:MM — describe where in the candle/price action the entry happened",
-        "risk_level": "High/Medium/Low"
-      },
-      "in_trade_behavior": {
-        "discipline": "DISCIPLINED/IMPULSIVE/PANIC",
-        "description": "What the trader likely did during the trade based on entry/exit patterns",
-        "during_trade": "patience/premature exit/held too long/moved stop loss/averaged down"
-      },
-      "what_you_did_vs_should_have": {
-        "what_you_did": "Plain English description of actual behavior — entry logic, hold behavior, exit decision. 2-3 sentences.",
-        "what_to_do_instead": "Actionable behavioral advice — e.g. wait for confirmation, set hard SL at support, exit at first reversal sign, avoid trading against trend, follow 15-min cool-down rule after loss. 2-3 sentences.",
-        "key_lesson": "One sentence takeaway for this specific trade"
-      },
-      "psychology_coaching": "Detailed 3-4 sentence coaching paragraph. Be specific about THIS trade. Reference the exact entry/exit prices, the psychology tag, and give actionable advice. Make it impressive enough that the user wants to unlock all trades.",
-      "technical_analysis": "Detailed 3-4 sentence TA paragraph. Discuss the price action, where support/resistance likely was, whether the entry was with or against the trend.",
-      "counterfactual": "What-if scenario: If you had done X instead of Y, your P&L would have been Z. Be specific with behavioral changes, not fake price numbers."
+  "first_trade_detail": {
+    "time_gap_from_last": "first trade",
+    "quick_summary": "2-3 sentences about THIS specific trade — what happened, why, and the psychology behind it. Reference the actual symbol, prices, and time.",
+    "vicious_cycle_stage": "Which stage and why, in one sentence",
+    "entry_exit_efficiency": {
+      "entry_score": 0-100,
+      "exit_score": 0-100,
+      "risk_reward": "1.5x etc",
+      "optimal_rr": "what optimal could have been"
     },
-    {"index":1,"time":"HH:MM","symbol":"name","side":"BUY","qty":1,"entry":100,"exit":105,"pnl":5,"cum_pnl":10,"tag":"win","label":"Disciplined Win","session":"morning"}
-  ]
+    "entry_timing": {
+      "description": "Entry at the specific time — describe where in the price action",
+      "risk_level": "High/Medium/Low"
+    },
+    "in_trade_behavior": {
+      "discipline": "DISCIPLINED/IMPULSIVE/PANIC",
+      "description": "what likely happened during the trade",
+      "during_trade": "patience/premature exit/held too long/etc"
+    },
+    "what_you_did_vs_should_have": {
+      "what_you_did": "2-3 sentences about their actual behavior in plain English",
+      "what_to_do_instead": "2-3 sentences of specific, actionable behavioral advice",
+      "key_lesson": "One sentence takeaway"
+    },
+    "psychology_coaching": "3-4 sentences. Be a mentor. Reference their exact entry at X, exit at Y, the P&L of Z. Acknowledge what they did right. Then point out the ONE thing to change. Make it personal and specific.",
+    "technical_analysis": "3-4 sentences. Reference actual price levels from the trade. Discuss support/resistance, trend direction, where the entry was relative to key levels.",
+    "counterfactual": "What-if scenario with specific behavioral changes and estimated impact. Not fake numbers — real behavioral advice."
+  }
 }
 
-IMPORTANT RULES:
-- KPIs must reflect ALL trades in the file, even if you only return 30 in the trades array
-- cum_pnl is the running cumulative P&L. Trade 0 cum_pnl = trade 0 pnl. Trade 1 cum_pnl = trade 0 pnl + trade 1 pnl. etc.
-- session: morning = before 10:30, midday = 10:30-13:30, afternoon = after 13:30 (adjust for market timezone)
-- time_gap_from_last: first trade says "first trade", others show gap like "2m 30s" or "45m"
-- entry_score/exit_score: 100 = perfect timing, 0 = worst possible timing relative to the candle/session
-- Be brutally honest in psychology_coaching. This is for the trader's growth.
-- what_you_did_vs_should_have: use plain English behavioral descriptions, NOT fabricated price numbers
-- counterfactual must describe behavioral changes, not made-up price targets`
+IMPORTANT: Provide ALL fields in first_trade_detail. Every single one. The user sees this for free and it must be impressive enough to make them upgrade.`
+      }
+    ];
+
+    const call2 = await callClaude(apiKey, call2Content, 8000);
+    if (!call2.ok) {
+      // If Call 2 fails, still return Call 1 data with basic results
+      console.error('Call 2 failed, returning basic results:', call2.error);
+      return NextResponse.json({
+        ...tradesData,
+        trades_shown: tradesData.trades?.length || 0,
+        summary: 'Analysis is temporarily limited. Your trade data has been extracted successfully.',
+        momentum: [],
+        vicious_cycle: [],
+        technical_insights: [],
+      });
+    }
+
+    const parsed2 = safeParseJSON(call2.data);
+    if (!parsed2.ok || !parsed2.data) {
+      // Return Call 1 data with fallback
+      console.error('Call 2 parse failed, returning basic results');
+      return NextResponse.json({
+        ...tradesData,
+        trades_shown: tradesData.trades?.length || 0,
+        summary: 'Detailed analysis could not be generated. Your trade data is shown below.',
+        momentum: [],
+        vicious_cycle: [],
+        technical_insights: [],
+      });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const analysis = parsed2.data as any;
+    console.log('Call 2 done: analysis complete');
+
+    // Merge Call 1 trades with Call 2 analysis + first trade detail
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trades = (tradesData.trades || []).map((t: any, i: number) => {
+      if (i === 0 && analysis.first_trade_detail) {
+        return { ...t, ...analysis.first_trade_detail };
+      }
+      return t;
     });
 
-    console.log('Sending to Claude API...');
-    console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
-
-    // Call Claude API with retry logic for overload (529)
-    let response: Response | undefined;
-    let retries = 0;
-    const maxRetries = 3;
-
-    while (retries < maxRetries) {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 16000,
-          messages: [{ role: 'user', content }]
-        })
-      });
-
-      if (response.status === 529) {
-        retries++;
-        console.log(`API overloaded, retry ${retries}/${maxRetries} in ${retries * 3} seconds...`);
-        if (retries < maxRetries) {
-          await new Promise(r => setTimeout(r, retries * 3000));
-          continue;
-        }
-      }
-      break;
-    }
-
-    if (!response) {
-      return NextResponse.json({ error: 'Failed to connect to AI service. Please try again.' }, { status: 500 });
-    }
-
-    if (response.status === 529) {
-      return NextResponse.json(
-        { error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' },
-        { status: 529 }
-      );
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await response.json() as any;
-    console.log('Claude API status:', response.status);
-
-    if (data.error) {
-      console.error('Claude API error:', data.error);
-      // Friendly messages for common errors
-      if (data.error.type === 'overloaded_error') {
-        return NextResponse.json(
-          { error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' },
-          { status: 529 }
-        );
-      }
-      return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 });
-    }
-
-    // Extract text response
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
-    console.log('Raw response length:', text.length);
-    console.log('Stop reason:', data.stop_reason);
-
-    // Clean markdown wrappers
-    let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    // Parse JSON — with truncation recovery
-    let result;
-    try {
-      result = JSON.parse(cleaned);
-    } catch {
-      console.error('JSON parse failed, attempting to fix truncated response...');
-
-      // Remove any trailing incomplete element (partial object/string)
-      // Find the last complete object ending with }
-      const lastCompleteComma = cleaned.lastIndexOf('},');
-      const lastCompleteBrace = cleaned.lastIndexOf('}]');
-
-      if (lastCompleteBrace > 0 && lastCompleteBrace > lastCompleteComma) {
-        // The trades array was almost complete, just needs closing braces
-        cleaned = cleaned.substring(0, lastCompleteBrace + 2);
-      } else if (lastCompleteComma > 0) {
-        // Cut at the last complete trade object
-        cleaned = cleaned.substring(0, lastCompleteComma + 1);
-      }
-
-      // Recount and close remaining brackets
-      const openBraces = (cleaned.match(/{/g) || []).length - (cleaned.match(/}/g) || []).length;
-      const openBrackets = (cleaned.match(/\[/g) || []).length - (cleaned.match(/\]/g) || []).length;
-
-      for (let i = 0; i < openBrackets; i++) cleaned += ']';
-      for (let i = 0; i < openBraces; i++) cleaned += '}';
-
-      try {
-        result = JSON.parse(cleaned);
-        console.log('Fixed truncated JSON successfully, trades recovered:', result.trades?.length || 0);
-        // Mark as truncated so frontend can show a notice
-        result._truncated = true;
-      } catch (e2: unknown) {
-        const parseMsg = e2 instanceof Error ? e2.message : 'unknown';
-        console.error('Could not fix JSON:', parseMsg);
-        console.error('First 500 chars:', cleaned.substring(0, 500));
-        console.error('Last 500 chars:', cleaned.substring(cleaned.length - 500));
-        return NextResponse.json(
-          { error: 'Your file has too many trades for a single analysis. Please try uploading a smaller file or a single day\'s trades.', code: 'TRUNCATED' },
-          { status: 500 }
-        );
-      }
-    }
+    const result = {
+      broker: tradesData.broker,
+      market: tradesData.market,
+      trade_date: tradesData.trade_date,
+      currency: tradesData.currency,
+      total_trades_in_file: tradesData.total_trades_in_file || trades.length,
+      trades_shown: trades.length,
+      kpis: tradesData.kpis,
+      summary: analysis.summary || '',
+      momentum: analysis.momentum || [],
+      vicious_cycle: analysis.vicious_cycle || [],
+      technical_insights: analysis.technical_insights || [],
+      trades,
+      _truncated: parsed1.truncated || false,
+    };
 
     return NextResponse.json(result);
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Analysis failed';
     console.error('Analysis error:', msg);
-    // Never expose raw error messages to user
     let userMsg = 'Analysis failed. Please try again.';
     if (msg.includes('JSON')) {
       userMsg = 'Your file has too many trades and the response was cut off. Please try a smaller file.';
