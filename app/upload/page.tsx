@@ -41,6 +41,7 @@ interface KPIs {
 }
 interface AnalysisResult {
   broker: string; market: string; trade_date: string; currency: string
+  total_trades_in_file?: number; trades_shown?: number
   kpis: KPIs; summary: string; momentum: Momentum[]
   vicious_cycle: CycleStage[]; technical_insights: TechInsight[]
   trades: Trade[]
@@ -189,6 +190,7 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false)
   const [loadingPct, setLoadingPct] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [expandedTrade, setExpandedTrade] = useState<number>(0)
   const [sideFilter, setSideFilter] = useState<string>('all')
@@ -208,7 +210,7 @@ export default function UploadPage() {
 
   function reset() {
     setFile(null); setLoading(false); setLoadingPct(0)
-    setError(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
+    setError(null); setErrorCode(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
     setUnlocked(false); setPaySuccess(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -240,7 +242,7 @@ export default function UploadPage() {
 
   async function runAnalysis() {
     if (!file) { setError('Please select a file first'); return }
-    setError(null); setLoading(true); setLoadingPct(5)
+    setError(null); setErrorCode(null); setLoading(true); setLoadingPct(5)
 
     const progressTimer = setInterval(() => {
       setLoadingPct(prev => Math.min(prev + 2, 90))
@@ -257,7 +259,15 @@ export default function UploadPage() {
 
       const data = await res.json()
       if (!res.ok || data.error) {
-        setError(data.error || 'Analysis failed')
+        const code = data.code || (res.status === 529 ? 'OVERLOADED' : null)
+        setErrorCode(code)
+        if (code === 'OVERLOADED') {
+          setError('Our AI is currently busy. Please try again in 30 seconds.')
+        } else if (code === 'TRUNCATED') {
+          setError('Your file has too many trades. Please try a smaller file or a single day\'s trades.')
+        } else {
+          setError(data.error || 'Analysis failed. Please try again.')
+        }
         setLoading(false); setLoadingPct(0)
         return
       }
@@ -277,6 +287,7 @@ export default function UploadPage() {
     } catch {
       clearInterval(progressTimer)
       setError('Failed to connect to server. Please try again.')
+      setErrorCode(null)
       setLoading(false); setLoadingPct(0)
     }
   }
@@ -362,6 +373,27 @@ export default function UploadPage() {
               </div>
             ))}
           </div>
+
+          {/* Truncation / partial notice */}
+          {(result.total_trades_in_file && result.trades_shown && result.total_trades_in_file > result.trades_shown) && (
+            <div style={{
+              padding: '10px 16px', marginBottom: 14, borderRadius: 8,
+              background: 'rgba(240,180,41,.08)', border: '1px solid rgba(240,180,41,.25)',
+              fontSize: 13, color: 'var(--gold)',
+            }}>
+              📊 Showing {result.trades_shown} of {result.total_trades_in_file} trades (most significant by P&L and pattern). KPIs reflect all {result.total_trades_in_file} trades.
+            </div>
+          )}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(result as any)._truncated && (
+            <div style={{
+              padding: '10px 16px', marginBottom: 14, borderRadius: 8,
+              background: 'rgba(240,180,41,.08)', border: '1px solid rgba(240,180,41,.25)',
+              fontSize: 13, color: 'var(--gold)',
+            }}>
+              ⚠ Some trades may be missing due to response size limits. KPIs and session analysis are complete.
+            </div>
+          )}
 
           {/* AI Summary */}
           <div className="card" style={{ marginBottom: 14 }}>
@@ -891,8 +923,13 @@ export default function UploadPage() {
 
             {/* Error */}
             {error && (
-              <div style={{ fontSize: 13, color: 'var(--red)', marginBottom: 10, padding: '8px 12px', background: 'rgba(244,63,94,.08)', borderRadius: 8, border: '1px solid rgba(244,63,94,.2)' }}>
-                ⚠ {error}
+              <div style={{ fontSize: 13, color: 'var(--red)', marginBottom: 10, padding: '10px 14px', background: 'rgba(244,63,94,.08)', borderRadius: 8, border: '1px solid rgba(244,63,94,.2)' }}>
+                <div>⚠ {error}</div>
+                {errorCode === 'OVERLOADED' && (
+                  <button className="btn btn-accent btn-sm" style={{ marginTop: 8, fontSize: 12 }} onClick={runAnalysis}>
+                    🔄 Retry Now
+                  </button>
+                )}
               </div>
             )}
 
