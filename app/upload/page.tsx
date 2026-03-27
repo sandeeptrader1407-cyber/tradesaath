@@ -281,7 +281,14 @@ export default function UploadPage() {
       try {
         fetch('/api/sessions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trades: data.trades, analysis: data, broker: data.broker }),
+          body: JSON.stringify({
+            trades: data.trades,
+            analysis: data,
+            broker: data.broker,
+            market: data.market,
+            trade_date: data.trade_date,
+            plan_used: 'free',
+          }),
         }).catch(() => {})
       } catch { /* ignore */ }
     } catch {

@@ -30,49 +30,56 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const { userId: clerkId } = await auth()
+
+    // If user is not logged in, return success but don't save
     if (!clerkId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      return NextResponse.json({ saved: false, reason: 'not_authenticated' })
     }
 
     const body = await req.json()
-    const { trades, analysis, broker } = body
+    const { trades, analysis, broker, market, trade_date, plan_used } = body
 
     if (!trades || !analysis) {
       return NextResponse.json({ error: 'Missing trades or analysis' }, { status: 400 })
     }
 
     // Compute summary fields for quick queries
-    const totalPnl = trades.reduce((s: number, t: { pnl: number }) => s + (t.pnl || 0), 0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalPnl = trades.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
     const tradeCount = trades.length
-    const wins = trades.filter((t: { pnl: number }) => t.pnl > 0).length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wins = trades.filter((t: any) => t.pnl > 0).length
     const winRate = tradeCount > 0 ? Math.round(wins / tradeCount * 100) : 0
-    const dqsScore = analysis.dqsScore || 0
 
     const { data, error } = await supabaseAdmin
       .from('sessions')
       .insert({
         clerk_id: clerkId,
+        date: trade_date || null,
         broker: broker || null,
+        market: market || null,
+        raw_trades_json: trades,
+        analysis_json: analysis,
+        plan_used: plan_used || 'free',
+        // Legacy fields for backward compat
         trades: trades,
         analysis: analysis,
         total_pnl: totalPnl,
         trade_count: tradeCount,
         win_rate: winRate,
-        dqs_score: dqsScore,
       })
       .select()
       .single()
 
     if (error) {
       console.error('Session save error:', error)
-      // If the table doesn't have the right columns yet, log details
       if (error.message?.includes('column')) {
-        console.error('Schema issue — sessions table may need columns: clerk_id, trades (jsonb), analysis (jsonb), total_pnl, trade_count, win_rate, dqs_score')
+        console.error('Schema issue — sessions table may need new columns: date, market, raw_trades_json (jsonb), analysis_json (jsonb), plan_used (text)')
       }
       return NextResponse.json({ error: 'Failed to save session' }, { status: 500 })
     }
 
-    return NextResponse.json({ session: data })
+    return NextResponse.json({ saved: true, session: data })
   } catch (err) {
     console.error('Session save API error:', err)
     return NextResponse.json({ error: 'Failed to save session' }, { status: 500 })
