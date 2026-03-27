@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /* ─── Helper: call Claude with retry on 529 ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<{ ok: boolean; data?: any; error?: string; code?: string }> {
+async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<{ ok: boolean; data?: any; error?: string; code?: string; stop_reason?: string }> {
   let response: Response | undefined;
   const maxRetries = 3;
 
@@ -55,7 +55,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
   const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
   console.log('Response length:', text.length, 'Stop:', data.stop_reason);
 
-  return { ok: true, data: text };
+  return { ok: true, data: text, stop_reason: data.stop_reason };
 }
 
 /* ─── Helper: parse JSON with truncation recovery ─── */
@@ -147,6 +147,16 @@ export async function POST(req: NextRequest) {
         type: 'text',
         text: `Extract ALL trades from this file and pair buy/sell orders for the same instrument.
 
+ABSOLUTE RULE — RETURN EVERY SINGLE TRADE:
+- Do NOT skip any trades. Do NOT limit to 30 or 50 or any number.
+- If there are 74 trades, return 74. If there are 200, return 200.
+- I need the COMPLETE picture. Every single paired trade must be in the output.
+
+SORT ALL TRADES CHRONOLOGICALLY BY TRADE TIME (earliest first):
+- The sequence matters — a trader's psychology cascades from one trade to the next.
+- Trade index 0 should be the first trade of the day.
+- If two trades have the same time, keep their file order.
+
 CALCULATION ACCURACY IS CRITICAL:
 - You are a professional trading analyst. Every number must be precise.
 - Match BUY and SELL orders for the SAME instrument (same strike, same expiry, same CE/PE type)
@@ -162,6 +172,14 @@ CALCULATION ACCURACY IS CRITICAL:
 - Double-check every calculation before returning
 
 PSYCHOLOGY TAG ASSIGNMENT — think like a trading psychologist:
+For EACH trade, look at the PREVIOUS 5 trades to determine the psychological state:
+- After 2+ consecutive wins → check for overconfidence (bigger position sizes, looser stops)
+- After a loss → check if next trade came within 5 minutes (revenge) or with larger size (tilt)
+- After 2+ consecutive losses → check for panic exits, desperate averaging, decision fatigue
+- After a big loss → the next 3 trades are almost always emotionally compromised
+- Time of day matters: trades after 2 PM with losses before them = highest risk of revenge
+
+Tags:
 - "win" — clean entry and exit, followed the plan, good R:R
 - "fomo" — entered AFTER a big move already happened, chasing price
 - "revenge" — entered within 5 minutes of a losing trade, larger size or same instrument
@@ -170,7 +188,15 @@ PSYCHOLOGY TAG ASSIGNMENT — think like a trading psychologist:
 - "against_trend" — traded opposite to the clear market direction that day
 - "hope_hold" — held a losing position much longer than the plan would suggest
 - "decision_fatigue" — trade quality deteriorated late in the session, random entries
-- Look at the SEQUENCE of trades to detect patterns. A loss followed by an immediate same-instrument trade = revenge. Three losses in a row followed by a much larger position = tilt.
+
+The SEQUENCE tells the story:
+- Morning wins → midday overconfidence → first loss → revenge → averaging → panic → more revenge → fatigue
+- This is the classic retail trader vicious cycle. Map EACH trade to where it falls in this cycle.
+
+SESSION CLASSIFICATION:
+- "morning" = before 11:00 AM
+- "midday" = 11:00 AM to 1:30 PM
+- "afternoon" = after 1:30 PM
 
 Return ONLY valid JSON, NO markdown backticks, NO explanation:
 {
@@ -188,7 +214,7 @@ Return ONLY valid JSON, NO markdown backticks, NO explanation:
   ]
 }
 
-RETURN EVERY SINGLE PAIRED TRADE. No limit. If there are 74 trades, return 74. If 139, return 139. The per-trade data is small so this will fit.`
+RETURN EVERY SINGLE PAIRED TRADE — NO LIMIT. The per-trade data is small so this will fit.`
       }
     ];
 
@@ -204,14 +230,82 @@ RETURN EVERY SINGLE PAIRED TRADE. No limit. If there are 74 trades, return 74. I
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tradesData = parsed1.data as any;
-    console.log(`Call 1 done: ${tradesData.trades?.length || 0} trades extracted`);
+    const extractedCount = tradesData.trades?.length || 0;
+    const expectedCount = tradesData.total_trades_in_file || 0;
+    console.log(`Call 1 done: ${extractedCount} trades extracted, ${expectedCount} expected`);
+
+    /* ═══════════════════════════════════════════
+       CALL 1B: Continuation if trades were truncated
+    ═══════════════════════════════════════════ */
+    if (parsed1.truncated && expectedCount > extractedCount && extractedCount > 0) {
+      console.log(`=== CALL 1B: Fetching remaining trades from index ${extractedCount} ===`);
+      const call1bContent = [
+        ...fileContent,
+        {
+          type: 'text',
+          text: `I already extracted trades 0 through ${extractedCount - 1} from this file. There should be ${expectedCount} total trades.
+
+Continue extracting the REMAINING trades starting from index ${extractedCount}. Use the exact same format.
+
+Return ONLY valid JSON, NO markdown backticks:
+{
+  "trades":[
+    {"index":${extractedCount},"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":number,"entry":number,"exit":number,"pnl":number,"cum_pnl":number,"tag":"tag","label":"label","session":"session"}
+  ]
+}
+
+Sort by time. Return ALL remaining trades.`
+        }
+      ];
+
+      const call1b = await callClaude(apiKey, call1bContent, 8000);
+      if (call1b.ok) {
+        const parsed1b = safeParseJSON(call1b.data);
+        if (parsed1b.ok && parsed1b.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const extraTrades = (parsed1b.data as any).trades || [];
+          if (extraTrades.length > 0) {
+            tradesData.trades = [...(tradesData.trades || []), ...extraTrades];
+            // Recalculate cum_pnl for the continuation trades
+            for (let i = extractedCount; i < tradesData.trades.length; i++) {
+              tradesData.trades[i].cum_pnl = (i > 0 ? tradesData.trades[i - 1].cum_pnl : 0) + tradesData.trades[i].pnl;
+            }
+            console.log(`Call 1B: added ${extraTrades.length} more trades, total now ${tradesData.trades.length}`);
+          }
+        }
+      }
+    }
+
+    // Sort trades chronologically by time (ensure correct order)
+    if (tradesData.trades && tradesData.trades.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tradesData.trades.sort((a: any, b: any) => {
+        const timeA = (a.time || '00:00').replace(/:/g, '');
+        const timeB = (b.time || '00:00').replace(/:/g, '');
+        return parseInt(timeA) - parseInt(timeB);
+      });
+      // Re-index and recalculate cum_pnl after sorting
+      let cumPnl = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tradesData.trades.forEach((t: any, i: number) => {
+        t.index = i;
+        cumPnl += t.pnl || 0;
+        t.cum_pnl = cumPnl;
+      });
+    }
 
     /* ═══════════════════════════════════════════
        CALL 2: Deep analysis (session + trade #1)
     ═══════════════════════════════════════════ */
     console.log('=== CALL 2: Deep analysis ===');
 
-    // Send the extracted trades as context (no file needed)
+    // Build last-5-trades context for the first trade (it's the first, so it has no prior trades)
+    const first5Trades = (tradesData.trades || []).slice(0, 5);
+    const first5Summary = first5Trades.map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (t: any) => `#${t.index + 1} ${t.time} ${t.symbol} ${t.pnl >= 0 ? '+' : ''}${t.pnl}`
+    ).join(', ');
+
     const tradesJson = JSON.stringify(tradesData.trades || []);
     const call2Content = [
       {
@@ -224,7 +318,9 @@ Date: ${tradesData.trade_date || 'unknown'}
 User context: ${contextStr || 'none provided'}
 KPIs: Net P&L ${tradesData.kpis?.net_pnl}, ${tradesData.kpis?.total_trades} trades, ${tradesData.kpis?.wins} wins, ${tradesData.kpis?.losses} losses, Win rate ${tradesData.kpis?.win_rate}%
 
-Trades:
+First 5 trades summary: ${first5Summary}
+
+Trades (sorted chronologically):
 ${tradesJson}
 
 TONE AND STYLE — THIS IS CRITICAL:
@@ -239,6 +335,15 @@ TONE AND STYLE — THIS IS CRITICAL:
   "Your first 3 trades were sharp — you were in the zone. But that trade at 14:32? That wasn't a trade, that was frustration talking."
   "You know that feeling when you take a loss and immediately want to make it back? That's exactly what happened next."
   "Here's what I want you to remember: your morning session proves you CAN trade well. The problem isn't skill — it's what happens after 2pm."
+
+VICIOUS CYCLE DETECTION — THIS IS THE CORE OF TRADESAATH:
+For EACH trade, look at the PREVIOUS 5 trades to determine the psychological state:
+- After 2+ consecutive wins → check for overconfidence (bigger position sizes, looser stops)
+- After a loss → check if next trade came within 5 minutes (revenge) or with larger size (tilt)
+- After 2+ consecutive losses → check for panic exits, desperate averaging, decision fatigue
+- After a big loss → the next 3 trades are almost always emotionally compromised
+- Time of day matters: trades after 2 PM with losses before them = highest risk of revenge
+The SEQUENCE tells the story. Map EACH trade to where it falls in the vicious cycle.
 
 Now provide the deep analysis. Return ONLY valid JSON, no backticks:
 {
@@ -289,19 +394,19 @@ Now provide the deep analysis. Return ONLY valid JSON, no backticks:
       "what_to_do_instead": "2-3 sentences of specific, actionable behavioral advice",
       "key_lesson": "One sentence takeaway"
     },
+    "last_5_trades_context": "Recent momentum going into this trade. Since it's trade #1, describe the opening mindset. For later trades, show the P&L of the last 5 and the emotional momentum.",
     "psychology_coaching": "3-4 sentences. Be a mentor. Reference their exact entry at X, exit at Y, the P&L of Z. Acknowledge what they did right. Then point out the ONE thing to change. Make it personal and specific.",
     "technical_analysis": "3-4 sentences. Reference actual price levels from the trade. Discuss support/resistance, trend direction, where the entry was relative to key levels.",
     "counterfactual": "What-if scenario with specific behavioral changes and estimated impact. Not fake numbers — real behavioral advice."
   }
 }
 
-IMPORTANT: Provide ALL fields in first_trade_detail. Every single one. The user sees this for free and it must be impressive enough to make them upgrade.`
+IMPORTANT: Provide ALL fields in first_trade_detail. Every single one including last_5_trades_context. The user sees this for free and it must be impressive enough to make them upgrade.`
       }
     ];
 
     const call2 = await callClaude(apiKey, call2Content, 8000);
     if (!call2.ok) {
-      // If Call 2 fails, still return Call 1 data with basic results
       console.error('Call 2 failed, returning basic results:', call2.error);
       return NextResponse.json({
         ...tradesData,
@@ -315,7 +420,6 @@ IMPORTANT: Provide ALL fields in first_trade_detail. Every single one. The user 
 
     const parsed2 = safeParseJSON(call2.data);
     if (!parsed2.ok || !parsed2.data) {
-      // Return Call 1 data with fallback
       console.error('Call 2 parse failed, returning basic results');
       return NextResponse.json({
         ...tradesData,
