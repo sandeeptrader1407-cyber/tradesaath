@@ -60,16 +60,21 @@ export async function POST(req: NextRequest) {
     // Add the analysis prompt
     content.push({
       type: 'text',
-      text: `You are TradeSaath, an AI trading psychology engine. Analyse this trade file.
+      text: `You are TradeSaath, an elite AI trading psychology engine used by professional traders. Analyse this trade file with EXTREME depth and detail.
 
 User context: ${contextStr || 'none provided'}
 
 INSTRUCTIONS:
 1. Extract ALL trades from the file. For broker contract notes, use the Trade Annexure section.
 2. Pair buy and sell orders for the same instrument to calculate P&L per trade pair.
-3. Assign each trade pair a psychology tag: win, fomo, revenge, averaging, panic, against_trend, hope_hold, decision_fatigue
-4. Generate session analysis including momentum scores and vicious cycle detection.
-5. For the first trade only, provide detailed psychology coaching and technical analysis.
+3. Calculate cumulative P&L (running total) across all trades in chronological order.
+4. Assign each trade pair a psychology tag: win, fomo, revenge, averaging, panic, against_trend, hope_hold, decision_fatigue
+5. Map each trade to a stage in the Vicious Cycle of retail traders.
+6. Generate session analysis including momentum scores and vicious cycle detection.
+7. For EVERY trade, provide full rich analysis including all fields below.
+8. Calculate time gap between consecutive trades.
+9. Score entry and exit efficiency (0-100) based on optimal price action.
+10. Determine what the trader SHOULD have done vs what they actually did.
 
 Return ONLY valid JSON with NO markdown backticks, NO explanation before or after:
 {
@@ -120,14 +125,53 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
       "entry": number,
       "exit": number,
       "pnl": number,
-      "tag": "win/fomo/revenge/averaging/panic/against_trend",
-      "label": "Disciplined Win / FOMO Entry / etc",
-      "quick_summary": "1-2 sentence summary",
-      "psychology_coaching": "detailed coaching paragraph (only for first trade in free tier)",
-      "technical_analysis": "technical analysis paragraph (only for first trade in free tier)"
+      "cum_pnl": number,
+      "tag": "win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue",
+      "label": "Disciplined Win / FOMO Entry / Revenge Trade / Averaging Down / Panic Exit / Against Trend / Hope & Hold / Decision Fatigue",
+      "session": "morning/midday/afternoon",
+      "time_gap_from_last": "2m 30s or first trade",
+      "quick_summary": "2-3 sentence summary of what happened in this trade and WHY psychologically",
+      "vicious_cycle_stage": "Which of the 8 vicious cycle stages this trade maps to and a 1-sentence explanation of why",
+      "entry_exit_efficiency": {
+        "entry_score": 0-100,
+        "exit_score": 0-100,
+        "risk_reward": "1.5x or 0.3x etc",
+        "optimal_rr": "What the optimal R:R could have been with better execution"
+      },
+      "entry_timing": {
+        "description": "Entry at HH:MM — describe where in the candle/price action the entry happened",
+        "risk_level": "High/Medium/Low"
+      },
+      "in_trade_behavior": {
+        "discipline": "DISCIPLINED/IMPULSIVE/PANIC",
+        "description": "What the trader likely did during the trade based on entry/exit patterns",
+        "during_trade": "patience/premature exit/held too long/moved stop loss/averaged down"
+      },
+      "what_you_did_vs_should_have": {
+        "actual_entry": number,
+        "actual_exit": number,
+        "actual_sl": "none/mental/hard",
+        "ideal_entry": number,
+        "ideal_exit": number,
+        "ideal_sl": number,
+        "potential_pnl": number
+      },
+      "psychology_coaching": "Detailed 3-4 sentence coaching paragraph. Be specific about THIS trade. Reference the exact entry/exit prices, the psychology tag, and give actionable advice.",
+      "technical_analysis": "Detailed 3-4 sentence TA paragraph. Discuss the price action, where support/resistance likely was, whether the entry was with or against the trend.",
+      "counterfactual": "What-if scenario: If you had done X instead of Y, your P&L would have been Z. Be specific with numbers."
     }
   ]
-}`
+}
+
+IMPORTANT RULES:
+- cum_pnl is the running cumulative P&L. Trade 0 cum_pnl = trade 0 pnl. Trade 1 cum_pnl = trade 0 pnl + trade 1 pnl. etc.
+- session: morning = before 10:30, midday = 10:30-13:30, afternoon = after 13:30 (adjust for market timezone)
+- time_gap_from_last: first trade says "first trade", others show gap like "2m 30s" or "45m"
+- Provide ALL fields for EVERY trade. Do not skip any fields for any trade.
+- entry_score/exit_score: 100 = perfect timing, 0 = worst possible timing relative to the candle/session
+- Be brutally honest in psychology_coaching. This is for the trader's growth.
+- what_you_did_vs_should_have: ideal values should reflect what a disciplined trader would have done
+- counterfactual must include specific rupee/dollar amounts`
     });
 
     console.log('Sending to Claude API...');
@@ -142,7 +186,7 @@ Return ONLY valid JSON with NO markdown backticks, NO explanation before or afte
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 16000,
+        max_tokens: 32000,
         messages: [{ role: 'user', content }]
       })
     });

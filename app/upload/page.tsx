@@ -1,13 +1,35 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 
 /* ─── Types ─── */
+interface EntryExitEfficiency {
+  entry_score: number; exit_score: number
+  risk_reward: string; optimal_rr: string
+}
+interface EntryTiming {
+  description: string; risk_level: string
+}
+interface InTradeBehavior {
+  discipline: string; description: string; during_trade: string
+}
+interface WhatVsShould {
+  actual_entry: number; actual_exit: number; actual_sl: string
+  ideal_entry: number; ideal_exit: number; ideal_sl: number
+  potential_pnl: number
+}
 interface Trade {
   index: number; time: string; symbol: string; side: string
-  qty: number; entry: number; exit: number; pnl: number
-  tag: string; label: string; quick_summary: string
-  psychology_coaching?: string; technical_analysis?: string
+  qty: number; entry: number; exit: number; pnl: number; cum_pnl: number
+  tag: string; label: string; session: string
+  time_gap_from_last: string; quick_summary: string
+  vicious_cycle_stage: string
+  entry_exit_efficiency: EntryExitEfficiency
+  entry_timing: EntryTiming
+  in_trade_behavior: InTradeBehavior
+  what_you_did_vs_should_have: WhatVsShould
+  psychology_coaching: string; technical_analysis: string
+  counterfactual: string
 }
 interface Momentum { name: string; score: number; color: string; desc: string }
 interface CycleStage { stage: string; count: number; icon: string; desc: string }
@@ -26,6 +48,10 @@ interface AnalysisResult {
 function fmtPnl(n: number) {
   return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(Math.round(n)).toLocaleString('en-IN')
 }
+function fmtPrice(n: number) {
+  if (n == null) return '—'
+  return '\u20B9' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const TAG_STYLES: Record<string, { bg: string; color: string }> = {
   win: { bg: 'rgba(54,211,153,.12)', color: 'var(--green)' },
@@ -38,6 +64,38 @@ const TAG_STYLES: Record<string, { bg: string; color: string }> = {
   decision_fatigue: { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' },
 }
 
+const SESSION_COLORS: Record<string, { bg: string; color: string; label: string }> = {
+  morning: { bg: 'rgba(54,211,153,.15)', color: '#36d399', label: 'Morning' },
+  midday: { bg: 'rgba(240,180,41,.15)', color: '#f0b429', label: 'Midday' },
+  afternoon: { bg: 'rgba(157,122,247,.15)', color: '#9d7af7', label: 'Afternoon' },
+}
+
+/* ─── Half-gauge SVG ─── */
+function HalfGauge({ score, label, color }: { score: number; label: string; color: string }) {
+  const pct = Math.max(0, Math.min(100, score))
+  const angle = (pct / 100) * 180
+  const rad = (angle - 180) * (Math.PI / 180)
+  const r = 40
+  const cx = 50, cy = 48
+  const x = cx + r * Math.cos(rad)
+  const y = cy + r * Math.sin(rad)
+  const largeArc = angle > 180 ? 1 : 0
+
+  return (
+    <div style={{ textAlign: 'center', flex: 1 }}>
+      <svg viewBox="0 0 100 55" style={{ width: 120, height: 66 }}>
+        <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="var(--s3)" strokeWidth="6" />
+        {pct > 0 && (
+          <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${x} ${y}`} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" />
+        )}
+        <text x={cx} y={cy - 8} textAnchor="middle" fill={color} fontSize="16" fontWeight="800" fontFamily="'JetBrains Mono', monospace">{score}</text>
+        <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--muted)" fontSize="6">/100</text>
+      </svg>
+      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: -4, fontWeight: 600 }}>{label}</div>
+    </div>
+  )
+}
+
 /* ═══════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════ */
@@ -48,6 +106,7 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [expandedTrade, setExpandedTrade] = useState<number>(0)
+  const [sideFilter, setSideFilter] = useState<string>('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
   function formatSize(bytes: number) {
@@ -58,7 +117,7 @@ export default function UploadPage() {
 
   function reset() {
     setFile(null); setLoading(false); setLoadingPct(0)
-    setError(null); setResult(null); setExpandedTrade(0)
+    setError(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -74,7 +133,6 @@ export default function UploadPage() {
     e.target.value = ''
   }
 
-  /* ─── Collect context from selects ─── */
   function getContext() {
     const ctx: Record<string, string> = {}
     document.querySelectorAll<HTMLSelectElement>('.ctx-select').forEach(sel => {
@@ -88,7 +146,6 @@ export default function UploadPage() {
     return ctx
   }
 
-  /* ─── Run Analysis ─── */
   async function runAnalysis() {
     if (!file) { setError('Please select a file first'); return }
     setError(null); setLoading(true); setLoadingPct(5)
@@ -117,17 +174,14 @@ export default function UploadPage() {
       setResult(data)
       setLoading(false); setLoadingPct(0)
 
-      // Save to session storage for results page
       sessionStorage.setItem('tradesaath_results', JSON.stringify(data))
 
-      // Save to Supabase (non-blocking)
       try {
         fetch('/api/sessions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ trades: data.trades, analysis: data, broker: data.broker }),
         }).catch(() => {})
       } catch { /* ignore */ }
-
     } catch {
       clearInterval(progressTimer)
       setError('Failed to connect to server. Please try again.')
@@ -135,16 +189,29 @@ export default function UploadPage() {
     }
   }
 
+  /* ─── Filtered trades for sidebar ─── */
+  const filteredTrades = useMemo(() => {
+    if (!result) return []
+    const trades = result.trades
+    if (sideFilter === 'all') return trades
+    if (sideFilter === 'BUY') return trades.filter(t => t.side === 'BUY')
+    if (sideFilter === 'SELL') return trades.filter(t => t.side === 'SELL')
+    if (sideFilter === 'losses') return trades.filter(t => t.pnl < 0)
+    return trades
+  }, [result, sideFilter])
+
   /* ═══════════════════════════════════════════
      RESULTS VIEW
   ═══════════════════════════════════════════ */
   if (result) {
     const { kpis, trades, momentum, vicious_cycle, technical_insights } = result
     const ts = TAG_STYLES
+    const selectedTrade = trades[expandedTrade]
+    const isLocked = expandedTrade > 0
 
     return (
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
-        <div className="wrap" style={{ maxWidth: 1100 }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
 
           {/* Nav */}
           <div className="results-nav">
@@ -181,7 +248,7 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Momentum Indicators */}
+          {/* Momentum + Vicious Cycle + Technical row */}
           {momentum && momentum.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Session Momentum<span className="badge badge-free">FREE</span></div>
@@ -202,7 +269,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Vicious Cycle */}
           {vicious_cycle && vicious_cycle.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
@@ -221,7 +287,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Technical Insights */}
           {technical_insights && technical_insights.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
@@ -242,86 +307,347 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Trade List */}
+          {/* ═══ Per-Trade: Sidebar + Detail ═══ */}
           <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Per-Trade Analysis<span className="badge badge-free">FREE</span></div>
+            <div className="card-head">Per-Trade Analysis<span className="badge badge-free">Trade 1 FREE</span></div>
             <div className="card-body" style={{ padding: 0 }}>
-              {trades.map((t, i) => {
-                const isExpanded = expandedTrade === i
-                const isLocked = i > 0
-                const tagStyle = ts[t.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
+              <div style={{ display: 'flex', minHeight: 500 }}>
 
-                return (
-                  <div key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                    {/* Trade header — always visible */}
-                    <div onClick={() => !isLocked && setExpandedTrade(isExpanded ? -1 : i)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-                        cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.5 : 1,
-                      }}>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--muted)', width: 28 }}>#{i + 1}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', width: 40 }}>{t.time}</span>
-                      <span style={{ fontWeight: 700, flex: 1, fontSize: 13 }}>{t.symbol}</span>
-                      <span className={`side-badge side-${t.side.toLowerCase()}`} style={{ fontSize: 9 }}>{t.side}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>&times;{t.qty}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)', width: 80, textAlign: 'right' }}>
-                        {fmtPnl(t.pnl)}
-                      </span>
-                      <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 10, fontWeight: 600, background: tagStyle.bg, color: tagStyle.color }}>
-                        {t.label}
-                      </span>
-                      {isLocked && <span style={{ fontSize: 12 }}>🔒</span>}
+                {/* ─── LEFT SIDEBAR ─── */}
+                <div style={{
+                  width: 320, minWidth: 320, borderRight: '1px solid var(--border)',
+                  overflowY: 'auto', maxHeight: 700, position: 'sticky', top: 80,
+                  background: 'var(--s1)',
+                }}>
+                  {/* Running P&L ticker */}
+                  <div style={{
+                    padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                    background: 'rgba(255,255,255,.02)',
+                  }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Running P&L</div>
+                    <div style={{
+                      fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace",
+                      color: kpis.net_pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                    }}>
+                      {fmtPnl(kpis.net_pnl)}
                     </div>
-
-                    {/* Expanded detail — only for unlocked trades */}
-                    {isExpanded && !isLocked && (
-                      <div style={{ padding: '0 16px 16px 54px' }}>
-                        {/* Entry/Exit grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-                          {[
-                            { label: 'Entry', val: '\u20B9' + t.entry },
-                            { label: 'Exit', val: '\u20B9' + t.exit },
-                            { label: 'Qty', val: String(t.qty) },
-                            { label: 'P&L', val: fmtPnl(t.pnl), color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' },
-                          ].map((c, ci) => (
-                            <div key={ci} style={{ padding: '8px 12px', background: 'var(--s2)', borderRadius: 8 }}>
-                              <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>{c.label}</div>
-                              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: c.color || 'var(--text)' }}>{c.val}</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Quick summary */}
-                        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
-                          {t.quick_summary}
-                        </div>
-
-                        {/* Psychology coaching */}
-                        {t.psychology_coaching && (
-                          <div style={{ padding: '12px 14px', borderLeft: '3px solid var(--purple)', background: 'rgba(157,122,247,.04)', borderRadius: '0 8px 8px 0', marginBottom: 10, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', marginBottom: 4 }}>Psychology Coaching</div>
-                            {t.psychology_coaching}
-                          </div>
-                        )}
-
-                        {/* Technical analysis */}
-                        {t.technical_analysis && (
-                          <div style={{ padding: '12px 14px', borderLeft: '3px solid var(--blue)', background: 'rgba(91,141,239,.04)', borderRadius: '0 8px 8px 0', fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', marginBottom: 4 }}>Technical Analysis</div>
-                            {t.technical_analysis}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                )
-              })}
 
-              {/* Paywall */}
+                  {/* Filter tabs */}
+                  <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
+                    {['all', 'BUY', 'SELL', 'losses'].map(f => (
+                      <button key={f} onClick={() => setSideFilter(f)} style={{
+                        flex: 1, padding: '8px 4px', fontSize: 10, fontWeight: 700,
+                        textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'pointer',
+                        background: sideFilter === f ? 'var(--accent)' : 'transparent',
+                        color: sideFilter === f ? '#000' : 'var(--muted)',
+                        border: 'none', borderRight: '1px solid var(--border)',
+                        transition: 'all .15s',
+                      }}>
+                        {f === 'losses' ? '📉 Loss' : f === 'all' ? 'All' : f}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Trade list */}
+                  {filteredTrades.map((t) => {
+                    const isActive = expandedTrade === t.index
+                    const tagStyle = ts[t.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
+                    return (
+                      <div key={t.index}
+                        onClick={() => setExpandedTrade(t.index)}
+                        style={{
+                          padding: '10px 14px', cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                          borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                          background: isActive ? 'rgba(93,120,255,.06)' : 'transparent',
+                          transition: 'all .15s',
+                        }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--muted)', width: 22 }}>#{t.index + 1}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{t.time}</span>
+                          <span style={{ fontWeight: 700, fontSize: 12, flex: 1 }}>{t.symbol}</span>
+                          <span style={{
+                            fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                            background: t.side === 'BUY' ? 'rgba(54,211,153,.15)' : 'rgba(240,93,108,.15)',
+                            color: t.side === 'BUY' ? 'var(--green)' : 'var(--red)',
+                          }}>{t.side}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700,
+                            color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                          }}>{fmtPnl(t.pnl)}</span>
+                          <span style={{
+                            padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600,
+                            background: tagStyle.bg, color: tagStyle.color,
+                          }}>{t.label}</span>
+                          {t.index > 0 && <span style={{ fontSize: 9, marginLeft: 'auto' }}>🔒</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* ─── RIGHT: Trade Detail ─── */}
+                <div style={{ flex: 1, overflowY: 'auto', maxHeight: 700 }}>
+                  {selectedTrade && (
+                    <div style={{ padding: 20 }}>
+                      {/* Trade header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
+                          Trade #{selectedTrade.index + 1}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedTrade.time}</span>
+                        {selectedTrade.session && (() => {
+                          const s = SESSION_COLORS[selectedTrade.session] || SESSION_COLORS.morning
+                          return (
+                            <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: s.bg, color: s.color }}>
+                              {s.label}
+                            </span>
+                          )
+                        })()}
+                        <span style={{ fontWeight: 700, fontSize: 14 }}>{selectedTrade.symbol}</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+                          background: selectedTrade.side === 'BUY' ? 'rgba(54,211,153,.15)' : 'rgba(240,93,108,.15)',
+                          color: selectedTrade.side === 'BUY' ? 'var(--green)' : 'var(--red)',
+                        }}>{selectedTrade.side}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>&times;{selectedTrade.qty}</span>
+                        <span style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 16,
+                          color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 'auto',
+                        }}>{fmtPnl(selectedTrade.pnl)}</span>
+                        {(() => {
+                          const tagStyle = ts[selectedTrade.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
+                          return (
+                            <span style={{ padding: '3px 12px', borderRadius: 12, fontSize: 10, fontWeight: 700, background: tagStyle.bg, color: tagStyle.color }}>
+                              {selectedTrade.label}
+                            </span>
+                          )
+                        })()}
+                      </div>
+
+                      {/* LOCKED overlay for non-first trades */}
+                      {isLocked ? (
+                        <div style={{
+                          textAlign: 'center', padding: '60px 20px',
+                          background: 'rgba(255,255,255,.02)', borderRadius: 12,
+                          border: '1px dashed var(--border)',
+                        }}>
+                          <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Trade Detail Locked</div>
+                          <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
+                            Full psychology coaching, technical analysis, entry/exit efficiency, and counterfactual analysis for all {trades.length} trades.
+                          </div>
+                          <button className="btn btn-accent" style={{ fontSize: 14, padding: '10px 32px' }}>
+                            Upgrade to Pro — ₹99
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Time gap badge */}
+                          {selectedTrade.time_gap_from_last && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14 }}>
+                              ⏱️ {selectedTrade.time_gap_from_last === 'first trade' ? 'First trade of session' : `${selectedTrade.time_gap_from_last} since last trade`}
+                            </div>
+                          )}
+
+                          {/* Stats grid — 5 columns */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
+                            {[
+                              { label: 'Entry', val: fmtPrice(selectedTrade.entry) },
+                              { label: 'Exit', val: fmtPrice(selectedTrade.exit) },
+                              { label: 'Qty', val: String(selectedTrade.qty) },
+                              { label: 'Net P&L', val: fmtPnl(selectedTrade.pnl), color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)' },
+                              { label: 'Cum. P&L', val: fmtPnl(selectedTrade.cum_pnl || selectedTrade.pnl), color: (selectedTrade.cum_pnl || selectedTrade.pnl) >= 0 ? 'var(--green)' : 'var(--red)' },
+                            ].map((c, ci) => (
+                              <div key={ci} style={{ padding: '10px 12px', background: 'var(--s2)', borderRadius: 8 }}>
+                                <div style={{ fontSize: 9, color: 'var(--muted)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>{c.label}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: c.color || 'var(--text)' }}>{c.val}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Quick Summary */}
+                          {selectedTrade.quick_summary && (
+                            <div style={{
+                              padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                              borderLeft: `3px solid var(--accent)`, background: 'rgba(93,120,255,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.8,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Quick Summary</div>
+                              {selectedTrade.quick_summary}
+                            </div>
+                          )}
+
+                          {/* Entry/Exit Efficiency */}
+                          {selectedTrade.entry_exit_efficiency && (
+                            <div style={{
+                              marginBottom: 16, padding: '16px', background: 'var(--s2)', borderRadius: 10,
+                            }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Entry / Exit Efficiency</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <HalfGauge score={selectedTrade.entry_exit_efficiency.entry_score} label="Entry Score" color="var(--green)" />
+                                <HalfGauge score={selectedTrade.entry_exit_efficiency.exit_score} label="Exit Score" color="var(--accent)" />
+                                <div style={{ flex: 1, textAlign: 'center' }}>
+                                  <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>Risk : Reward</div>
+                                  <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text)' }}>
+                                    {selectedTrade.entry_exit_efficiency.risk_reward}
+                                  </div>
+                                  {selectedTrade.entry_exit_efficiency.optimal_rr && (
+                                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
+                                      Optimal: {selectedTrade.entry_exit_efficiency.optimal_rr}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Entry Timing */}
+                          {selectedTrade.entry_timing && (
+                            <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--s2)', borderRadius: 10 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Entry Timing</div>
+                              <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                                {selectedTrade.entry_timing.description}
+                              </div>
+                              <span style={{
+                                marginTop: 6, display: 'inline-block',
+                                padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                                background: selectedTrade.entry_timing.risk_level === 'High' ? 'rgba(240,93,108,.15)' :
+                                  selectedTrade.entry_timing.risk_level === 'Medium' ? 'rgba(240,180,41,.15)' : 'rgba(54,211,153,.15)',
+                                color: selectedTrade.entry_timing.risk_level === 'High' ? 'var(--red)' :
+                                  selectedTrade.entry_timing.risk_level === 'Medium' ? 'var(--gold)' : 'var(--green)',
+                              }}>
+                                {selectedTrade.entry_timing.risk_level} Risk
+                              </span>
+                            </div>
+                          )}
+
+                          {/* In-Trade Behavior */}
+                          {selectedTrade.in_trade_behavior && (
+                            <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--s2)', borderRadius: 10 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: 1 }}>In-Trade Behavior</span>
+                                <span style={{
+                                  padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                                  background: selectedTrade.in_trade_behavior.discipline === 'DISCIPLINED' ? 'rgba(54,211,153,.15)' :
+                                    selectedTrade.in_trade_behavior.discipline === 'IMPULSIVE' ? 'rgba(240,180,41,.15)' : 'rgba(240,93,108,.15)',
+                                  color: selectedTrade.in_trade_behavior.discipline === 'DISCIPLINED' ? 'var(--green)' :
+                                    selectedTrade.in_trade_behavior.discipline === 'IMPULSIVE' ? 'var(--gold)' : 'var(--red)',
+                                }}>
+                                  {selectedTrade.in_trade_behavior.discipline}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                                {selectedTrade.in_trade_behavior.description}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                                During trade: {selectedTrade.in_trade_behavior.during_trade}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* What You Did vs Should Have Done */}
+                          {selectedTrade.what_you_did_vs_should_have && (
+                            <div style={{ marginBottom: 16 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>What You Did vs Should Have Done</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                {/* Actual — Red */}
+                                <div style={{ padding: '14px 16px', borderRadius: 10, borderLeft: '3px solid var(--red)', background: 'rgba(240,93,108,.04)' }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', marginBottom: 8, textTransform: 'uppercase' }}>What You Did</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Entry:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.actual_entry)}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Exit:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.actual_exit)}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>SL:</span> <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedTrade.what_you_did_vs_should_have.actual_sl}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>P&L:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(selectedTrade.pnl)}</span></div>
+                                  </div>
+                                </div>
+                                {/* Ideal — Green */}
+                                <div style={{ padding: '14px 16px', borderRadius: 10, borderLeft: '3px solid var(--green)', background: 'rgba(54,211,153,.04)' }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 8, textTransform: 'uppercase' }}>What You Should Have Done</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Entry:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_entry)}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Exit:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_exit)}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>SL:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmtPrice(selectedTrade.what_you_did_vs_should_have.ideal_sl)}</span></div>
+                                    <div><span style={{ fontSize: 10, color: 'var(--muted)' }}>Potential P&L:</span> <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--green)' }}>{fmtPnl(selectedTrade.what_you_did_vs_should_have.potential_pnl)}</span></div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Vicious Cycle Stage */}
+                          {selectedTrade.vicious_cycle_stage && (
+                            <div style={{
+                              padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid var(--gold)', background: 'rgba(240,180,41,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Vicious Cycle Stage</div>
+                              {selectedTrade.vicious_cycle_stage}
+                            </div>
+                          )}
+
+                          {/* Psychology Coaching */}
+                          {selectedTrade.psychology_coaching && (
+                            <div style={{
+                              padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid var(--purple)', background: 'rgba(157,122,247,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--purple)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Psychology Coaching</div>
+                              {selectedTrade.psychology_coaching}
+                            </div>
+                          )}
+
+                          {/* Technical Analysis */}
+                          {selectedTrade.technical_analysis && (
+                            <div style={{
+                              padding: '12px 16px', marginBottom: 16, borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid var(--blue)', background: 'rgba(91,141,239,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Technical Analysis</div>
+                              {selectedTrade.technical_analysis}
+                            </div>
+                          )}
+
+                          {/* Counterfactual — locked for free tier */}
+                          <div style={{
+                            padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                            borderLeft: '3px solid var(--teal, #2dd4bf)', background: 'rgba(45,212,191,.04)',
+                            fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            position: 'relative', overflow: 'hidden',
+                          }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--teal, #2dd4bf)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                              🔒 Counterfactual — What If?
+                            </div>
+                            <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                              {selectedTrade.counterfactual || 'If you had waited for the pullback confirmation and entered 15 points lower, your risk-reward would have improved to 2.8x and your P&L would have been +₹4,200 instead.'}
+                            </div>
+                            <div style={{
+                              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                            }}>
+                              <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }}>
+                                🔒 Upgrade to unlock
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom paywall */}
               {trades.length > 1 && (
-                <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(255,255,255,.02)' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Unlock {trades.length - 1} More Trades</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 14 }}>Full psychology coaching, technical analysis for every trade.</div>
+                <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(255,255,255,.02)', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Unlock All {trades.length} Trades</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 14 }}>Full psychology coaching, technical analysis, counterfactuals for every trade.</div>
                   <button className="btn btn-accent">Upgrade to Pro — ₹99</button>
                 </div>
               )}
