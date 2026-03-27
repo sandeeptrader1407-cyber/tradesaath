@@ -1,139 +1,80 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import BrokerGuide from '@/components/BrokerGuide'
-import { useRazorpay } from '@/hooks/useRazorpay'
 
 /* ─── Types ─── */
 interface Trade {
-  id: number; time: string; symbol: string; side: 'BUY' | 'SELL'
-  qty: number; entry: number; exit: number; pnl: number; cumPnl: number
-  fills: { qty: number; price: number }[]
+  index: number; time: string; symbol: string; side: string
+  qty: number; entry: number; exit: number; pnl: number
+  tag: string; label: string; quick_summary: string
+  psychology_coaching?: string; technical_analysis?: string
 }
-interface VsComparison {
-  whatYouDid: string; whatYouShouldHaveDone: string; potentialSaving: number; actionItem: string
+interface Momentum { name: string; score: number; color: string; desc: string }
+interface CycleStage { stage: string; count: number; icon: string; desc: string }
+interface TechInsight { name: string; score: number; color: string; desc: string }
+interface KPIs {
+  net_pnl: number; total_trades: number; wins: number; losses: number
+  win_rate: number; profit_factor: number; best_trade_pnl: number; worst_trade_pnl: number
 }
-interface PerTrade {
-  tradeIndex: number; tag: string; tagColor: string; label: string
-  quickSummary: string; psychologyNote: string; technicalNote: string
-  counterfactual: string; sessionBadge: string; timeGap: number; timeGapColor: string
-  actionItem?: string; vsComparison?: VsComparison; cycleStage?: number
-}
-interface MistakeCost { name: string; icon: string; count: number; cost: number }
-interface Analysis {
-  summary: string; dqsScore: number; sessionNarrative?: string
-  dqsFactors: { name: string; score: number; color: string }[]
-  momentumIndicators?: { name: string; score: number; description: string }[]
-  perTrade: PerTrade[]
-  patterns: { name: string; icon: string; description: string; costInRupees: number; frequency: string }[]
-  financialImpact: { totalLost: number; potentialPnl: number; message: string; mistakeCosts?: MistakeCost[] }
-  rulesForNextSession: string[]; bestCase: string; worstCase: string
-  crossUserInsights?: string[]
-  momentum?: { name: string; value: number; color: string; description: string }[]
-  viciousCycle?: { stage: string; active: boolean; icon: string }[]
-  freeInsights?: { name: string; score: number; color: string; description: string }[]
-}
-interface ResultsData { trades: Trade[]; analysis: Analysis; broker: string }
-
-/* ─── Constants ─── */
-const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-  green: { bg: 'rgba(54,211,153,.1)', color: 'var(--green)' },
-  blue: { bg: 'rgba(91,141,239,.1)', color: 'var(--blue)' },
-  orange: { bg: 'rgba(242,155,75,.1)', color: 'var(--orange)' },
-  red: { bg: 'rgba(240,93,108,.1)', color: 'var(--red)' },
-  purple: { bg: 'rgba(157,122,247,.1)', color: 'var(--purple)' },
-  gold: { bg: 'rgba(240,180,41,.1)', color: 'var(--gold)' },
+interface AnalysisResult {
+  broker: string; market: string; trade_date: string; currency: string
+  kpis: KPIs; summary: string; momentum: Momentum[]
+  vicious_cycle: CycleStage[]; technical_insights: TechInsight[]
+  trades: Trade[]
 }
 
-const CYCLE_STAGES = [
-  { stage: 'Disciplined Win', icon: '✅' },
-  { stage: 'FOMO Re-entry', icon: '🏃' },
-  { stage: 'Against Trend', icon: '🔄' },
-  { stage: 'Hope & Hold', icon: '🙏' },
-  { stage: 'Averaging Down', icon: '📉' },
-  { stage: 'Panic Exit', icon: '😱' },
-  { stage: 'Revenge Trade', icon: '😤' },
-  { stage: 'Decision Fatigue', icon: '😵' },
-]
+function fmtPnl(n: number) {
+  return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(Math.round(n)).toLocaleString('en-IN')
+}
 
-const DEMO_TRADES: Trade[] = [
-  { id:1, time:'09:18', symbol:'NIFTY 24850 CE', side:'SELL', qty:75, entry:138.2, exit:92.4, pnl:3435, cumPnl:3435, fills:[{qty:50,price:139.0},{qty:25,price:136.6}] },
-  { id:2, time:'09:20', symbol:'NIFTY 24950 PE', side:'BUY', qty:75, entry:123.4, exit:165.0, pnl:3120, cumPnl:6555, fills:[{qty:75,price:123.4}] },
-  { id:3, time:'10:01', symbol:'NIFTY 25000 PE', side:'BUY', qty:75, entry:118.8, exit:143.7, pnl:1868, cumPnl:8423, fills:[{qty:75,price:118.8}] },
-  { id:4, time:'10:36', symbol:'NIFTY 24800 CE', side:'BUY', qty:75, entry:99.7, exit:84.7, pnl:-1125, cumPnl:7298, fills:[{qty:75,price:99.7}] },
-  { id:5, time:'12:07', symbol:'NIFTY 24750 CE', side:'BUY', qty:75, entry:82.5, exit:46.2, pnl:-2723, cumPnl:4575, fills:[{qty:75,price:82.5}] },
-  { id:6, time:'12:32', symbol:'NIFTY 24650 CE', side:'BUY', qty:150, entry:79.1, exit:18.5, pnl:-9090, cumPnl:-4515, fills:[{qty:75,price:81.2},{qty:75,price:77.0}] },
-  { id:7, time:'13:29', symbol:'NIFTY 24650 CE', side:'SELL', qty:75, entry:18.5, exit:16.1, pnl:180, cumPnl:-4335, fills:[{qty:75,price:18.5}] },
-  { id:8, time:'13:31', symbol:'NIFTY 24650 CE', side:'BUY', qty:75, entry:22.1, exit:19.3, pnl:-210, cumPnl:-4545, fills:[{qty:75,price:22.1}] },
-  { id:9, time:'14:01', symbol:'NIFTY 24600 CE', side:'BUY', qty:75, entry:37.5, exit:62.3, pnl:1860, cumPnl:-2685, fills:[{qty:75,price:37.5}] },
-  { id:10,time:'14:33', symbol:'NIFTY 24700 CE', side:'BUY', qty:75, entry:48.6, exit:75.7, pnl:2033, cumPnl:-652, fills:[{qty:75,price:48.6}] },
-]
+const TAG_STYLES: Record<string, { bg: string; color: string }> = {
+  win: { bg: 'rgba(54,211,153,.12)', color: 'var(--green)' },
+  fomo: { bg: 'rgba(240,180,41,.12)', color: 'var(--gold)' },
+  revenge: { bg: 'rgba(240,93,108,.12)', color: 'var(--red)' },
+  averaging: { bg: 'rgba(240,93,108,.12)', color: 'var(--red)' },
+  panic: { bg: 'rgba(157,122,247,.12)', color: 'var(--purple)' },
+  against_trend: { bg: 'rgba(242,155,75,.12)', color: 'var(--orange)' },
+  hope_hold: { bg: 'rgba(240,93,108,.12)', color: 'var(--red)' },
+  decision_fatigue: { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' },
+}
 
-function fmtPnl(n: number) { return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(n).toLocaleString('en-IN') }
-
-/* ─── Helpers ─── */
-interface UploadedFile { file: File; name: string; size: string }
-type Phase = 'idle' | 'analysing' | 'results'
-
-/* ═══════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    MAIN COMPONENT
-═══════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 export default function UploadPage() {
-  /* Upload state */
-  const [files, setFiles] = useState<UploadedFile[]>([])
-  const [broker, setBroker] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingPct, setLoadingPct] = useState(0)
-  const [loadingMsg, setLoadingMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [ocrWarning, setOcrWarning] = useState<string | null>(null)
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [expandedTrade, setExpandedTrade] = useState<number>(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  /* Results state — inline, no redirect */
-  const [results, setResults] = useState<ResultsData | null>(null)
-  const [expandedTrades, setExpandedTrades] = useState<Set<number>>(new Set([0]))
-  const [deepDives, setDeepDives] = useState<Set<number>>(new Set())
-  const [filter, setFilter] = useState<'all' | 'BUY' | 'SELL' | 'loss'>('all')
-  const [selectedTrade, setSelectedTrade] = useState(0)
-  const [unlocked, setUnlocked] = useState(false)
-  const [payError, setPayError] = useState<string | null>(null)
-  const { pay, loading: payLoading, paid, testMode } = useRazorpay()
-
-  /* ─── Upload helpers ─── */
   function formatSize(bytes: number) {
     if (bytes < 1024) return bytes + ' B'
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
-  function resetAll() {
-    setFiles([]); setBroker(null); setError(null); setPhase('idle')
-    setLoading(false); setLoadingPct(0)
-    setLoadingMsg(null); setOcrWarning(null)
-    setResults(null); setExpandedTrades(new Set([0])); setDeepDives(new Set())
-    setFilter('all'); setSelectedTrade(0); setUnlocked(false); setPayError(null)
+  function reset() {
+    setFile(null); setLoading(false); setLoadingPct(0)
+    setError(null); setResult(null); setExpandedTrade(0)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  function addFiles(newFiles: File[]) {
-    const added = newFiles.slice(0, 40 - files.length).map(f => ({ file: f, name: f.name, size: formatSize(f.size) }))
-    setFiles(prev => [...prev, ...added])
-    setError(null); setPhase('idle'); setBroker(null)
-  }
-
-  function removeFile(idx: number) {
-    setFiles(prev => prev.filter((_, i) => i !== idx))
-    setError(null); setPhase('idle'); setBroker(null)
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    if (e.dataTransfer?.files) addFiles(Array.from(e.dataTransfer.files))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files.length])
+    const f = e.dataTransfer?.files?.[0]
+    if (f) { setFile(f); setError(null) }
+  }, [])
 
-  /* ─── Collect context from form ─── */
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) { setFile(f); setError(null) }
+    e.target.value = ''
+  }
+
+  /* ─── Collect context from selects ─── */
   function getContext() {
     const ctx: Record<string, string> = {}
     document.querySelectorAll<HTMLSelectElement>('.ctx-select').forEach(sel => {
@@ -147,598 +88,253 @@ export default function UploadPage() {
     return ctx
   }
 
-  /* ─── Run Analysis — simplified flow ─── */
+  /* ─── Run Analysis ─── */
   async function runAnalysis() {
+    if (!file) { setError('Please select a file first'); return }
     setError(null); setLoading(true); setLoadingPct(5)
 
-    // No file → demo data
-    if (files.length === 0) {
-      setLoadingMsg('Analysing demo trades...')
-      setLoadingPct(20); setPhase('analysing')
-      try {
-        const ctx = getContext()
-        const res = await fetch('/api/analyse', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trades: DEMO_TRADES, context: { broker: 'Demo', ...ctx } }),
-        })
-        setLoadingPct(90)
-        const data = await res.json()
-        if (!res.ok) { setError(data.error || 'AI analysis failed'); setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle'); return }
-        setLoadingPct(100)
-        const resultData = { trades: DEMO_TRADES, analysis: data.analysis, broker: 'Demo' }
-        setResults(resultData)
-        setBroker('Demo')
-        sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
-        setPhase('results')
-        setLoading(false); setLoadingPct(0); setLoadingMsg(null)
-      } catch { setError('Failed to connect to AI server'); setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle') }
-      return
-    }
-
-    // File uploaded → Send to /api/analyse (extraction + analysis in one call)
-    setPhase('analysing')
-    setLoadingMsg('AI is reading your file and analysing trades... this takes 20-60 seconds')
-    setLoadingPct(10)
+    const progressTimer = setInterval(() => {
+      setLoadingPct(prev => Math.min(prev + 2, 90))
+    }, 1500)
 
     try {
-      const ctx = getContext()
       const fd = new FormData()
-      fd.append('file', files[0].file)
-      fd.append('context', JSON.stringify(ctx))
-
-      // Simulate progress while waiting
-      const progressTimer = setInterval(() => {
-        setLoadingPct(prev => Math.min(prev + 3, 85))
-      }, 2000)
+      fd.append('file', file)
+      fd.append('context', JSON.stringify(getContext()))
 
       const res = await fetch('/api/analyse', { method: 'POST', body: fd })
       clearInterval(progressTimer)
-      setLoadingPct(90)
+      setLoadingPct(95)
 
       const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'AI analysis failed')
-        setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
+      if (!res.ok || data.error) {
+        setError(data.error || 'Analysis failed')
+        setLoading(false); setLoadingPct(0)
         return
       }
 
-      const extractedTrades = data.trades
-      const detectedBroker = data.broker || 'Unknown'
-      setBroker(detectedBroker)
+      setLoadingPct(100)
+      setResult(data)
+      setLoading(false); setLoadingPct(0)
 
-      setLoadingPct(95)
-      const resultData = { trades: extractedTrades, analysis: data.analysis, broker: detectedBroker }
-      setResults(resultData)
-      sessionStorage.setItem('tradesaath_results', JSON.stringify(resultData))
+      // Save to session storage for results page
+      sessionStorage.setItem('tradesaath_results', JSON.stringify(data))
 
-      // Save session to Supabase (non-blocking, only if authenticated)
+      // Save to Supabase (non-blocking)
       try {
         fetch('/api/sessions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trades: extractedTrades, analysis: data.analysis, broker: detectedBroker }),
-        }).catch(() => { /* silently fail for unauthenticated users */ })
+          body: JSON.stringify({ trades: data.trades, analysis: data, broker: data.broker }),
+        }).catch(() => {})
       } catch { /* ignore */ }
 
-      setLoadingPct(100)
-      setPhase('results')
-      setLoading(false); setLoadingPct(0); setLoadingMsg(null)
-
     } catch {
+      clearInterval(progressTimer)
       setError('Failed to connect to server. Please try again.')
-      setLoading(false); setLoadingPct(0); setLoadingMsg(null); setPhase('idle')
+      setLoading(false); setLoadingPct(0)
     }
   }
 
-  /* ─── Results helpers ─── */
-  const FREE_LIMIT = (unlocked || paid) ? Infinity : 1
-
-  function toggleTrade(idx: number) {
-    setExpandedTrades(prev => { const n = new Set(prev); if (n.has(idx)) n.delete(idx); else n.add(idx); return n })
-    setSelectedTrade(idx)
-  }
-  function toggleDeepDive(idx: number) {
-    setDeepDives(prev => { const n = new Set(prev); if (n.has(idx)) n.delete(idx); else n.add(idx); return n })
-  }
-  function getPerTrade(idx: number) { return results?.analysis.perTrade.find(p => p.tradeIndex === idx) }
-
   /* ═══════════════════════════════════════════
-     RENDER: RESULTS VIEW (inline)
+     RESULTS VIEW
   ═══════════════════════════════════════════ */
-  if (phase === 'results' && results) {
-    const { trades, analysis } = results
-    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0)
-    const wins = trades.filter(t => t.pnl > 0).length
-    const losses = trades.filter(t => t.pnl < 0).length
-    const winRate = trades.length > 0 ? Math.round((wins / trades.length) * 100) : 0
-    const avgWin = wins > 0 ? Math.round(trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0) / wins) : 0
-    const avgLoss = losses > 0 ? Math.round(Math.abs(trades.filter(t => t.pnl < 0).reduce((s, t) => s + t.pnl, 0)) / losses) : 0
-    const profitFactor = avgLoss > 0 ? (avgWin * wins / (avgLoss * losses)).toFixed(1) : '∞'
-    const maxDD = Math.min(...trades.map(t => t.cumPnl), 0)
-
-    const dqsColor = analysis.dqsScore >= 70 ? 'var(--green)' : analysis.dqsScore >= 50 ? 'var(--gold)' : analysis.dqsScore >= 30 ? 'var(--orange)' : 'var(--red)'
-    const dqsCirc = 2 * Math.PI * 50
-    const dqsDash = (analysis.dqsScore / 100) * dqsCirc
-
-    const filteredTrades = trades.filter(t => {
-      if (filter === 'BUY') return t.side === 'BUY'
-      if (filter === 'SELL') return t.side === 'SELL'
-      if (filter === 'loss') return t.pnl < 0
-      return true
-    })
-
-    // Use AI-returned momentum indicators, fallback to computed
-    const momentum = analysis.momentumIndicators
-      ? analysis.momentumIndicators.map((m, i) => ({
-          name: m.name,
-          value: m.score,
-          color: ['gold', 'red', 'accent', 'blue'][i % 4],
-          description: m.description,
-        }))
-      : (analysis.momentum || [
-          { name: 'Rule Following', value: Math.min(100, Math.round(winRate * 1.3)), color: 'gold', description: 'Your first 3 trades followed the plan — then emotions took over' },
-          { name: 'Staying Calm', value: Math.min(100, Math.round(wins / Math.max(trades.length, 1) * 100)), color: 'red', description: 'Your calmest trades made money. Emotional ones didn\'t.' },
-          { name: 'Entry Timing', value: analysis.dqsScore, color: 'accent', description: 'Morning entries were sharp and precise — that\'s real skill' },
-          { name: 'Exit Discipline', value: Math.min(100, Math.round(avgWin > 0 && avgLoss > 0 ? (avgWin / (avgWin + avgLoss)) * 100 : 40)), color: 'blue', description: 'Pre-set stops would have saved significant money' },
-        ])
-
-    // Vicious cycle stages
-    const cycleStages = analysis.viciousCycle || CYCLE_STAGES.map((s, i) => ({
-      ...s,
-      active: analysis.perTrade.some(pt => {
-        const tag = pt.label?.toLowerCase() || ''
-        if (i === 0) return pt.tagColor === 'green'
-        if (i === 1) return tag.includes('fomo')
-        if (i === 2) return tag.includes('trend') || tag.includes('against')
-        if (i === 3) return tag.includes('hope') || tag.includes('hold')
-        if (i === 4) return tag.includes('averag') || tag.includes('avg')
-        if (i === 5) return tag.includes('panic')
-        if (i === 6) return tag.includes('revenge')
-        if (i === 7) return tag.includes('fatigue') || tag.includes('overtr')
-        return false
-      })
-    }))
-
-    // Free technical insights
-    const freeInsights = analysis.freeInsights || [
-      { name: 'Entry Quality', score: Math.min(100, Math.round(avgWin > 0 ? 45 + avgWin / 100 : 40)), color: 'blue', description: 'Entries were structured on ' + Math.round(winRate * 0.8) + '% of trades' },
-      { name: 'Trend Alignment', score: Math.min(100, Math.round(winRate * 1.1)), color: 'accent', description: wins + ' of ' + trades.length + ' trades aligned with the prevailing trend' },
-      { name: 'Volume/Momentum', score: 55, color: 'gold', description: 'Mixed momentum signals — some trades had volume confirmation' },
-      { name: 'Risk:Reward', score: Math.min(100, Math.round(avgWin > 0 && avgLoss > 0 ? (avgWin / avgLoss) * 40 : 30)), color: 'purple', description: 'Avg win: ' + fmtPnl(avgWin) + ' vs Avg loss: ' + fmtPnl(-avgLoss) },
-    ]
+  if (result) {
+    const { kpis, trades, momentum, vicious_cycle, technical_insights } = result
+    const ts = TAG_STYLES
 
     return (
-      <section id="sec-app" style={{ paddingTop: 80, paddingBottom: 60 }}>
+      <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 1100 }}>
 
-          {/* Results Nav */}
+          {/* Nav */}
           <div className="results-nav">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button className="btn btn-ghost btn-sm" onClick={resetAll}>&larr; New Analysis</button>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Free tier &middot; {broker || 'trades'}</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <span className="badge badge-free">Free Analysis</span>
-            </div>
+            <button className="btn btn-ghost btn-sm" onClick={reset}>&larr; New Analysis</button>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Free tier &middot; {result.broker} &middot; {result.market}</span>
           </div>
 
-          {/* KPI Strip — Extended */}
+          {/* KPI Strip */}
           <div className="kpi-strip">
-            <div className="kpi-item">
-              <div className="kpi-label">Net P&L</div>
-              <div className="kpi-val" style={{ color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(totalPnl)}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Trades</div>
-              <div className="kpi-val">{trades.length}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Winners</div>
-              <div className="kpi-val" style={{ color: 'var(--green)' }}>{wins}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Win Rate</div>
-              <div className="kpi-val">{winRate}%</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Avg Win</div>
-              <div className="kpi-val" style={{ color: 'var(--green)', fontSize: 14 }}>{fmtPnl(avgWin)}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Avg Loss</div>
-              <div className="kpi-val" style={{ color: 'var(--red)', fontSize: 14 }}>{fmtPnl(-avgLoss)}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Profit Factor</div>
-              <div className="kpi-val">{profitFactor}</div>
-            </div>
-            <div className="kpi-item">
-              <div className="kpi-label">Max DD</div>
-              <div className="kpi-val" style={{ color: 'var(--red)', fontSize: 14 }}>{fmtPnl(maxDD)}</div>
-            </div>
+            {[
+              { label: 'Net P&L', val: fmtPnl(kpis.net_pnl), color: kpis.net_pnl >= 0 ? 'var(--green)' : 'var(--red)' },
+              { label: 'Trades', val: String(kpis.total_trades), color: 'var(--text)' },
+              { label: 'Winners', val: String(kpis.wins), color: 'var(--green)' },
+              { label: 'Losers', val: String(kpis.losses), color: 'var(--red)' },
+              { label: 'Win Rate', val: kpis.win_rate + '%', color: kpis.win_rate >= 50 ? 'var(--green)' : 'var(--red)' },
+              { label: 'Profit Factor', val: String(kpis.profit_factor || '—'), color: 'var(--text)' },
+              { label: 'Best Trade', val: fmtPnl(kpis.best_trade_pnl), color: 'var(--green)' },
+              { label: 'Worst Trade', val: fmtPnl(kpis.worst_trade_pnl), color: 'var(--red)' },
+            ].map((k, i) => (
+              <div key={i} className="kpi-item">
+                <div className="kpi-label">{k.label}</div>
+                <div className="kpi-val" style={{ color: k.color }}>{k.val}</div>
+              </div>
+            ))}
           </div>
 
-          {/* AI Summary + DQS Ring */}
+          {/* AI Summary */}
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-head">AI Session Summary<span className="badge badge-free">FREE</span></div>
             <div className="card-body">
-              <div className="quick-summary">{analysis.summary}</div>
-              <div className="dqs-wrap">
-                <div className="dqs-ring">
-                  <svg viewBox="0 0 120 120">
-                    <circle className="ring-bg" cx="60" cy="60" r="50" />
-                    <circle className="ring-fill" cx="60" cy="60" r="50" stroke={dqsColor}
-                      style={{ strokeDasharray: `${dqsDash} ${dqsCirc}` }} />
-                  </svg>
-                  <div className="dqs-center">
-                    <div className="dqs-num" style={{ color: dqsColor }}>{analysis.dqsScore}</div>
-                    <div className="dqs-lbl">Quality</div>
-                  </div>
-                </div>
-                <div className="dqs-factors">
-                  {analysis.dqsFactors?.map((f, i) => (
-                    <div key={i} className="dqs-f">
-                      <span className="dqs-f-name">{f.name}</span>
-                      <div className="dqs-f-bar"><div className="dqs-f-fill" style={{ width: `${f.score}%`, background: `var(--${f.color})` }} /></div>
-                      <span className="dqs-f-val" style={{ color: `var(--${f.color})` }}>{f.score}</span>
+              <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                {result.summary}
+              </div>
+            </div>
+          </div>
+
+          {/* Momentum Indicators */}
+          {momentum && momentum.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Session Momentum<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="momentum-grid">
+                  {momentum.map((m, i) => (
+                    <div key={i} className="momentum-item">
+                      <div className="momentum-head">
+                        <span className="momentum-name">{m.name}</span>
+                        <span className="momentum-val" style={{ color: `var(--${m.color})` }}>{m.score}%</span>
+                      </div>
+                      <div className="momentum-bar"><div className="momentum-fill" style={{ width: `${m.score}%`, background: `var(--${m.color})` }} /></div>
+                      <div className="momentum-desc">{m.desc}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Session Narrative — Story Arc */}
-          {analysis.sessionNarrative && (
+          {/* Vicious Cycle */}
+          {vicious_cycle && vicious_cycle.length > 0 && (
             <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">Your Session Story<span className="badge badge-free">FREE</span></div>
+              <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
               <div className="card-body">
-                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-                  {analysis.sessionNarrative}
+                <div className="cycle-grid">
+                  {vicious_cycle.map((s, i) => (
+                    <div key={i} className={`cycle-stage${s.count > 0 ? ' active' : ''}`}>
+                      <div className="cycle-icon">{s.icon}</div>
+                      <div className="cycle-label">{s.stage}</div>
+                      {s.count > 0 && <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>{s.count}x</div>}
+                      {s.count > 0 && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{s.desc}</div>}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Session Momentum Indicators */}
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Session Momentum Indicators<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
-              <div className="momentum-grid">
-                {momentum.map((m, i) => (
-                  <div key={i} className="momentum-item">
-                    <div className="momentum-head">
-                      <span className="momentum-name">{m.name}</span>
-                      <span className="momentum-val" style={{ color: `var(--${m.color})` }}>{m.value}%</span>
-                    </div>
-                    <div className="momentum-bar"><div className="momentum-fill" style={{ width: `${m.value}%`, background: `var(--${m.color})` }} /></div>
-                    <div className="momentum-desc">{m.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Vicious Cycle Detector */}
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
-              <div className="cycle-grid">
-                {cycleStages.map((s, i) => (
-                  <div key={i} className={`cycle-stage${s.active ? ' active' : ''}`}>
-                    <div className="cycle-icon">{s.icon}</div>
-                    <div className="cycle-label">{s.stage}</div>
-                    {i < cycleStages.length - 1 && <div className="cycle-arrow">&rarr;</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Free Technical Insights */}
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
-              <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 14 }}>Entry quality, trend alignment, and volume analysis across your session.</div>
-              <div className="fi-grid">
-                {freeInsights.map((fi, i) => (
-                  <div key={i} className="fi-item">
-                    <div className="fi-head">
-                      <span className="fi-name">{fi.name}</span>
-                      <span className="fi-score" style={{ color: `var(--${fi.color})` }}>{fi.score}/100</span>
-                    </div>
-                    <div className="fi-bar"><div className="fi-fill" style={{ width: `${fi.score}%`, background: `var(--${fi.color})` }} /></div>
-                    <div className="fi-desc">{fi.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Per-Trade Analysis — Sidebar Layout */}
-          <div className="results-layout">
-            {/* Sidebar */}
-            <div className="adv-sidebar">
-              <div className="adv-sb-head">
-                <span className="adv-sb-title">Trades</span>
-                <span className="adv-sb-count">{trades.length} trades</span>
-              </div>
-              <div className="filter-tabs">
-                {(['all', 'BUY', 'SELL', 'loss'] as const).map(f => (
-                  <button key={f} className={`ftab${filter === f ? ' on' : ''}`} onClick={() => setFilter(f)}>
-                    {f === 'all' ? 'All' : f === 'loss' ? 'Losses' : f}
-                  </button>
-                ))}
-              </div>
-              <div className="rpnl-ticker">
-                Running P&L: <span style={{ color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(totalPnl)}</span>
-              </div>
-              <div className="adv-trade-list">
-                {filteredTrades.map(t => {
-                  const idx = t.id - 1
-                  const pt = getPerTrade(idx)
-                  return (
-                    <div key={t.id} className={`sb-trade-item${selectedTrade === idx ? ' active' : ''}`}
-                      onClick={() => { setSelectedTrade(idx); toggleTrade(idx) }}>
-                      <div className="sb-trade-left">
-                        <span className="sb-trade-num">#{t.id}</span>
-                        <span className="sb-trade-time">{t.time}</span>
-                        <span className={`side-badge side-${t.side.toLowerCase()}`}>{t.side}</span>
+          {/* Technical Insights */}
+          {technical_insights && technical_insights.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="fi-grid">
+                  {technical_insights.map((ti, i) => (
+                    <div key={i} className="fi-item">
+                      <div className="fi-head">
+                        <span className="fi-name">{ti.name}</span>
+                        <span className="fi-score" style={{ color: `var(--${ti.color})` }}>{ti.score}/100</span>
                       </div>
-                      <div className="sb-trade-right">
-                        <span style={{ color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>
-                          {fmtPnl(t.pnl)}
-                        </span>
-                        {pt && <span className="tag-pill" style={{ background: TAG_COLORS[pt.tagColor]?.bg, color: TAG_COLORS[pt.tagColor]?.color }}>{pt.label}</span>}
-                      </div>
+                      <div className="fi-bar"><div className="fi-fill" style={{ width: `${ti.score}%`, background: `var(--${ti.color})` }} /></div>
+                      <div className="fi-desc">{ti.desc}</div>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Trade Cards */}
-            <div className="trades-list">
-              {filteredTrades.map((t, fi) => {
-                const idx = t.id - 1
-                const pt = getPerTrade(idx)
-                const isExpanded = expandedTrades.has(idx)
-                const isDeepDive = deepDives.has(idx)
-                const isLocked = fi >= FREE_LIMIT
+          {/* Trade List */}
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">Per-Trade Analysis<span className="badge badge-free">FREE</span></div>
+            <div className="card-body" style={{ padding: 0 }}>
+              {trades.map((t, i) => {
+                const isExpanded = expandedTrade === i
+                const isLocked = i > 0
+                const tagStyle = ts[t.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
 
                 return (
-                  <div key={t.id} className={`trade-card${isLocked ? ' trade-locked' : ''}`}>
-                    <div className="trade-hd" onClick={() => !isLocked && toggleTrade(idx)}>
-                      <div className="trade-hd-left">
-                        <span className="trade-num">#{t.id}</span>
-                        <span className="trade-time">{t.time}</span>
-                        {pt && pt.timeGap > 0 && <span className={`time-gap-badge tg-${pt.timeGapColor}`}>&#9201; {pt.timeGap}m</span>}
-                        {pt && <span className="session-badge">{pt.sessionBadge}</span>}
-                        <span className="trade-sym">{t.symbol}</span>
-                        <span className={`side-badge side-${t.side.toLowerCase()}`}>{t.side}</span>
-                        <span className="trade-qty">&times;{t.qty}</span>
-                      </div>
-                      <div className="trade-hd-right">
-                        <span className="trade-pnl" style={{ color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(t.pnl)}</span>
-                        {pt && <span className="tag-pill" style={{ background: TAG_COLORS[pt.tagColor]?.bg, color: TAG_COLORS[pt.tagColor]?.color }}>{pt.label}</span>}
-                        <svg className={`chev${isExpanded ? ' open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                      </div>
+                  <div key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                    {/* Trade header — always visible */}
+                    <div onClick={() => !isLocked && setExpandedTrade(isExpanded ? -1 : i)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
+                        cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.5 : 1,
+                      }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--muted)', width: 28 }}>#{i + 1}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', width: 40 }}>{t.time}</span>
+                      <span style={{ fontWeight: 700, flex: 1, fontSize: 13 }}>{t.symbol}</span>
+                      <span className={`side-badge side-${t.side.toLowerCase()}`} style={{ fontSize: 9 }}>{t.side}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>&times;{t.qty}</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)', width: 80, textAlign: 'right' }}>
+                        {fmtPnl(t.pnl)}
+                      </span>
+                      <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 10, fontWeight: 600, background: tagStyle.bg, color: tagStyle.color }}>
+                        {t.label}
+                      </span>
+                      {isLocked && <span style={{ fontSize: 12 }}>🔒</span>}
                     </div>
 
-                    {isExpanded && !isLocked && pt && (
-                      <div className="trade-detail" style={{ display: 'block' }}>
-                        <div className="td-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                          <div className="td-cell"><div className="td-label">Entry</div><div className="td-val">&#8377;{t.entry}</div></div>
-                          <div className="td-cell"><div className="td-label">Exit</div><div className="td-val">&#8377;{t.exit}</div></div>
-                          <div className="td-cell"><div className="td-label">Qty</div><div className="td-val">{t.qty}</div></div>
-                          <div className="td-cell"><div className="td-label">Net P&L</div><div className="td-val" style={{ color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(t.pnl)}</div></div>
-                          <div className="td-cell"><div className="td-label">Cumulative</div><div className="td-val" style={{ color: t.cumPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(t.cumPnl)}</div></div>
+                    {/* Expanded detail — only for unlocked trades */}
+                    {isExpanded && !isLocked && (
+                      <div style={{ padding: '0 16px 16px 54px' }}>
+                        {/* Entry/Exit grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+                          {[
+                            { label: 'Entry', val: '\u20B9' + t.entry },
+                            { label: 'Exit', val: '\u20B9' + t.exit },
+                            { label: 'Qty', val: String(t.qty) },
+                            { label: 'P&L', val: fmtPnl(t.pnl), color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' },
+                          ].map((c, ci) => (
+                            <div key={ci} style={{ padding: '8px 12px', background: 'var(--s2)', borderRadius: 8 }}>
+                              <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>{c.label}</div>
+                              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: c.color || 'var(--text)' }}>{c.val}</div>
+                            </div>
+                          ))}
                         </div>
 
-                        {t.fills.length > 1 && (
-                          <table className="fills-tbl">
-                            <thead><tr><th>Fill #</th><th>Qty</th><th>Price</th><th>Value</th></tr></thead>
-                            <tbody>
-                              {t.fills.map((f, fi2) => (
-                                <tr key={fi2}><td>{fi2 + 1}</td><td>{f.qty}</td><td>&#8377;{f.price}</td><td>&#8377;{(f.qty * f.price).toLocaleString('en-IN')}</td></tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        {/* Quick summary */}
+                        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+                          {t.quick_summary}
+                        </div>
+
+                        {/* Psychology coaching */}
+                        {t.psychology_coaching && (
+                          <div style={{ padding: '12px 14px', borderLeft: '3px solid var(--purple)', background: 'rgba(157,122,247,.04)', borderRadius: '0 8px 8px 0', marginBottom: 10, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', marginBottom: 4 }}>Psychology Coaching</div>
+                            {t.psychology_coaching}
+                          </div>
                         )}
 
-                        <div className="quick-summary">{pt.quickSummary}</div>
-
-                        <div className="detail-section ds-psych">
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--purple)', marginBottom: 6 }}>Psychology Coaching</div>
-                          {pt.psychologyNote}
-                        </div>
-
-                        <button className="deep-dive-btn" onClick={() => toggleDeepDive(idx)}>
-                          {isDeepDive ? '▲ Hide Deep Dive' : '▼ Deep Dive'}
-                        </button>
-
-                        {isDeepDive && (
-                          <>
-                            <div className="detail-section ds-ta">
-                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--blue)', marginBottom: 6 }}>Technical Analysis</div>
-                              {pt.technicalNote}
-                            </div>
-                            <div className="detail-section ds-counter">
-                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Counterfactual — What If?</div>
-                              {pt.counterfactual}
-                            </div>
-
-                            {/* What You Did vs What You Should Have Done */}
-                            {pt.vsComparison && (
-                              <div className="detail-section" style={{ borderLeft: '3px solid var(--orange)' }}>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange)', marginBottom: 8 }}>What You Did vs What You Should Have Done</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                                  <div style={{ padding: '10px 12px', background: 'rgba(240,93,108,.06)', borderRadius: 8, fontSize: 12, lineHeight: 1.7, color: 'var(--text2)' }}>
-                                    <strong style={{ color: 'var(--red)', fontSize: 11 }}>WHAT YOU DID</strong><br />{pt.vsComparison.whatYouDid}
-                                  </div>
-                                  <div style={{ padding: '10px 12px', background: 'rgba(54,211,153,.06)', borderRadius: 8, fontSize: 12, lineHeight: 1.7, color: 'var(--text2)' }}>
-                                    <strong style={{ color: 'var(--green)', fontSize: 11 }}>WHAT YOU SHOULD HAVE DONE</strong><br />{pt.vsComparison.whatYouShouldHaveDone}
-                                  </div>
-                                </div>
-                                {pt.vsComparison.potentialSaving > 0 && (
-                                  <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, marginBottom: 6 }}>
-                                    Potential saving: {fmtPnl(pt.vsComparison.potentialSaving)}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Action Item */}
-                            {pt.actionItem && (
-                              <div style={{ padding: '10px 14px', background: 'rgba(62,232,196,.06)', borderRadius: 8, borderLeft: '3px solid var(--accent)', fontSize: 12, lineHeight: 1.7, color: 'var(--text2)', marginBottom: 8 }}>
-                                <strong style={{ color: 'var(--accent)' }}>Action:</strong> {pt.actionItem}
-                              </div>
-                            )}
-                          </>
+                        {/* Technical analysis */}
+                        {t.technical_analysis && (
+                          <div style={{ padding: '12px 14px', borderLeft: '3px solid var(--blue)', background: 'rgba(91,141,239,.04)', borderRadius: '0 8px 8px 0', fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', marginBottom: 4 }}>Technical Analysis</div>
+                            {t.technical_analysis}
+                          </div>
                         )}
-
-                        <div className="ds-note">
-                          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Your Reflection</div>
-                          <textarea className="note-input" placeholder="What were you thinking during this trade? Any lessons?" />
-                        </div>
                       </div>
                     )}
-
-                    {isLocked && <div className="trade-lock-overlay"><span>&#128274;</span></div>}
                   </div>
                 )
               })}
 
               {/* Paywall */}
-              {trades.length > FREE_LIMIT && (
-                <div className="paywall-gate">
-                  {testMode && <div className="test-mode-badge">TEST MODE — no real charges</div>}
-                  <div className="pw-title">Unlock {trades.length - FREE_LIMIT} More Trades</div>
-                  <div className="pw-sub">Full psychology coaching, technical analysis, counterfactuals, and notes for every trade.</div>
-                  <div className="pw-prices">
-                    <div className="pw-price-card sel"><div className="pw-price-name">Single Report</div><div className="pw-price-amt">&#8377;99</div><div className="pw-price-sub">This session only</div></div>
-                    <div className="pw-price-card"><div className="pw-price-name">Pro Monthly</div><div className="pw-price-amt">&#8377;799</div><div className="pw-price-sub">Unlimited reports</div></div>
-                    <div className="pw-price-card"><div className="pw-price-name">Pro Yearly</div><div className="pw-price-amt">&#8377;499/mo</div><div className="pw-price-sub">Save 38%</div></div>
-                  </div>
-                  {payError && <div style={{ fontSize: 13, color: 'var(--red)', marginBottom: 12 }}>⚠ {payError}</div>}
-                  <button className="btn btn-accent btn-lg" disabled={payLoading}
-                    onClick={() => { setPayError(null); pay({ plan: 'single', onSuccess: () => setUnlocked(true), onError: err => setPayError(err) }) }}>
-                    {payLoading ? '⏳ Processing…' : 'Unlock Full Report — ₹99'}
-                  </button>
-                  {testMode && (
-                    <div className="test-card-hint">
-                      Test card: <code>4111 1111 1111 1111</code> | Expiry: any future date | CVV: any 3 digits | OTP: <code>1234</code>
-                    </div>
-                  )}
+              {trades.length > 1 && (
+                <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(255,255,255,.02)' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Unlock {trades.length - 1} More Trades</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted2)', marginBottom: 14 }}>Full psychology coaching, technical analysis for every trade.</div>
+                  <button className="btn btn-accent">Upgrade to Pro — ₹99</button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Financial Impact */}
-          {analysis.patterns.length > 0 && (
-            <>
-              <div className="dash-section-title">What Your Lessons Cost Today</div>
-              <div className="mc-card">
-                <div className="mc-header">
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Learning cost — money lost to emotional decisions</div>
-                    <div className="mc-total">{fmtPnl(analysis.financialImpact.totalLost)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>If you&apos;d followed your own rules:</div>
-                    <div className="mc-saved">{analysis.financialImpact.message}</div>
-                  </div>
-                </div>
-                <div className="mc-rows">
-                  {analysis.patterns.map((p, i) => {
-                    const maxCost = Math.max(...analysis.patterns.map(pp => Math.abs(pp.costInRupees)), 1)
-                    const barPct = (Math.abs(p.costInRupees) / maxCost) * 100
-                    return (
-                      <div key={i} className="mc-row">
-                        <span className="mc-row-icon">{p.icon}</span>
-                        <span className="mc-row-name">{p.name}</span>
-                        <span className="mc-row-count">{p.frequency}</span>
-                        <div className="mc-row-bar"><div className="mc-row-fill" style={{ width: `${barPct}%` }} /></div>
-                        <span className="mc-row-cost">{fmtPnl(p.costInRupees)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Rules for Next Session */}
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Rules for Next Session<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
-              {analysis.rulesForNextSession.map((rule, i) => (
-                <div key={i} className="action-item" style={{ borderLeft: '3px solid var(--accent)' }}>
-                  <strong style={{ color: 'var(--accent)' }}>Rule {i + 1}:</strong> {rule}
-                </div>
-              ))}
-              {analysis.bestCase && (
-                <div className="action-item" style={{ borderLeft: '3px solid var(--green)', marginTop: 10 }}>
-                  <strong style={{ color: 'var(--green)' }}>BEST CASE:</strong> {analysis.bestCase}
-                </div>
-              )}
-              {analysis.worstCase && (
-                <div className="action-item" style={{ borderLeft: '3px solid var(--red)' }}>
-                  <strong style={{ color: 'var(--red)' }}>WORST CASE:</strong> {analysis.worstCase}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Cross-User Insights */}
-          {analysis.crossUserInsights && analysis.crossUserInsights.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">Cross-User Pattern Insights<span className="badge badge-free">FREE</span></div>
-              <div className="card-body">
-                <div style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 10 }}>Anonymized patterns from other traders with similar behaviors</div>
-                {analysis.crossUserInsights.map((insight, i) => (
-                  <div key={i} style={{ padding: '10px 14px', background: 'var(--s2)', borderRadius: 8, marginBottom: 6, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, borderLeft: '3px solid var(--purple)' }}>
-                    {insight}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mistake Cost Calculator */}
-          {analysis.financialImpact.mistakeCosts && analysis.financialImpact.mistakeCosts.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">What Your Lessons Cost<span className="badge badge-free">FREE</span></div>
-              <div className="card-body">
-                <div className="mc-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Learning cost — money lost to emotional decisions</div>
-                    <div className="mc-total">{fmtPnl(analysis.financialImpact.totalLost)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>If you&apos;d followed your rules:</div>
-                    <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>{fmtPnl(analysis.financialImpact.potentialPnl)}</div>
-                  </div>
-                </div>
-                {analysis.financialImpact.mistakeCosts.map((mc, i) => (
-                  <div key={i} className="mc-row">
-                    <span className="mc-row-icon">{mc.icon}</span>
-                    <span className="mc-row-name">{mc.name}</span>
-                    <span className="mc-row-count">{mc.count}x</span>
-                    <div className="mc-row-bar"><div className="mc-row-fill" style={{ width: `${Math.min(100, Math.abs(mc.cost) / Math.max(Math.abs(analysis.financialImpact.totalLost), 1) * 100)}%` }} /></div>
-                    <span className="mc-row-cost">{fmtPnl(mc.cost)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </section>
     )
   }
 
   /* ═══════════════════════════════════════════
-     RENDER: UPLOAD FORM
+     UPLOAD FORM
   ═══════════════════════════════════════════ */
   return (
     <section id="sec-app">
@@ -754,47 +350,42 @@ export default function UploadPage() {
 
             {/* Auto-detect bar */}
             <div className="autodetect-bar">
-              <span className="autodetect-icon">&#128270;</span>
+              <span className="autodetect-icon">🔍</span>
               <span>Market, exchange &amp; currency will be <strong>auto-detected</strong> from your file</span>
-              <span className={`autodetect-badge${broker ? ' detected' : ''}`}>
-                {broker === 'Demo' ? 'Demo data' : broker ? `${broker} detected` : 'Awaiting file\u2026'}
+              <span className={`autodetect-badge${file ? ' detected' : ''}`}>
+                {file ? 'File ready' : 'Awaiting file\u2026'}
               </span>
             </div>
 
             {/* Dropzone */}
-            {phase === 'idle' && (
-              <>
-                <label className="dropzone"
-                  onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag') }}
-                  onDragLeave={e => e.currentTarget.classList.remove('drag')}
-                  onDrop={e => { e.currentTarget.classList.remove('drag'); handleDrop(e) }}>
-                  <input ref={inputRef} type="file" accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" multiple
-                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                    onChange={e => { if (e.target.files) addFiles(Array.from(e.target.files)); e.target.value = '' }} />
-                  <div className="dz-icon">&#128194;</div>
-                  <div className="dz-title">Drop files here or click to browse</div>
-                  <div className="dz-sub">PDF, CSV, Excel, screenshots — up to 40 files · any broker worldwide</div>
-                  <div className="dz-tags"><span>PDF</span><span>CSV</span><span>XLSX</span><span>XLS</span><span>PNG</span><span>JPG</span><span>JPEG</span></div>
-                </label>
-                <BrokerGuide />
-              </>
+            {!loading && (
+              <label className="dropzone"
+                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag') }}
+                onDragLeave={e => e.currentTarget.classList.remove('drag')}
+                onDrop={e => { e.currentTarget.classList.remove('drag'); handleDrop(e) }}>
+                <input ref={inputRef} type="file" accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg" multiple={false}
+                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                  onChange={handleFileSelect} />
+                <div className="dz-icon">📂</div>
+                <div className="dz-title">Drop files here or click to browse</div>
+                <div className="dz-sub">PDF, CSV, Excel, screenshots — any broker worldwide</div>
+                <div className="dz-tags"><span>PDF</span><span>CSV</span><span>XLSX</span><span>XLS</span><span>PNG</span><span>JPG</span><span>JPEG</span></div>
+              </label>
             )}
 
-            {/* File chips */}
-            {files.length > 0 && (
+            {/* File chip */}
+            {file && !loading && (
               <div className="file-list">
-                {files.map((f, i) => (
-                  <div key={i} className="file-chip">
-                    <span className="chip-name">{f.name}</span>
-                    <span className="chip-size">{f.size}</span>
-                    {phase === 'idle' && <button className="chip-rm" onClick={() => removeFile(i)}>&times;</button>}
-                  </div>
-                ))}
+                <div className="file-chip">
+                  <span className="chip-name">{file.name}</span>
+                  <span className="chip-size">{formatSize(file.size)}</span>
+                  <button className="chip-rm" onClick={() => setFile(null)}>&times;</button>
+                </div>
               </div>
             )}
 
-            {/* Trading Context — all 8 questions */}
-            {phase === 'idle' && (
+            {/* Trading Context */}
+            {!loading && (
               <div className="ctx-box">
                 <div className="ctx-header">
                   <span className="label" style={{ fontSize: 13, fontWeight: 600 }}>Trading Context</span>
@@ -803,85 +394,35 @@ export default function UploadPage() {
                 <div className="ctx-questions">
                   <div className="ctx-q">
                     <label className="ctx-label">Experience level</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="beginner">Beginner (under 1 year)</option>
-                      <option value="intermediate">Intermediate (1–3 years)</option>
-                      <option value="experienced">Experienced (3–7 years)</option>
-                      <option value="professional">Professional (7+ years)</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="experienced">Experienced</option><option value="professional">Professional</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Total trading capital</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="micro">Under &#8377;50,000</option>
-                      <option value="small">&#8377;50K – &#8377;2L</option>
-                      <option value="medium">&#8377;2L – &#8377;10L</option>
-                      <option value="large">&#8377;10L – &#8377;50L</option>
-                      <option value="xlarge">Above &#8377;50L</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="micro">Under ₹50K</option><option value="small">₹50K–₹2L</option><option value="medium">₹2L–₹10L</option><option value="large">₹10L–₹50L</option><option value="xlarge">Above ₹50L</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Your mood going in</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="confident">Confident &amp; focused</option>
-                      <option value="neutral">Neutral / calm</option>
-                      <option value="anxious">Anxious or stressed</option>
-                      <option value="revenge">Frustrated from yesterday</option>
-                      <option value="overexcited">Overexcited / FOMO</option>
-                      <option value="tired">Tired or distracted</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="confident">Confident</option><option value="neutral">Neutral</option><option value="anxious">Anxious</option><option value="revenge">Revenge</option><option value="overexcited">Overexcited</option><option value="tired">Tired</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Market view that day</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="bullish">Bullish — expected up move</option>
-                      <option value="bearish">Bearish — expected down move</option>
-                      <option value="neutral">Neutral / rangebound</option>
-                      <option value="volatile">Volatile / event / news day</option>
-                      <option value="expiry">Expiry / settlement day</option>
-                      <option value="no_view">No view — reactive trading</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="bullish">Bullish</option><option value="bearish">Bearish</option><option value="neutral">Neutral</option><option value="volatile">Volatile</option><option value="expiry">Expiry</option><option value="no_view">No view</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Stop loss rules</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="strict">Strict — always set before entry</option>
-                      <option value="mental">Mental SL only, no hard order</option>
-                      <option value="moved">Set SL but moved or removed it</option>
-                      <option value="none">No SL defined</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="strict">Strict</option><option value="mental">Mental</option><option value="moved">Moved</option><option value="none">None</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Strategy intention</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="breakout">Breakout / momentum</option>
-                      <option value="reversal">Reversal / mean reversion</option>
-                      <option value="trend">Trend following</option>
-                      <option value="scalp">Scalping / quick trades</option>
-                      <option value="swing">Swing / positional</option>
-                      <option value="no_strategy">No defined strategy</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="breakout">Breakout</option><option value="reversal">Reversal</option><option value="trend">Trend</option><option value="scalp">Scalp</option><option value="swing">Swing</option><option value="no_strategy">No strategy</option></select>
                   </div>
                   <div className="ctx-q">
                     <label className="ctx-label">Pre-market plan</label>
-                    <select className="ctx-select">
-                      <option value="">— select —</option>
-                      <option value="full">Full plan — clear levels &amp; rules</option>
-                      <option value="loose">Loose plan, no hard rules</option>
-                      <option value="partial">Had a plan, abandoned it</option>
-                      <option value="none">No plan — traded by feel</option>
-                    </select>
+                    <select className="ctx-select"><option value="">— select —</option><option value="full">Full plan</option><option value="loose">Loose plan</option><option value="abandoned">Abandoned</option><option value="none">No plan</option></select>
                   </div>
                   <div className="ctx-q ctx-q-full">
                     <label className="ctx-label">Special notes</label>
-                    <textarea className="ctx-textarea" rows={2}
-                      placeholder="e.g. First day trading a new strategy, large event day, had overnight position, trying different position sizing…" />
+                    <textarea className="ctx-textarea" rows={2} placeholder="e.g. First day trading new strategy, expiry day, etc." />
                   </div>
                 </div>
               </div>
@@ -894,39 +435,31 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Action buttons */}
-            <div className="analyse-row">
-              {phase === 'idle' && (
-                <>
-                  <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={loading}>
-                    {loading ? '⏳ Reading file…' : '🔍 Run Free Analysis'}
-                  </button>
-                  <span className="analyse-note">
-                    No login required &middot; {files.length === 0 ? 'runs with demo data if no file' : `${files.length} file${files.length > 1 ? 's' : ''} ready`}
-                  </span>
-                </>
-              )}
-              {phase === 'analysing' && (
-                <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
-                  ⏳ AI is analysing your trades... this takes 10-30 seconds
-                </div>
-              )}
-            </div>
-
-            {/* Loading bar */}
-            {loading && (
-              <>
-                <div className="loading-bar"><div className="loading-fill" style={{ width: `${loadingPct}%` }} /></div>
-                {loadingMsg && <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{loadingMsg}</p>}
-              </>
-            )}
-
-            {/* OCR warning */}
-            {ocrWarning && !loading && (
-              <div style={{ background: 'rgba(242,155,75,.1)', border: '1px solid var(--orange)', borderRadius: '8px', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--orange)' }}>
-                {ocrWarning}
+            {/* Analyse button */}
+            {!loading && (
+              <div className="analyse-row">
+                <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={!file}>
+                  🔍 Analyse My Trades
+                </button>
+                <span className="analyse-note">
+                  No login required &middot; {file ? '1 file ready' : 'select a file to start'}
+                </span>
               </div>
             )}
+
+            {/* Loading */}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>
+                  ⏳ AI is reading your file and analysing trades...
+                </div>
+                <div className="loading-bar"><div className="loading-fill" style={{ width: `${loadingPct}%` }} /></div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                  This takes 20-60 seconds. Do not close this tab.
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
