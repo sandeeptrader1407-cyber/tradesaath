@@ -80,7 +80,10 @@
       "Bash(curl -s -X POST http://localhost:3000/api/analyse -F \"file=@test-trade.pdf\" -F 'context={\"\"mood\"\":\"\"neutral\"\"}' -o /tmp/analyse-result.json)",
       "Bash(mkdir -p C:/Users/SK/Desktop/tradesaath/tmp)",
       "Bash(curl -s -X POST http://localhost:3000/api/analyse -F \"file=@test-trade.pdf\" -F 'context={\"\"mood\"\":\"\"neutral\"\"}' -o tmp/result.json)",
-      "Bash(curl -s \"http://localhost:3000/_next/static/css/app/layout.css?v=1774555114737\")"
+      "Bash(curl -s \"http://localhost:3000/_next/static/css/app/layout.css?v=1774555114737\")",
+      "Bash(rm -rf app/api/parse)",
+      "Bash(rm -rf lib/parsers)",
+      "Bash(rm -rf components/PreviewTable.tsx components/ColumnMapper.tsx)"
     ]
   }
 }
