@@ -370,6 +370,25 @@ Now provide the deep analysis. Return ONLY valid JSON, no backticks:
     {"name": "Exit Quality", "score": 0-100, "color": "green/red/gold", "desc": "text"},
     {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold", "desc": "text"}
   ],
+  "dqs": {
+    "score": 0-100,
+    "factors": [
+      {"name": "Entry Timing", "score": 0-100, "color": "green/blue/gold/red"},
+      {"name": "Risk Management", "score": 0-100, "color": "green/blue/gold/red"},
+      {"name": "Position Sizing", "score": 0-100, "color": "green/blue/gold/red"},
+      {"name": "Emotional Control", "score": 0-100, "color": "green/blue/gold/red"},
+      {"name": "Exit Discipline", "score": 0-100, "color": "green/blue/gold/red"}
+    ]
+  },
+  "financial_impact": {
+    "total_lost_to_mistakes": number,
+    "potential_pnl_without_mistakes": number,
+    "message": "One sentence about what disciplined trading would have looked like"
+  },
+  "mistake_patterns": [
+    {"name": "pattern name", "icon": "emoji", "count": number, "cost": number, "frequency": "X of Y trades"}
+  ],
+  "rules_for_next_session": ["rule 1", "rule 2", "rule 3"],
   "first_trade_detail": {
     "time_gap_from_last": "first trade",
     "quick_summary": "2-3 sentences about THIS specific trade — what happened, why, and the psychology behind it. Reference the actual symbol, prices, and time.",
@@ -456,6 +475,10 @@ IMPORTANT: Provide ALL fields in first_trade_detail. Every single one including 
       momentum: analysis.momentum || [],
       vicious_cycle: analysis.vicious_cycle || [],
       technical_insights: analysis.technical_insights || [],
+      dqs: analysis.dqs || null,
+      financial_impact: analysis.financial_impact || null,
+      mistake_patterns: analysis.mistake_patterns || [],
+      rules_for_next_session: analysis.rules_for_next_session || [],
       trades,
       _truncated: parsed1.truncated || false,
     };

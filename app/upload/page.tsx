@@ -44,6 +44,10 @@ interface AnalysisResult {
   total_trades_in_file?: number; trades_shown?: number
   kpis: KPIs; summary: string; momentum: Momentum[]
   vicious_cycle: CycleStage[]; technical_insights: TechInsight[]
+  dqs?: { score: number; factors: { name: string; score: number; color: string }[] }
+  financial_impact?: { total_lost_to_mistakes: number; potential_pnl_without_mistakes: number; message: string }
+  mistake_patterns?: { name: string; icon: string; count: number; cost: number; frequency: string }[]
+  rules_for_next_session?: string[]
   trades: Trade[]
 }
 
@@ -490,6 +494,102 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* ═══ DQS Ring + Factors ═══ */}
+          {result.dqs && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Decision Quality Score<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', width: 120, height: 120 }}>
+                    <svg viewBox="0 0 120 120" style={{ width: 120, height: 120 }}>
+                      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--s3)" strokeWidth="8" />
+                      <circle cx="60" cy="60" r="52" fill="none"
+                        stroke={result.dqs.score >= 70 ? 'var(--green)' : result.dqs.score >= 50 ? 'var(--gold)' : result.dqs.score >= 30 ? 'var(--orange)' : 'var(--red)'}
+                        strokeWidth="8" strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 52}`}
+                        strokeDashoffset={`${2 * Math.PI * 52 - (result.dqs.score / 100) * 2 * Math.PI * 52}`}
+                        transform="rotate(-90 60 60)" />
+                    </svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                      <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: result.dqs.score >= 70 ? 'var(--green)' : result.dqs.score >= 50 ? 'var(--gold)' : 'var(--red)' }}>{result.dqs.score}</div>
+                      <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>out of 100</div>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {result.dqs.factors.map((f, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted2)', width: 110, flexShrink: 0 }}>{f.name}</span>
+                        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,.04)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ width: `${f.score}%`, height: '100%', background: `var(--${f.color})`, borderRadius: 3, transition: 'width 1s ease' }} />
+                        </div>
+                        <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: 'var(--muted)', width: 28, textAlign: 'right' }}>{f.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ Financial Impact ═══ */}
+          {result.financial_impact && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Financial Impact<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Learning cost</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--red)' }}>
+                      {fmtPnl(result.financial_impact.total_lost_to_mistakes)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Disciplined potential</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--green)' }}>
+                      {fmtPnl(result.financial_impact.potential_pnl_without_mistakes)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>{result.financial_impact.message}</div>
+                {result.mistake_patterns && result.mistake_patterns.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {result.mistake_patterns.map((mp, i) => {
+                      const maxCount = Math.max(...(result.mistake_patterns || []).map(m => m.count), 1)
+                      return (
+                        <div key={i} className="mc-row">
+                          <span className="mc-row-icon">{mp.icon}</span>
+                          <span className="mc-row-name">{mp.name}</span>
+                          <span className="mc-row-count">{mp.count}x</span>
+                          <div className="mc-row-bar"><div className="mc-row-fill" style={{ width: `${(mp.count / maxCount) * 100}%` }} /></div>
+                          <span style={{ color: 'var(--red)', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{fmtPnl(mp.cost)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ Rules for Next Session ═══ */}
+          {result.rules_for_next_session && result.rules_for_next_session.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Rules for Next Session<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {result.rules_for_next_session.map((rule, i) => (
+                    <div key={i} style={{
+                      padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                      background: 'rgba(62,232,196,.04)', borderLeft: '3px solid var(--accent)',
+                    }}>
+                      <strong style={{ color: 'var(--accent)', marginRight: 8 }}>Rule {i + 1}:</strong>{rule}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ═══ Per-Trade: Sidebar + Detail ═══ */}
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-head">Per-Trade Analysis<span className="badge badge-free">{unlocked ? 'ALL UNLOCKED' : 'Trade 1 FREE'}</span></div>
@@ -864,27 +964,40 @@ export default function UploadPage() {
 
                           {/* Counterfactual */}
                           {selectedTrade.counterfactual && (
-                            <div style={{
-                              padding: '12px 16px', borderRadius: '0 8px 8px 0',
-                              borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
-                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
-                              position: 'relative', overflow: 'hidden',
-                            }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                🔒 Counterfactual — What If?
-                              </div>
-                              <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                            unlocked ? (
+                              <div style={{
+                                padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                                borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
+                                fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                              }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                  Counterfactual — What If?
+                                </div>
                                 {selectedTrade.counterfactual}
                               </div>
+                            ) : (
                               <div style={{
-                                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                                padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                                borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
+                                fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                                position: 'relative', overflow: 'hidden',
                               }}>
-                                <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')}>
-                                  🔒 Upgrade to unlock
-                                </button>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                  🔒 Counterfactual — What If?
+                                </div>
+                                <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                                  {selectedTrade.counterfactual}
+                                </div>
+                                <div style={{
+                                  position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                                }}>
+                                  <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')}>
+                                    🔒 Upgrade to unlock
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            )
                           )}
 
                           {/* If no detailed fields exist (should not happen for trade 0, but safety) */}

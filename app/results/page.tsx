@@ -43,6 +43,10 @@ interface AnalysisResult {
   total_trades_in_file?: number; trades_shown?: number
   kpis: KPIs; summary: string; momentum: Momentum[]
   vicious_cycle: CycleStage[]; technical_insights: TechInsight[]
+  dqs?: { score: number; factors: { name: string; score: number; color: string }[] }
+  financial_impact?: { total_lost_to_mistakes: number; potential_pnl_without_mistakes: number; message: string }
+  mistake_patterns?: { name: string; icon: string; count: number; cost: number; frequency: string }[]
+  rules_for_next_session?: string[]
   trades: Trade[]
   _truncated?: boolean
 }
@@ -224,6 +228,34 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {/* Equity Curve — P&L per trade bar chart */}
+        {trades.length > 0 && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">Session Equity Curve<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              <div className="equity-curve">
+                {trades.map((t, i) => {
+                  const maxAbs = Math.max(...trades.map(tr => Math.abs(tr.pnl || 0)), 1)
+                  const pct = Math.abs(t.pnl || 0) / maxAbs * 100
+                  return (
+                    <div key={i} className="eq-bar" style={{
+                      height: `${Math.max(pct, 5)}%`,
+                      background: (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                      opacity: expandedTrade === i ? 1 : 0.6,
+                      cursor: 'pointer',
+                    }} title={`#${i+1} ${t.symbol} ${fmtPnl(t.pnl)}`} onClick={() => setExpandedTrade(i)} />
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
+                <span>Trade #1</span>
+                <span>Cumulative: {fmtPnl(kpis.net_pnl)}</span>
+                <span>Trade #{trades.length}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* AI Summary */}
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-head">AI Session Summary<span className="badge badge-free">FREE</span></div>
@@ -295,6 +327,197 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {/* ═══ DQS Ring + Factors ═══ */}
+        {data.dqs && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">Decision Quality Score<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+                <div className="dqs-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div className="dqs-ring" style={{ position: 'relative', width: 120, height: 120 }}>
+                    <svg viewBox="0 0 120 120" style={{ width: 120, height: 120 }}>
+                      <circle className="ring-bg" cx="60" cy="60" r="52" fill="none" stroke="var(--s3)" strokeWidth="8" />
+                      <circle className="ring-fill" cx="60" cy="60" r="52" fill="none"
+                        stroke={data.dqs.score >= 70 ? 'var(--green)' : data.dqs.score >= 50 ? 'var(--gold)' : data.dqs.score >= 30 ? 'var(--orange)' : 'var(--red)'}
+                        strokeWidth="8" strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 52}`}
+                        strokeDashoffset={`${2 * Math.PI * 52 - (data.dqs.score / 100) * 2 * Math.PI * 52}`}
+                        transform="rotate(-90 60 60)" />
+                    </svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                      <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: data.dqs.score >= 70 ? 'var(--green)' : data.dqs.score >= 50 ? 'var(--gold)' : 'var(--red)' }}>{data.dqs.score}</div>
+                      <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>out of 100</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.dqs.factors.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 11, color: 'var(--muted2)', width: 110, flexShrink: 0 }}>{f.name}</span>
+                      <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,.04)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ width: `${f.score}%`, height: '100%', background: `var(--${f.color})`, borderRadius: 3, transition: 'width 1s ease' }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: 'var(--muted)', width: 28, textAlign: 'right' }}>{f.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Financial Impact + Mistake Patterns ═══ */}
+        {data.financial_impact && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">Financial Impact of Emotional Decisions<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Learning cost — emotional decisions</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--red)' }}>
+                    {fmtPnl(data.financial_impact.total_lost_to_mistakes)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>If you traded with discipline</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--green)' }}>
+                    {fmtPnl(data.financial_impact.potential_pnl_without_mistakes)}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+                {data.financial_impact.message}
+              </div>
+              {data.mistake_patterns && data.mistake_patterns.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.mistake_patterns.map((mp, i) => {
+                    const maxCount = Math.max(...(data.mistake_patterns || []).map(m => m.count), 1)
+                    return (
+                      <div key={i} className="mc-row">
+                        <span className="mc-row-icon">{mp.icon}</span>
+                        <span className="mc-row-name">{mp.name}</span>
+                        <span className="mc-row-count">{mp.count}x</span>
+                        <div className="mc-row-bar"><div className="mc-row-fill" style={{ width: `${(mp.count / maxCount) * 100}%` }} /></div>
+                        <span className="mc-row-cost" style={{ color: 'var(--red)', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{fmtPnl(mp.cost)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Rules for Next Session ═══ */}
+        {data.rules_for_next_session && data.rules_for_next_session.length > 0 && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">Rules for Your Next Session<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {data.rules_for_next_session.map((rule, i) => (
+                  <div key={i} style={{
+                    padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                    background: 'rgba(62,232,196,.04)', borderLeft: '3px solid var(--accent)',
+                  }}>
+                    <strong style={{ color: 'var(--accent)', marginRight: 8 }}>Rule {i + 1}:</strong>{rule}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Trade Distribution ═══ */}
+        {trades.length > 0 && (() => {
+          const buys = trades.filter(t => t.side === 'BUY').length
+          const sells = trades.filter(t => t.side === 'SELL').length
+          const wins = trades.filter(t => t.pnl > 0).length
+          const losses = trades.filter(t => t.pnl <= 0).length
+          const total = trades.length
+          return (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Trade Distribution<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="dist-grid">
+                  <div className="dist-card">
+                    <div className="dist-title">By Direction</div>
+                    <div className="dist-rows">
+                      <div className="dist-r">
+                        <span className="dist-r-lbl">BUY</span>
+                        <div className="dist-r-bar"><div className="dist-r-fill" style={{ width: `${(buys/total)*100}%`, background: 'var(--green)' }}>{buys}</div></div>
+                        <span className="dist-r-val">{Math.round((buys/total)*100)}%</span>
+                      </div>
+                      <div className="dist-r">
+                        <span className="dist-r-lbl">SELL</span>
+                        <div className="dist-r-bar"><div className="dist-r-fill" style={{ width: `${(sells/total)*100}%`, background: 'var(--red)' }}>{sells}</div></div>
+                        <span className="dist-r-val">{Math.round((sells/total)*100)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="dist-card">
+                    <div className="dist-title">By Outcome</div>
+                    <div className="dist-rows">
+                      <div className="dist-r">
+                        <span className="dist-r-lbl">Wins</span>
+                        <div className="dist-r-bar"><div className="dist-r-fill" style={{ width: `${(wins/total)*100}%`, background: 'var(--green)' }}>{wins}</div></div>
+                        <span className="dist-r-val">{Math.round((wins/total)*100)}%</span>
+                      </div>
+                      <div className="dist-r">
+                        <span className="dist-r-lbl">Losses</span>
+                        <div className="dist-r-bar"><div className="dist-r-fill" style={{ width: `${(losses/total)*100}%`, background: 'var(--red)' }}>{losses}</div></div>
+                        <span className="dist-r-val">{Math.round((losses/total)*100)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* ═══ Emotion / Tag Impact ═══ */}
+        {trades.length > 0 && (() => {
+          const tagMap = new Map<string, { count: number; totalPnl: number; label: string }>()
+          trades.forEach(t => {
+            const key = t.tag || 'win'
+            const existing = tagMap.get(key) || { count: 0, totalPnl: 0, label: t.label || key }
+            existing.count++
+            existing.totalPnl += t.pnl || 0
+            tagMap.set(key, existing)
+          })
+          const tagEntries = Array.from(tagMap.entries()).sort((a, b) => b[1].count - a[1].count)
+          const maxCount = Math.max(...tagEntries.map(([,v]) => v.count), 1)
+          const TAG_EMOJIS: Record<string, string> = {
+            win: '\u2705', fomo: '\u26A1', revenge: '\uD83D\uDD25', averaging: '\uD83D\uDCC9',
+            panic: '\uD83D\uDE28', against_trend: '\u21A9\uFE0F', hope_hold: '\uD83E\uDD1E', decision_fatigue: '\uD83D\uDE35',
+          }
+          if (tagEntries.length <= 1 && tagEntries[0]?.[0] === 'win') return null
+          return (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Emotion Impact Analysis<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="emo-grid">
+                  {tagEntries.map(([tag, info]) => (
+                    <div key={tag} className="emo-card">
+                      <div className="emo-icon">{TAG_EMOJIS[tag] || '\uD83D\uDCA1'}</div>
+                      <div className="emo-body">
+                        <div className="emo-name">{info.label}</div>
+                        <div className="emo-stat">{info.count} trades &middot; {fmtPnl(info.totalPnl)} impact</div>
+                        <div className="emo-bar">
+                          <div className="emo-bar-fill" style={{
+                            width: `${(info.count/maxCount)*100}%`,
+                            background: info.totalPnl >= 0 ? 'var(--green)' : 'var(--red)',
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ═══ Per-Trade: Sidebar + Detail ═══ */}
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-head">Per-Trade Analysis<span className="badge badge-free">{unlocked ? 'ALL UNLOCKED' : 'Trade 1 FREE'}</span></div>
@@ -318,6 +541,25 @@ export default function ResultsPage() {
                     color: kpis.net_pnl >= 0 ? 'var(--green)' : 'var(--red)',
                   }}>
                     {fmtPnl(kpis.net_pnl)}
+                  </div>
+                  {/* Running P&L mini bar chart */}
+                  <div className="rpnl-row">
+                    {trades.map((t, i) => {
+                      const maxAbs = Math.max(...trades.map(tr => Math.abs(tr.cum_pnl || 0)), 1)
+                      const pct = Math.abs(t.cum_pnl || 0) / maxAbs * 100
+                      return (
+                        <div key={i} className={`rpnl-bar${expandedTrade === i ? ' rpnl-current' : ''}`}
+                          style={{
+                            height: `${Math.max(pct, 8)}%`,
+                            background: (t.cum_pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                            opacity: expandedTrade === i ? 1 : 0.5,
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setExpandedTrade(i)}
+                          title={`#${i+1} Cum: ${fmtPnl(t.cum_pnl || 0)}`}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -665,29 +907,42 @@ export default function ResultsPage() {
                           </div>
                         )}
 
-                        {/* 10. Counterfactual — What If? (blurred for free tier) */}
+                        {/* 10. Counterfactual — What If? */}
                         {selectedTrade.counterfactual && (
-                          <div style={{
-                            padding: '12px 16px', borderRadius: '0 8px 8px 0',
-                            borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
-                            fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
-                            position: 'relative', overflow: 'hidden',
-                          }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-                              🔮 Counterfactual — What If?
-                            </div>
-                            <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                          unlocked ? (
+                            <div style={{
+                              padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                🔮 Counterfactual — What If?
+                              </div>
                               {selectedTrade.counterfactual}
                             </div>
+                          ) : (
                             <div style={{
-                              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                              padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid #2dd4bf', background: 'rgba(45,212,191,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                              position: 'relative', overflow: 'hidden',
                             }}>
-                              <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')} disabled={payLoading}>
-                                🔒 Upgrade to unlock
-                              </button>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#2dd4bf', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                🔮 Counterfactual — What If?
+                              </div>
+                              <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                                {selectedTrade.counterfactual}
+                              </div>
+                              <div style={{
+                                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'rgba(0,0,0,.3)', borderRadius: '0 8px 8px 0',
+                              }}>
+                                <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')} disabled={payLoading}>
+                                  🔒 Upgrade to unlock
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          )
                         )}
 
                         {/* Fallback if no detailed fields */}

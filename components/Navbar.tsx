@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   SignInButton,
   SignUpButton,
@@ -47,16 +48,22 @@ function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
 
 function NavLinks() {
   const { isSignedIn, isLoaded } = useUser()
+  const pathname = usePathname()
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
+    const links = [
+      { href: '/dashboard', label: '📊 Dashboard' },
+      { href: '/upload', label: '📤 Upload' },
+      { href: '/journal', label: '📓 Journal' },
+      { href: '/coach', label: '🎯 AI Coach' },
+    ]
     return (
       <>
-        <Link href="/dashboard" className="nav-app-link">📊 Dashboard</Link>
-        <Link href="/upload" className="nav-app-link">📤 Upload</Link>
-        <Link href="/journal" className="nav-app-link">📓 Journal</Link>
-        <Link href="/coach" className="nav-app-link">🎯 AI Coach</Link>
+        {links.map(l => (
+          <Link key={l.href} href={l.href} className={`nav-app-link${pathname === l.href ? ' nav-active' : ''}`}>{l.label}</Link>
+        ))}
       </>
     )
   }
