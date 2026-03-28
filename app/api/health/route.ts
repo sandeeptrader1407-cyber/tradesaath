@@ -3,55 +3,67 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const geminiKey = process.env.Gemini_API_Key;
 
-  if (!apiKey) {
-    return NextResponse.json({
-      status: 'error',
-      message: 'ANTHROPIC_API_KEY not set',
-      env_keys: Object.keys(process.env).filter(k => k.includes('ANTHROPIC') || k.includes('SUPABASE') || k.includes('CLERK')).sort()
-    });
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const results: Record<string, any> = {
+    anthropic_key_set: !!anthropicKey,
+    gemini_key_set: !!geminiKey,
+  };
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 50,
-        messages: [{ role: 'user', content: 'Reply with just the word OK' }]
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      return NextResponse.json({
-        status: 'error',
-        api_status: response.status,
-        error_type: data.error.type,
-        error_message: data.error.message,
-        key_prefix: apiKey.substring(0, 10) + '...'
+  // Test Claude
+  if (anthropicKey) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 50,
+          messages: [{ role: 'user', content: 'Reply with just the word OK' }]
+        })
       });
+      const data = await res.json();
+      if (data.error) {
+        results.claude = { status: 'error', http: res.status, error_type: data.error.type, error_msg: data.error.message, key_prefix: anthropicKey.substring(0, 10) + '...' };
+      } else {
+        results.claude = { status: 'ok', model: data.model, response: data.content?.[0]?.text || '', key_prefix: anthropicKey.substring(0, 10) + '...' };
+      }
+    } catch (err: unknown) {
+      results.claude = { status: 'error', message: err instanceof Error ? err.message : 'Unknown' };
     }
-
-    const text = data.content?.[0]?.text || '';
-    return NextResponse.json({
-      status: 'ok',
-      model: data.model,
-      response: text,
-      key_prefix: apiKey.substring(0, 10) + '...'
-    });
-  } catch (err: unknown) {
-    return NextResponse.json({
-      status: 'error',
-      message: err instanceof Error ? err.message : 'Unknown error',
-      key_prefix: apiKey.substring(0, 10) + '...'
-    });
   }
+
+  // Test Gemini
+  if (geminiKey) {
+    try {
+      const model = 'gemini-2.5-flash-preview-05-20';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply with just the word OK' }] }],
+          generationConfig: { maxOutputTokens: 50 }
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        results.gemini = { status: 'error', http: res.status, error_msg: data.error.message, key_prefix: geminiKey.substring(0, 10) + '...' };
+      } else {
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        results.gemini = { status: 'ok', model, response: text, key_prefix: geminiKey.substring(0, 10) + '...' };
+      }
+    } catch (err: unknown) {
+      results.gemini = { status: 'error', message: err instanceof Error ? err.message : 'Unknown' };
+    }
+  }
+
+  const anyWorking = results.claude?.status === 'ok' || results.gemini?.status === 'ok';
+  return NextResponse.json({ healthy: anyWorking, ...results });
 }

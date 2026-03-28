@@ -3,9 +3,13 @@ export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
 
-/* ─── Helper: call Claude with retry on 529 ─── */
+/* ─── Types ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<{ ok: boolean; data?: any; error?: string; code?: string; stop_reason?: string }> {
+type AIResult = { ok: boolean; data?: any; error?: string; code?: string; stop_reason?: string; provider?: string };
+
+/* ─── Helper: call Claude (Anthropic) with retry on 529 ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
   let response: Response | undefined;
   const maxRetries = 3;
 
@@ -25,7 +29,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
     });
 
     if (response.status === 529) {
-      console.log(`API overloaded, retry ${attempt + 1}/${maxRetries} in ${(attempt + 1) * 3}s...`);
+      console.log(`Claude overloaded, retry ${attempt + 1}/${maxRetries} in ${(attempt + 1) * 3}s...`);
       if (attempt < maxRetries - 1) {
         await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
         continue;
@@ -35,37 +39,121 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
   }
 
   if (!response) {
-    return { ok: false, error: 'Failed to connect to AI service.', code: 'NETWORK' };
+    return { ok: false, error: 'Failed to connect to Claude.', code: 'NETWORK', provider: 'claude' };
   }
 
-  console.log('Anthropic API response status:', response.status);
+  console.log('Claude API response status:', response.status);
 
   if (response.status === 529) {
-    return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
+    return { ok: false, error: 'Claude is currently busy.', code: 'OVERLOADED', provider: 'claude' };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await response.json() as any;
 
   if (data.error) {
-    console.error('Anthropic API error:', JSON.stringify(data.error));
-    if (data.error.type === 'overloaded_error') {
-      return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
-    }
-    if (data.error.type === 'authentication_error') {
-      return { ok: false, error: 'AI service authentication failed. Please check API key configuration.', code: 'AUTH' };
-    }
-    if (data.error.type === 'invalid_request_error') {
-      return { ok: false, error: `AI request error: ${data.error.message || 'Invalid request'}`, code: 'INVALID' };
-    }
-    return { ok: false, error: `Analysis failed: ${data.error.message || data.error.type || 'Unknown error'}` };
+    console.error('Claude API error:', JSON.stringify(data.error));
+    return { ok: false, error: `Claude: ${data.error.message || data.error.type || 'Unknown error'}`, code: data.error.type, provider: 'claude' };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
-  console.log('Response length:', text.length, 'Stop:', data.stop_reason);
+  console.log('Claude response length:', text.length, 'Stop:', data.stop_reason);
 
-  return { ok: true, data: text, stop_reason: data.stop_reason };
+  return { ok: true, data: text, stop_reason: data.stop_reason, provider: 'claude' };
+}
+
+/* ─── Helper: call Gemini (Google) ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callGemini(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
+  // Convert Claude content format → Gemini parts format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parts: any[] = [];
+  for (const item of content) {
+    if (item.type === 'text') {
+      parts.push({ text: item.text });
+    } else if (item.type === 'document' && item.source) {
+      parts.push({ inlineData: { mimeType: item.source.media_type, data: item.source.data } });
+    } else if (item.type === 'image' && item.source) {
+      parts.push({ inlineData: { mimeType: item.source.media_type, data: item.source.data } });
+    }
+  }
+
+  try {
+    const model = 'gemini-2.5-flash-preview-05-20';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: 0.3,
+        }
+      })
+    });
+
+    console.log('Gemini API response status:', response.status);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await response.json() as any;
+
+    if (data.error) {
+      console.error('Gemini API error:', JSON.stringify(data.error));
+      return { ok: false, error: `Gemini: ${data.error.message || 'Unknown error'}`, code: 'GEMINI_ERROR', provider: 'gemini' };
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const finishReason = data.candidates?.[0]?.finishReason || '';
+    console.log('Gemini response length:', text.length, 'Finish:', finishReason);
+
+    if (!text) {
+      return { ok: false, error: 'Gemini returned empty response', code: 'EMPTY', provider: 'gemini' };
+    }
+
+    return { ok: true, data: text, stop_reason: finishReason === 'STOP' ? 'end_turn' : finishReason, provider: 'gemini' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown Gemini error';
+    console.error('Gemini call failed:', msg);
+    return { ok: false, error: `Gemini: ${msg}`, code: 'GEMINI_NETWORK', provider: 'gemini' };
+  }
+}
+
+/* ─── Unified AI caller: Claude first, Gemini fallback ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const geminiKey = process.env.Gemini_API_Key;
+
+  // Try Claude first
+  if (anthropicKey) {
+    console.log('Trying Claude (primary)...');
+    const result = await callClaude(anthropicKey, content, maxTokens);
+    if (result.ok) return result;
+    console.warn('Claude failed:', result.error);
+
+    // Fall back to Gemini
+    if (geminiKey) {
+      console.log('Falling back to Gemini...');
+      const geminiResult = await callGemini(geminiKey, content, maxTokens);
+      if (geminiResult.ok) return geminiResult;
+      console.error('Gemini fallback also failed:', geminiResult.error);
+      // Return Claude's original error since it's the primary
+      return { ...result, error: `${result.error} | Gemini fallback: ${geminiResult.error}` };
+    }
+
+    return result;
+  }
+
+  // No Anthropic key — try Gemini as primary
+  if (geminiKey) {
+    console.log('Using Gemini (primary — no Claude key)...');
+    return callGemini(geminiKey, content, maxTokens);
+  }
+
+  return { ok: false, error: 'No AI API key configured. Set ANTHROPIC_API_KEY or Gemini_API_Key.', code: 'NO_KEY' };
 }
 
 /* ─── Helper: parse JSON with truncation recovery ─── */
@@ -115,9 +203,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
+    // Check at least one AI key is configured
+    const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
+    const hasGeminiKey = !!process.env.Gemini_API_Key;
+    if (!hasAnthropicKey && !hasGeminiKey) {
+      return NextResponse.json({ error: 'No AI API key configured. Set ANTHROPIC_API_KEY or Gemini_API_Key.' }, { status: 500 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -147,7 +237,7 @@ export async function POST(req: NextRequest) {
 
     console.log('=== CALL 1: Extract & pair all trades ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
-    console.log('API key present:', !!apiKey, 'Key prefix:', apiKey?.substring(0, 7) + '...');
+    console.log('AI keys — Claude:', hasAnthropicKey, 'Gemini:', hasGeminiKey);
 
     /* ═══════════════════════════════════════════
        CALL 1: Extract & pair ALL trades (lean)
@@ -229,7 +319,7 @@ RETURN EVERY SINGLE PAIRED TRADE — NO LIMIT. The per-trade data is small so th
       }
     ];
 
-    const call1 = await callClaude(apiKey, call1Content, 16000);
+    const call1 = await callAI(call1Content, 16000);
     if (!call1.ok) {
       return NextResponse.json({ error: call1.error, code: call1.code }, { status: call1.code === 'OVERLOADED' ? 529 : 500 });
     }
@@ -269,7 +359,7 @@ Sort by time. Return ALL remaining trades.`
         }
       ];
 
-      const call1b = await callClaude(apiKey, call1bContent, 8000);
+      const call1b = await callAI(call1bContent, 8000);
       if (call1b.ok) {
         const parsed1b = safeParseJSON(call1b.data);
         if (parsed1b.ok && parsed1b.data) {
@@ -435,7 +525,7 @@ IMPORTANT: Provide ALL fields in first_trade_detail. Every single one including 
       }
     ];
 
-    const call2 = await callClaude(apiKey, call2Content, 8000);
+    const call2 = await callAI(call2Content, 8000);
     if (!call2.ok) {
       console.error('Call 2 failed, returning basic results:', call2.error);
       return NextResponse.json({
