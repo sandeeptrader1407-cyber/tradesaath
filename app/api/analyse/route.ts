@@ -18,7 +18,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content }]
       })
@@ -37,6 +37,9 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
   if (!response) {
     return { ok: false, error: 'Failed to connect to AI service.', code: 'NETWORK' };
   }
+
+  console.log('Anthropic API response status:', response.status);
+
   if (response.status === 529) {
     return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
   }
@@ -45,10 +48,17 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
   const data = await response.json() as any;
 
   if (data.error) {
+    console.error('Anthropic API error:', JSON.stringify(data.error));
     if (data.error.type === 'overloaded_error') {
       return { ok: false, error: 'Our AI is currently busy. Please try again in 30 seconds.', code: 'OVERLOADED' };
     }
-    return { ok: false, error: 'Analysis failed. Please try again.' };
+    if (data.error.type === 'authentication_error') {
+      return { ok: false, error: 'AI service authentication failed. Please check API key configuration.', code: 'AUTH' };
+    }
+    if (data.error.type === 'invalid_request_error') {
+      return { ok: false, error: `AI request error: ${data.error.message || 'Invalid request'}`, code: 'INVALID' };
+    }
+    return { ok: false, error: `Analysis failed: ${data.error.message || data.error.type || 'Unknown error'}` };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,6 +147,7 @@ export async function POST(req: NextRequest) {
 
     console.log('=== CALL 1: Extract & pair all trades ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
+    console.log('API key present:', !!apiKey, 'Key prefix:', apiKey?.substring(0, 7) + '...');
 
     /* ═══════════════════════════════════════════
        CALL 1: Extract & pair ALL trades (lean)
