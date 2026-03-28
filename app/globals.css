@@ -121,6 +121,7 @@ body.day nav { background: rgba(247,248,252,.88); border-bottom-color: rgba(223,
   letter-spacing: .01em;
 }
 .nav-links a:hover { color: var(--text); background: var(--s2) }
+.nav-links a.nav-active { color: var(--accent); background: var(--accent2) }
 
 .nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0 }
 
@@ -185,6 +186,7 @@ body.day nav { background: rgba(247,248,252,.88); border-bottom-color: rgba(223,
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent2) }
 .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: var(--radius-xs) }
 .btn-lg { padding: 12px 24px; font-size: 14px; border-radius: 10px }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; box-shadow: none !important }
 
 /* ═══════════════════════════════════════════════════════
    CARDS & BADGES
@@ -936,3 +938,60 @@ body.day .broker-guide-body { background: #f8f9fa; border-color: #e0e0e0 }
 
 /* ── AI Chat FAB animation ── */
 .ai-chat-fab:hover { transform: scale(1.1) !important; box-shadow: 0 6px 24px rgba(62,232,196,.4) }
+
+/* ── Summary card small (dashboard) ── */
+.summary-card-sm { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px }
+.summary-card-sm .sc-label { font-size: 9px; font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px }
+.summary-card-sm .sc-val { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700 }
+.summary-card-sm .sc-sub { font-size: 10px; color: var(--muted2); margin-top: 2px }
+body.day .summary-card-sm { background: #fff }
+
+/* ── DQS ring SVG classes ── */
+.dqs-ring .ring-bg { stroke: var(--border) }
+.dqs-ring .ring-fill { transition: stroke-dasharray 1.5s var(--ease) }
+
+/* ── Equity curve ── */
+.equity-curve { height: 80px; display: flex; align-items: flex-end; gap: 3px; padding: 8px 0 }
+.eq-bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 6px; transition: height .5s ease }
+
+/* ── Running P&L mini chart ── */
+.rpnl-row { display: flex; align-items: flex-end; gap: 3px; height: 40px; margin: 8px 0 }
+.rpnl-bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 8px; transition: height .4s var(--ease) }
+.rpnl-bar.rpnl-current { outline: 2px solid #fff; outline-offset: -1px; opacity: 1 !important }
+
+/* ── Trade distribution ── */
+.dist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+@media(max-width:640px) { .dist-grid { grid-template-columns: 1fr } }
+.dist-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px }
+.dist-title { font-size: 10px; font-weight: 700; margin-bottom: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; font-family: 'JetBrains Mono', monospace }
+.dist-rows { display: flex; flex-direction: column; gap: 5px }
+.dist-r { display: flex; align-items: center; gap: 8px }
+.dist-r-lbl { font-size: 10px; color: var(--muted); min-width: 52px; font-family: 'JetBrains Mono', monospace }
+.dist-r-bar { flex: 1; height: 14px; background: var(--s2); border-radius: 3px; overflow: hidden }
+.dist-r-fill { height: 100%; border-radius: 3px; transition: width .8s var(--ease); display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-size: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: rgba(255,255,255,.85) }
+.dist-r-val { font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 700; min-width: 30px; text-align: right }
+
+/* ── Emotion impact ── */
+.emo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+@media(max-width:640px) { .emo-grid { grid-template-columns: 1fr } }
+.emo-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; gap: 10px; align-items: flex-start }
+.emo-icon { font-size: 22px; flex-shrink: 0 }
+.emo-body { flex: 1 }
+.emo-name { font-size: 12px; font-weight: 700; margin-bottom: 2px }
+.emo-stat { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted2); margin-bottom: 5px }
+.emo-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden }
+.emo-bar-fill { height: 100%; border-radius: 2px; transition: width .8s var(--ease) }
+.emo-desc { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4 }
+
+/* ── Plan card featured (pricing) ── */
+.plan-card.featured { border-color: var(--accent) }
+.plan-card.featured::before {
+  content: 'Most Popular'; position: absolute; top: 16px; right: -28px;
+  background: var(--accent); color: #071a15; font-size: 9px; font-weight: 800;
+  letter-spacing: .8px; padding: 4px 36px; transform: rotate(45deg);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Dash grid 3 ── */
+.dash-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px }
+@media(max-width:768px) { .dash-grid-3 { grid-template-columns: 1fr } }

@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
     const wins = trades.filter((t: any) => t.pnl > 0).length
     const winRate = tradeCount > 0 ? Math.round(wins / tradeCount * 100) : 0
 
+    // Extract DQS score from analysis if available
+    const dqsScore = analysis?.dqs?.score || 0
+
     const { data, error } = await supabaseAdmin
       .from('sessions')
       .insert({
@@ -67,6 +70,7 @@ export async function POST(req: NextRequest) {
         total_pnl: totalPnl,
         trade_count: tradeCount,
         win_rate: winRate,
+        dqs_score: dqsScore,
       })
       .select()
       .single()
