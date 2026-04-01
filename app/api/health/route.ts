@@ -4,12 +4,20 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const geminiKey = process.env.Gemini_API_Key;
+  const geminiKey = process.env.Gemini_API_Key
+    || process.env.GEMINI_API_KEY
+    || process.env.Gemini_Api_Key
+    || process.env.GEMINI_API_key
+    || process.env.gemini_api_key;
+
+  // Log all env var names that contain 'gemini' (case-insensitive) for debugging
+  const geminiEnvVars = Object.keys(process.env).filter(k => k.toLowerCase().includes('gemini'));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const results: Record<string, any> = {
     anthropic_key_set: !!anthropicKey,
     gemini_key_set: !!geminiKey,
+    gemini_env_var_names: geminiEnvVars,
   };
 
   // Test Claude

@@ -9,10 +9,9 @@ type AIResult = { ok: boolean; data?: any; error?: string; code?: string; stop_r
 
 /* ─── Helper: call Claude (Anthropic) with retry on 529 ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
+async function callClaude(apiKey: string, content: any[], maxTokens: number, maxRetries = 1): Promise<AIResult> {
   try {
     let response: Response | undefined;
-    const maxRetries = 3;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -149,39 +148,50 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
   }
 }
 
+/* ─── Helper: get Gemini API key (check all common env var names) ─── */
+function getGeminiKey(): string | undefined {
+  return process.env.Gemini_API_Key
+    || process.env.GEMINI_API_KEY
+    || process.env.Gemini_Api_Key
+    || process.env.GEMINI_API_key
+    || process.env.gemini_api_key;
+}
+
 /* ─── Unified AI caller: Claude first, Gemini fallback ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const geminiKey = process.env.Gemini_API_Key;
+  const geminiKey = getGeminiKey();
 
-  // Try Claude first
-  if (anthropicKey) {
-    console.log('Trying Claude (primary)...');
+  console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey);
+
+  // If Gemini is available, try Claude once (no retries) then fall back fast
+  if (anthropicKey && geminiKey) {
+    console.log('Trying Claude (primary, fast-fail with Gemini fallback)...');
     const result = await callClaude(anthropicKey, content, maxTokens);
     if (result.ok) return result;
-    console.warn('Claude failed:', result.error);
+    console.warn('Claude failed:', result.error, '— switching to Gemini');
 
-    // Fall back to Gemini
-    if (geminiKey) {
-      console.log('Falling back to Gemini...');
-      const geminiResult = await callGemini(geminiKey, content, maxTokens);
-      if (geminiResult.ok) return geminiResult;
-      console.error('Gemini fallback also failed:', geminiResult.error);
-      // Return Claude's original error since it's the primary
-      return { ...result, error: `${result.error} | Gemini fallback: ${geminiResult.error}` };
-    }
-
-    return result;
+    console.log('Using Gemini (fallback)...');
+    const geminiResult = await callGemini(geminiKey, content, maxTokens);
+    if (geminiResult.ok) return geminiResult;
+    console.error('Gemini fallback also failed:', geminiResult.error);
+    return { ...result, error: `Claude: ${result.error} | Gemini: ${geminiResult.error}` };
   }
 
-  // No Anthropic key — try Gemini as primary
+  // Only Claude available
+  if (anthropicKey) {
+    console.log('Using Claude (only provider)...');
+    return callClaude(anthropicKey, content, maxTokens);
+  }
+
+  // Only Gemini available
   if (geminiKey) {
     console.log('Using Gemini (primary — no Claude key)...');
     return callGemini(geminiKey, content, maxTokens);
   }
 
-  return { ok: false, error: 'No AI API key configured. Set ANTHROPIC_API_KEY or Gemini_API_Key.', code: 'NO_KEY' };
+  return { ok: false, error: 'No AI API key configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY.', code: 'NO_KEY' };
 }
 
 /* ─── Helper: parse JSON with truncation recovery ─── */
@@ -233,9 +243,9 @@ export async function POST(req: NextRequest) {
 
     // Check at least one AI key is configured
     const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
-    const hasGeminiKey = !!process.env.Gemini_API_Key;
+    const hasGeminiKey = !!getGeminiKey();
     if (!hasAnthropicKey && !hasGeminiKey) {
-      return NextResponse.json({ error: 'No AI API key configured. Set ANTHROPIC_API_KEY or Gemini_API_Key.' }, { status: 500 });
+      return NextResponse.json({ error: 'No AI API key configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY.' }, { status: 500 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -265,7 +275,7 @@ export async function POST(req: NextRequest) {
 
     console.log('=== CALL 1: Extract & pair all trades ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
-    console.log('AI keys — Claude:', hasAnthropicKey, 'Gemini:', hasGeminiKey);
+    // AI key status logged inside callAI()
 
     /* ═══════════════════════════════════════════
        CALL 1: Extract & pair ALL trades (lean)
