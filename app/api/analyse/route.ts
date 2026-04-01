@@ -10,68 +10,85 @@ type AIResult = { ok: boolean; data?: any; error?: string; code?: string; stop_r
 /* ─── Helper: call Claude (Anthropic) with retry on 529 ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
-  let response: Response | undefined;
-  const maxRetries = 3;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content }]
-      })
-    });
-
-    if (response.status === 529) {
-      console.log(`Claude overloaded, retry ${attempt + 1}/${maxRetries} in ${(attempt + 1) * 3}s...`);
-      if (attempt < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
-        continue;
-      }
-    }
-    break;
-  }
-
-  if (!response) {
-    return { ok: false, error: 'Failed to connect to Claude.', code: 'NETWORK', provider: 'claude' };
-  }
-
-  console.log('Claude API response status:', response.status);
-
-  // Handle overloaded / rate-limited before parsing JSON
-  if (response.status === 529) {
-    return { ok: false, error: 'Claude is currently busy (529).', code: 'OVERLOADED', provider: 'claude' };
-  }
-  if (response.status === 429) {
-    return { ok: false, error: 'Claude rate/usage limit reached (429).', code: 'RATE_LIMIT', provider: 'claude' };
-  }
-
-  // Parse response safely
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let data: any;
   try {
-    data = await response.json();
-  } catch {
-    return { ok: false, error: `Claude HTTP ${response.status} — non-JSON response`, code: 'PARSE', provider: 'claude' };
+    let response: Response | undefined;
+    const maxRetries = 3;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: maxTokens,
+            messages: [{ role: 'user', content }]
+          })
+        });
+      } catch (fetchErr: unknown) {
+        const msg = fetchErr instanceof Error ? fetchErr.message : 'fetch failed';
+        console.error(`Claude fetch error (attempt ${attempt + 1}):`, msg);
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+          continue;
+        }
+        return { ok: false, error: `Claude network error: ${msg}`, code: 'NETWORK', provider: 'claude' };
+      }
+
+      if (response.status === 529) {
+        console.log(`Claude overloaded, retry ${attempt + 1}/${maxRetries} in ${(attempt + 1) * 3}s...`);
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
+          continue;
+        }
+      }
+      break;
+    }
+
+    if (!response) {
+      return { ok: false, error: 'Failed to connect to Claude.', code: 'NETWORK', provider: 'claude' };
+    }
+
+    console.log('Claude API response status:', response.status);
+
+    // Handle overloaded / rate-limited before parsing JSON
+    if (response.status === 529) {
+      return { ok: false, error: 'Claude is currently busy (529).', code: 'OVERLOADED', provider: 'claude' };
+    }
+    if (response.status === 429) {
+      return { ok: false, error: 'Claude rate/usage limit reached (429).', code: 'RATE_LIMIT', provider: 'claude' };
+    }
+
+    // Parse response safely
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      return { ok: false, error: `Claude HTTP ${response.status} — non-JSON response`, code: 'PARSE', provider: 'claude' };
+    }
+
+    if (!response.ok || data.error) {
+      const errMsg = data.error?.message || data.error?.type || `HTTP ${response.status}`;
+      console.error('Claude API error:', JSON.stringify(data.error || data));
+      return { ok: false, error: `Claude: ${errMsg}`, code: data.error?.type || `HTTP_${response.status}`, provider: 'claude' };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
+    console.log('Claude response length:', text.length, 'Stop:', data.stop_reason);
+
+    return { ok: true, data: text, stop_reason: data.stop_reason, provider: 'claude' };
+
+  } catch (outerErr: unknown) {
+    const msg = outerErr instanceof Error ? outerErr.message : 'Unknown Claude error';
+    console.error('Claude unexpected error:', msg);
+    return { ok: false, error: `Claude crashed: ${msg}`, code: 'CRASH', provider: 'claude' };
   }
-
-  if (!response.ok || data.error) {
-    const errMsg = data.error?.message || data.error?.type || `HTTP ${response.status}`;
-    console.error('Claude API error:', JSON.stringify(data.error || data));
-    return { ok: false, error: `Claude: ${errMsg}`, code: data.error?.type || `HTTP_${response.status}`, provider: 'claude' };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
-  console.log('Claude response length:', text.length, 'Stop:', data.stop_reason);
-
-  return { ok: true, data: text, stop_reason: data.stop_reason, provider: 'claude' };
 }
 
 /* ─── Helper: call Gemini (Google) ─── */
