@@ -44,16 +44,27 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
 
   console.log('Claude API response status:', response.status);
 
+  // Handle overloaded / rate-limited before parsing JSON
   if (response.status === 529) {
-    return { ok: false, error: 'Claude is currently busy.', code: 'OVERLOADED', provider: 'claude' };
+    return { ok: false, error: 'Claude is currently busy (529).', code: 'OVERLOADED', provider: 'claude' };
+  }
+  if (response.status === 429) {
+    return { ok: false, error: 'Claude rate/usage limit reached (429).', code: 'RATE_LIMIT', provider: 'claude' };
   }
 
+  // Parse response safely
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await response.json() as any;
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    return { ok: false, error: `Claude HTTP ${response.status} — non-JSON response`, code: 'PARSE', provider: 'claude' };
+  }
 
-  if (data.error) {
-    console.error('Claude API error:', JSON.stringify(data.error));
-    return { ok: false, error: `Claude: ${data.error.message || data.error.type || 'Unknown error'}`, code: data.error.type, provider: 'claude' };
+  if (!response.ok || data.error) {
+    const errMsg = data.error?.message || data.error?.type || `HTTP ${response.status}`;
+    console.error('Claude API error:', JSON.stringify(data.error || data));
+    return { ok: false, error: `Claude: ${errMsg}`, code: data.error?.type || `HTTP_${response.status}`, provider: 'claude' };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
