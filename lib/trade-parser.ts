@@ -552,23 +552,56 @@ function parseFyersOrderBook(text: string): AnyRow[] {
 /* ─── Parse PDF buffer ─── */
 async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string; rows: AnyRow[] }> {
   let fullText = '';
-  let textPages: string[] = [];
 
+  // Try multiple PDF extraction methods
+  // Method 1: unpdf
   try {
     const { extractText } = await import('unpdf');
     const uint8 = new Uint8Array(buffer);
     const result = await extractText(uint8);
-    // result.text can be a string or array of strings (one per page)
     if (typeof result === 'string') {
       fullText = result;
-    } else if (Array.isArray(result.text)) {
-      textPages = result.text;
-      fullText = textPages.join('\n');
-    } else {
-      fullText = result.text || '';
+    } else if (result && Array.isArray(result.text)) {
+      fullText = result.text.join('\n');
+    } else if (result && typeof result.text === 'string') {
+      fullText = result.text;
     }
+    console.log(`[Parser] unpdf extracted ${fullText.length} chars`);
   } catch (e) {
-    console.error('PDF text extraction failed:', e);
+    console.error('[Parser] unpdf failed:', e instanceof Error ? e.message : e);
+  }
+
+  // Method 2: If unpdf failed or returned nothing, try pdf-parse
+  if (!fullText || fullText.trim().length < 50) {
+    try {
+      const pdfParse = (await import('pdf-parse')).default;
+      const data = await pdfParse(buffer);
+      if (data.text && data.text.trim().length > fullText.trim().length) {
+        fullText = data.text;
+        console.log(`[Parser] pdf-parse extracted ${fullText.length} chars`);
+      }
+    } catch (e2) {
+      console.error('[Parser] pdf-parse also failed:', e2 instanceof Error ? e2.message : e2);
+    }
+  }
+
+  // Method 3: Raw buffer text scan (last resort — finds visible ASCII strings)
+  if (!fullText || fullText.trim().length < 50) {
+    try {
+      const raw = buffer.toString('latin1');
+      // Extract text between BT/ET operators (PDF text objects)
+      const textMatches = raw.match(/\(([^)]+)\)/g);
+      if (textMatches && textMatches.length > 10) {
+        fullText = textMatches.map(m => m.slice(1, -1)).join(' ');
+        console.log(`[Parser] Raw PDF text scan extracted ${fullText.length} chars`);
+      }
+    } catch (e3) {
+      console.error('[Parser] Raw PDF scan failed:', e3 instanceof Error ? e3.message : e3);
+    }
+  }
+
+  if (!fullText || fullText.trim().length < 20) {
+    console.error('[Parser] All PDF extraction methods failed');
     return { text: '', rows: [] };
   }
 

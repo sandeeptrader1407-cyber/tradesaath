@@ -13,7 +13,7 @@ type AIResult = { ok: boolean; data?: any; error?: string; code?: string; provid
 async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 75000);
+    const timeout = setTimeout(() => controller.abort(), 80000);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: controller.signal,
@@ -47,9 +47,10 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
     const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
     return { ok: true, data: text, provider: 'claude' };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Claude error';
+    const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
+    const msg = isAbort ? 'Claude timed out (80s)' : (err instanceof Error ? err.message : 'Claude error');
     console.error('Claude error:', msg);
-    return { ok: false, error: msg, code: 'NETWORK', provider: 'claude' };
+    return { ok: false, error: msg, code: isAbort ? 'TIMEOUT' : 'NETWORK', provider: 'claude' };
   }
 }
 
@@ -65,9 +66,9 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 75000);
+    const timeout = setTimeout(() => controller.abort(), 80000);
     const response = await fetch(url, {
       method: 'POST', signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
@@ -83,7 +84,9 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
     if (!text) return { ok: false, error: 'Gemini empty response', code: 'EMPTY', provider: 'gemini' };
     return { ok: true, data: text, provider: 'gemini' };
   } catch (err: unknown) {
-    return { ok: false, error: `Gemini: ${err instanceof Error ? err.message : 'error'}`, code: 'GEMINI_NETWORK', provider: 'gemini' };
+    const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
+    const msg = isAbort ? 'Gemini timed out (80s)' : (err instanceof Error ? err.message : 'Gemini error');
+    return { ok: false, error: msg, code: isAbort ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK', provider: 'gemini' };
   }
 }
 
@@ -257,9 +260,12 @@ export async function POST(req: NextRequest) {
     let parsed: ParseResult | null = null;
     try {
       parsed = await parseTradeFile(buffer, file.name);
-      console.log(`Local parser: success=${parsed.success}, trades=${parsed.trades.length}`);
+      console.log(`Local parser: success=${parsed.success}, trades=${parsed.trades.length}, broker=${parsed.broker}`);
+      if (parsed.error) console.log(`Local parser note: ${parsed.error}`);
     } catch (parseErr) {
-      console.error('Local parser crashed:', parseErr instanceof Error ? parseErr.message : parseErr);
+      console.error('Local parser crashed:', parseErr instanceof Error ? parseErr.stack : parseErr);
+      // Don't give up — set parsed to a failure result so we still try AI
+      parsed = null;
     }
 
     /* ═══════════════════════════════════════════
