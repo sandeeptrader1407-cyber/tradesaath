@@ -15,8 +15,11 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 40000);
         response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
@@ -28,6 +31,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
             messages: [{ role: 'user', content }]
           })
         });
+        clearTimeout(timeout);
       } catch (fetchErr: unknown) {
         const msg = fetchErr instanceof Error ? fetchErr.message : 'fetch failed';
         console.error(`Claude fetch error (attempt ${attempt + 1}):`, msg);
@@ -110,8 +114,11 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
     const model = 'gemini-2.5-flash-preview-05-20';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 70000);
     const response = await fetch(url, {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
@@ -121,6 +128,7 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
         }
       })
     });
+    clearTimeout(timeout);
 
     console.log('Gemini API response status:', response.status);
 
@@ -163,7 +171,8 @@ async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const geminiKey = getGeminiKey();
 
-  console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey);
+  const geminiEnvNames = Object.keys(process.env).filter(k => k.toLowerCase().includes('gemini'));
+  console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey, 'Gemini env vars found:', geminiEnvNames);
 
   // If Gemini is available, try Claude once (no retries) then fall back fast
   if (anthropicKey && geminiKey) {
@@ -284,76 +293,19 @@ export async function POST(req: NextRequest) {
       ...fileContent,
       {
         type: 'text',
-        text: `Extract ALL trades from this file and pair buy/sell orders for the same instrument.
+        text: `Extract ALL trades from this file. Pair buy/sell orders for the same instrument. Sort by time. Return EVERY trade — no limit.
 
-ABSOLUTE RULE — RETURN EVERY SINGLE TRADE:
-- Do NOT skip any trades. Do NOT limit to 30 or 50 or any number.
-- If there are 74 trades, return 74. If there are 200, return 200.
-- I need the COMPLETE picture. Every single paired trade must be in the output.
+Rules:
+- Match BUY+SELL for same instrument (same strike/expiry/CE/PE)
+- P&L = (Sell Price - Buy Price) x Qty. Use net amounts if shown.
+- cum_pnl = running total. Win Rate = wins/total*100. Profit Factor = gross profit/|gross loss|.
+- Tag each trade: "win","fomo","revenge","averaging","panic","against_trend","hope_hold","decision_fatigue"
+- Session: "morning" (<11AM), "midday" (11AM-1:30PM), "afternoon" (>1:30PM)
 
-SORT ALL TRADES CHRONOLOGICALLY BY TRADE TIME (earliest first):
-- The sequence matters — a trader's psychology cascades from one trade to the next.
-- Trade index 0 should be the first trade of the day.
-- If two trades have the same time, keep their file order.
-
-CALCULATION ACCURACY IS CRITICAL:
-- You are a professional trading analyst. Every number must be precise.
-- Match BUY and SELL orders for the SAME instrument (same strike, same expiry, same CE/PE type)
-- P&L per paired trade = (Sell Price - Buy Price) x Quantity
-- For options: if lot size is embedded in the quantity, account for it
-- If multiple fills for same instrument, use average buy price and average sell price
-- If the contract note shows a Net Amount or Net P&L column, use those exact figures
-- cum_pnl is the running cumulative total: trade 0 cum_pnl = trade 0 pnl, trade 1 cum_pnl = trade 0 pnl + trade 1 pnl, etc.
-- If entry price equals exit price, P&L MUST be 0
-- Cross-verify: sum of all individual trade P&Ls must approximately equal the net P&L you report in KPIs
-- Win Rate = Winners / Total Trades x 100
-- Profit Factor = Gross Profit / |Gross Loss|
-- Double-check every calculation before returning
-
-PSYCHOLOGY TAG ASSIGNMENT — think like a trading psychologist:
-For EACH trade, look at the PREVIOUS 5 trades to determine the psychological state:
-- After 2+ consecutive wins → check for overconfidence (bigger position sizes, looser stops)
-- After a loss → check if next trade came within 5 minutes (revenge) or with larger size (tilt)
-- After 2+ consecutive losses → check for panic exits, desperate averaging, decision fatigue
-- After a big loss → the next 3 trades are almost always emotionally compromised
-- Time of day matters: trades after 2 PM with losses before them = highest risk of revenge
-
-Tags:
-- "win" — clean entry and exit, followed the plan, good R:R
-- "fomo" — entered AFTER a big move already happened, chasing price
-- "revenge" — entered within 5 minutes of a losing trade, larger size or same instrument
-- "averaging" — added to a losing position
-- "panic" — exited at the worst possible price after holding through drawdown
-- "against_trend" — traded opposite to the clear market direction that day
-- "hope_hold" — held a losing position much longer than the plan would suggest
-- "decision_fatigue" — trade quality deteriorated late in the session, random entries
-
-The SEQUENCE tells the story:
-- Morning wins → midday overconfidence → first loss → revenge → averaging → panic → more revenge → fatigue
-- This is the classic retail trader vicious cycle. Map EACH trade to where it falls in this cycle.
-
-SESSION CLASSIFICATION:
-- "morning" = before 11:00 AM
-- "midday" = 11:00 AM to 1:30 PM
-- "afternoon" = after 1:30 PM
-
-Return ONLY valid JSON, NO markdown backticks, NO explanation:
-{
-  "broker":"detected broker name",
-  "market":"NSE/NYSE/Forex/Crypto",
-  "trade_date":"YYYY-MM-DD",
-  "currency":"INR or USD etc",
-  "total_trades_in_file": number,
-  "kpis":{
-    "net_pnl":number,"total_trades":number,"wins":number,"losses":number,
-    "win_rate":number,"profit_factor":number,"best_trade_pnl":number,"worst_trade_pnl":number
-  },
-  "trades":[
-    {"index":0,"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":number,"entry":number,"exit":number,"pnl":number,"cum_pnl":number,"tag":"win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue","label":"Disciplined Win/FOMO Entry/etc","session":"morning/midday/afternoon"}
-  ]
-}
-
-RETURN EVERY SINGLE PAIRED TRADE — NO LIMIT. The per-trade data is small so this will fit.`
+Return ONLY valid JSON, no backticks:
+{"broker":"name","market":"NSE/NYSE","trade_date":"YYYY-MM-DD","currency":"INR","total_trades_in_file":N,
+"kpis":{"net_pnl":N,"total_trades":N,"wins":N,"losses":N,"win_rate":N,"profit_factor":N,"best_trade_pnl":N,"worst_trade_pnl":N},
+"trades":[{"index":0,"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":N,"entry":N,"exit":N,"pnl":N,"cum_pnl":N,"tag":"tag","label":"label","session":"session"}]}`
       }
     ];
 
