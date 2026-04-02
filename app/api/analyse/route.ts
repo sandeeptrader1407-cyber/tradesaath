@@ -16,7 +16,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 40000);
+        const timeout = setTimeout(() => controller.abort(), 70000); // 70s — single call gets more time
         response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           signal: controller.signal,
@@ -58,7 +58,6 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
 
     console.log('Claude API response status:', response.status);
 
-    // Handle overloaded / rate-limited before parsing JSON
     if (response.status === 529) {
       return { ok: false, error: 'Claude is currently busy (529).', code: 'OVERLOADED', provider: 'claude' };
     }
@@ -66,7 +65,6 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
       return { ok: false, error: 'Claude rate/usage limit reached (429).', code: 'RATE_LIMIT', provider: 'claude' };
     }
 
-    // Parse response safely
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let data: any;
     try {
@@ -97,7 +95,6 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, max
 /* ─── Helper: call Gemini (Google) ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callGemini(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
-  // Convert Claude content format → Gemini parts format
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [];
   for (const item of content) {
@@ -115,7 +112,7 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 70000);
+    const timeout = setTimeout(() => controller.abort(), 75000); // 75s for single call
     const response = await fetch(url, {
       method: 'POST',
       signal: controller.signal,
@@ -156,7 +153,7 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
   }
 }
 
-/* ─── Helper: get Gemini API key (check all common env var names) ─── */
+/* ─── Helper: get Gemini API key ─── */
 function getGeminiKey(): string | undefined {
   return process.env.Gemini_API_Key
     || process.env.GEMINI_API_KEY
@@ -174,7 +171,6 @@ async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
   const geminiEnvNames = Object.keys(process.env).filter(k => k.toLowerCase().includes('gemini'));
   console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey, 'Gemini env vars found:', geminiEnvNames);
 
-  // If Gemini is available, try Claude once (no retries) then fall back fast
   if (anthropicKey && geminiKey) {
     console.log('Trying Claude (primary, fast-fail with Gemini fallback)...');
     const result = await callClaude(anthropicKey, content, maxTokens);
@@ -188,13 +184,11 @@ async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
     return { ...result, error: `Claude: ${result.error} | Gemini: ${geminiResult.error}` };
   }
 
-  // Only Claude available
   if (anthropicKey) {
     console.log('Using Claude (only provider)...');
     return callClaude(anthropicKey, content, maxTokens);
   }
 
-  // Only Gemini available
   if (geminiKey) {
     console.log('Using Gemini (primary — no Claude key)...');
     return callGemini(geminiKey, content, maxTokens);
@@ -238,7 +232,7 @@ function safeParseJSON(raw: string): { ok: boolean; data?: Record<string, unknow
 }
 
 /* ═══════════════════════════════════════════════════
-   MAIN HANDLER
+   MAIN HANDLER — SINGLE API CALL (fits in 90s Vercel timeout)
 ═══════════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
   try {
@@ -250,7 +244,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Check at least one AI key is configured
     const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
     const hasGeminiKey = !!getGeminiKey();
     if (!hasAnthropicKey && !hasGeminiKey) {
@@ -282,178 +275,73 @@ export async function POST(req: NextRequest) {
     try { ctx = JSON.parse(context); } catch { /* ignore */ }
     const contextStr = Object.entries(ctx).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
 
-    console.log('=== CALL 1: Extract & pair all trades ===');
+    console.log('=== SINGLE COMBINED CALL: Extract trades + Deep analysis ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength, 'Type:', mediaType);
-    // AI key status logged inside callAI()
 
     /* ═══════════════════════════════════════════
-       CALL 1: Extract & pair ALL trades (lean)
+       SINGLE COMBINED CALL: Extract + Analyse
     ═══════════════════════════════════════════ */
-    const call1Content = [
+    const combinedContent = [
       ...fileContent,
       {
         type: 'text',
-        text: `Extract ALL trades from this file. Pair buy/sell orders for the same instrument. Sort by time. Return EVERY trade — no limit.
+        text: `You are TradeSaath, a personal trading mentor. Analyse this trade file completely.
 
-Rules:
-- Match BUY+SELL for same instrument (same strike/expiry/CE/PE)
+STEP 1 — EXTRACT ALL TRADES:
+- Pair BUY+SELL for same instrument (same strike/expiry/CE/PE)
 - P&L = (Sell Price - Buy Price) x Qty. Use net amounts if shown.
 - cum_pnl = running total. Win Rate = wins/total*100. Profit Factor = gross profit/|gross loss|.
-- Tag each trade: "win","fomo","revenge","averaging","panic","against_trend","hope_hold","decision_fatigue"
+- Tag each: "win","fomo","revenge","averaging","panic","against_trend","hope_hold","decision_fatigue"
 - Session: "morning" (<11AM), "midday" (11AM-1:30PM), "afternoon" (>1:30PM)
+- Sort by time. Return ALL trades.
+
+STEP 2 — DEEP PSYCHOLOGY ANALYSIS (using the trades you just extracted):
+${contextStr ? `User context: ${contextStr}` : ''}
+
+TONE — Write like a mentor who watched their screen all day:
+- Use "you" and "your" — speak directly to the trader
+- Reference actual trade times, prices, symbols
+- Don't say generic things — say WHAT emotion, WHEN, and WHAT it cost in rupees
+- Be empathetic but honest. Acknowledge what went right before pointing out what went wrong
+- Tell the STORY of the trading day — morning to afternoon, turning points, emotional shifts
+
+VICIOUS CYCLE DETECTION:
+- After 2+ wins → check overconfidence (bigger sizes, looser stops)
+- After a loss → check if next trade came within 5 min (revenge) or larger size (tilt)
+- After 2+ losses → check panic exits, desperate averaging, decision fatigue
+- After a big loss → next 3 trades are almost always emotionally compromised
+- Trades after 2 PM with prior losses = highest revenge risk
 
 Return ONLY valid JSON, no backticks:
-{"broker":"name","market":"NSE/NYSE","trade_date":"YYYY-MM-DD","currency":"INR","total_trades_in_file":N,
-"kpis":{"net_pnl":N,"total_trades":N,"wins":N,"losses":N,"win_rate":N,"profit_factor":N,"best_trade_pnl":N,"worst_trade_pnl":N},
-"trades":[{"index":0,"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":N,"entry":N,"exit":N,"pnl":N,"cum_pnl":N,"tag":"tag","label":"label","session":"session"}]}`
-      }
-    ];
-
-    const call1 = await callAI(call1Content, 16000);
-    if (!call1.ok) {
-      return NextResponse.json({ error: call1.error, code: call1.code }, { status: call1.code === 'OVERLOADED' ? 529 : 500 });
-    }
-
-    const parsed1 = safeParseJSON(call1.data);
-    if (!parsed1.ok || !parsed1.data) {
-      return NextResponse.json({ error: 'Could not parse trade data. Please try a smaller file.', code: 'TRUNCATED' }, { status: 500 });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tradesData = parsed1.data as any;
-    const extractedCount = tradesData.trades?.length || 0;
-    const expectedCount = tradesData.total_trades_in_file || 0;
-    console.log(`Call 1 done: ${extractedCount} trades extracted, ${expectedCount} expected`);
-
-    /* ═══════════════════════════════════════════
-       CALL 1B: Continuation if trades were truncated
-    ═══════════════════════════════════════════ */
-    if (parsed1.truncated && expectedCount > extractedCount && extractedCount > 0) {
-      console.log(`=== CALL 1B: Fetching remaining trades from index ${extractedCount} ===`);
-      const call1bContent = [
-        ...fileContent,
-        {
-          type: 'text',
-          text: `I already extracted trades 0 through ${extractedCount - 1} from this file. There should be ${expectedCount} total trades.
-
-Continue extracting the REMAINING trades starting from index ${extractedCount}. Use the exact same format.
-
-Return ONLY valid JSON, NO markdown backticks:
 {
-  "trades":[
-    {"index":${extractedCount},"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":number,"entry":number,"exit":number,"pnl":number,"cum_pnl":number,"tag":"tag","label":"label","session":"session"}
-  ]
-}
-
-Sort by time. Return ALL remaining trades.`
-        }
-      ];
-
-      const call1b = await callAI(call1bContent, 8000);
-      if (call1b.ok) {
-        const parsed1b = safeParseJSON(call1b.data);
-        if (parsed1b.ok && parsed1b.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const extraTrades = (parsed1b.data as any).trades || [];
-          if (extraTrades.length > 0) {
-            tradesData.trades = [...(tradesData.trades || []), ...extraTrades];
-            // Recalculate cum_pnl for the continuation trades
-            for (let i = extractedCount; i < tradesData.trades.length; i++) {
-              tradesData.trades[i].cum_pnl = (i > 0 ? tradesData.trades[i - 1].cum_pnl : 0) + tradesData.trades[i].pnl;
-            }
-            console.log(`Call 1B: added ${extraTrades.length} more trades, total now ${tradesData.trades.length}`);
-          }
-        }
-      }
-    }
-
-    // Sort trades chronologically by time (ensure correct order)
-    if (tradesData.trades && tradesData.trades.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tradesData.trades.sort((a: any, b: any) => {
-        const timeA = (a.time || '00:00').replace(/:/g, '');
-        const timeB = (b.time || '00:00').replace(/:/g, '');
-        return parseInt(timeA) - parseInt(timeB);
-      });
-      // Re-index and recalculate cum_pnl after sorting
-      let cumPnl = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tradesData.trades.forEach((t: any, i: number) => {
-        t.index = i;
-        cumPnl += t.pnl || 0;
-        t.cum_pnl = cumPnl;
-      });
-    }
-
-    /* ═══════════════════════════════════════════
-       CALL 2: Deep analysis (session + trade #1)
-    ═══════════════════════════════════════════ */
-    console.log('=== CALL 2: Deep analysis ===');
-
-    // Build last-5-trades context for the first trade (it's the first, so it has no prior trades)
-    const first5Trades = (tradesData.trades || []).slice(0, 5);
-    const first5Summary = first5Trades.map(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (t: any) => `#${t.index + 1} ${t.time} ${t.symbol} ${t.pnl >= 0 ? '+' : ''}${t.pnl}`
-    ).join(', ');
-
-    const tradesJson = JSON.stringify(tradesData.trades || []);
-    const call2Content = [
-      {
-        type: 'text',
-        text: `You are TradeSaath, a personal trading mentor who has been watching the trader's screen all day. Here is their trade data:
-
-Broker: ${tradesData.broker || 'unknown'}
-Market: ${tradesData.market || 'unknown'}
-Date: ${tradesData.trade_date || 'unknown'}
-User context: ${contextStr || 'none provided'}
-KPIs: Net P&L ${tradesData.kpis?.net_pnl}, ${tradesData.kpis?.total_trades} trades, ${tradesData.kpis?.wins} wins, ${tradesData.kpis?.losses} losses, Win rate ${tradesData.kpis?.win_rate}%
-
-First 5 trades summary: ${first5Summary}
-
-Trades (sorted chronologically):
-${tradesJson}
-
-TONE AND STYLE — THIS IS CRITICAL:
-- Write like a personal trading mentor who has been watching the trader's screen all day
-- Use "you" and "your" — speak directly to the trader
-- Be specific — reference actual trade times, actual prices, actual symbols from the data above
-- Don't say generic things like "emotional decision-making" — say exactly WHAT emotion, WHEN it happened, and WHAT it cost them in rupees
-- For psychology coaching: be empathetic but honest. Acknowledge what went right before pointing out what went wrong
-- For the session summary: tell the STORY of the trading day — the arc from morning to afternoon, the turning points, the emotional shifts
-- Sound like a human mentor, not an AI report generator
-- Good examples of tone:
-  "Your first 3 trades were sharp — you were in the zone. But that trade at 14:32? That wasn't a trade, that was frustration talking."
-  "You know that feeling when you take a loss and immediately want to make it back? That's exactly what happened next."
-  "Here's what I want you to remember: your morning session proves you CAN trade well. The problem isn't skill — it's what happens after 2pm."
-
-VICIOUS CYCLE DETECTION — THIS IS THE CORE OF TRADESAATH:
-For EACH trade, look at the PREVIOUS 5 trades to determine the psychological state:
-- After 2+ consecutive wins → check for overconfidence (bigger position sizes, looser stops)
-- After a loss → check if next trade came within 5 minutes (revenge) or with larger size (tilt)
-- After 2+ consecutive losses → check for panic exits, desperate averaging, decision fatigue
-- After a big loss → the next 3 trades are almost always emotionally compromised
-- Time of day matters: trades after 2 PM with losses before them = highest risk of revenge
-The SEQUENCE tells the story. Map EACH trade to where it falls in the vicious cycle.
-
-Now provide the deep analysis. Return ONLY valid JSON, no backticks:
-{
-  "summary": "2-3 paragraph narrative telling the STORY of this trading day. Reference specific trades by time and symbol. Describe the emotional arc. What went right in the morning? Where did things go wrong? What was the turning point?",
+  "broker": "name",
+  "market": "NSE/NYSE",
+  "trade_date": "YYYY-MM-DD",
+  "currency": "INR",
+  "total_trades_in_file": N,
+  "kpis": {
+    "net_pnl": N, "total_trades": N, "wins": N, "losses": N,
+    "win_rate": N, "profit_factor": N, "best_trade_pnl": N, "worst_trade_pnl": N
+  },
+  "trades": [
+    {"index": 0, "time": "HH:MM", "symbol": "name", "side": "BUY/SELL", "qty": N, "entry": N, "exit": N, "pnl": N, "cum_pnl": N, "tag": "tag", "label": "label", "session": "session"}
+  ],
+  "summary": "2-3 paragraph narrative of the trading day. Reference specific trades by time and symbol. Describe the emotional arc.",
   "momentum": [
-    {"name": "Rule Following", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation referencing their trades"},
+    {"name": "Rule Following", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"},
     {"name": "Staying Calm", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"},
     {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"},
     {"name": "Exit Discipline", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific explanation"}
   ],
   "vicious_cycle": [
-    {"stage": "Disciplined Win", "count": number, "icon": "check", "desc": "text"},
-    {"stage": "FOMO Re-entry", "count": number, "icon": "zap", "desc": "text"},
-    {"stage": "Against Trend", "count": number, "icon": "arrow", "desc": "text"},
-    {"stage": "Hope & Hold", "count": number, "icon": "pray", "desc": "text"},
-    {"stage": "Averaging Down", "count": number, "icon": "down", "desc": "text"},
-    {"stage": "Panic Exit", "count": number, "icon": "wind", "desc": "text"},
-    {"stage": "Revenge Trade", "count": number, "icon": "sword", "desc": "text"},
-    {"stage": "Decision Fatigue", "count": number, "icon": "dizzy", "desc": "text"}
+    {"stage": "Disciplined Win", "count": N, "icon": "check", "desc": "text"},
+    {"stage": "FOMO Re-entry", "count": N, "icon": "zap", "desc": "text"},
+    {"stage": "Against Trend", "count": N, "icon": "arrow", "desc": "text"},
+    {"stage": "Hope & Hold", "count": N, "icon": "pray", "desc": "text"},
+    {"stage": "Averaging Down", "count": N, "icon": "down", "desc": "text"},
+    {"stage": "Panic Exit", "count": N, "icon": "wind", "desc": "text"},
+    {"stage": "Revenge Trade", "count": N, "icon": "sword", "desc": "text"},
+    {"stage": "Decision Fatigue", "count": N, "icon": "dizzy", "desc": "text"}
   ],
   "technical_insights": [
     {"name": "Trend Alignment", "score": 0-100, "color": "green/red/gold", "desc": "text"},
@@ -472,18 +360,18 @@ Now provide the deep analysis. Return ONLY valid JSON, no backticks:
     ]
   },
   "financial_impact": {
-    "total_lost_to_mistakes": number,
-    "potential_pnl_without_mistakes": number,
+    "total_lost_to_mistakes": N,
+    "potential_pnl_without_mistakes": N,
     "message": "One sentence about what disciplined trading would have looked like"
   },
   "mistake_patterns": [
-    {"name": "pattern name", "icon": "emoji", "count": number, "cost": number, "frequency": "X of Y trades"}
+    {"name": "pattern name", "icon": "emoji", "count": N, "cost": N, "frequency": "X of Y trades"}
   ],
   "rules_for_next_session": ["rule 1", "rule 2", "rule 3"],
   "first_trade_detail": {
     "time_gap_from_last": "first trade",
-    "quick_summary": "2-3 sentences about THIS specific trade — what happened, why, and the psychology behind it. Reference the actual symbol, prices, and time.",
-    "vicious_cycle_stage": "Which stage and why, in one sentence",
+    "quick_summary": "2-3 sentences about THIS specific trade — what happened, why, and the psychology behind it.",
+    "vicious_cycle_stage": "Which stage and why",
     "entry_exit_efficiency": {
       "entry_score": 0-100,
       "exit_score": 0-100,
@@ -491,7 +379,7 @@ Now provide the deep analysis. Return ONLY valid JSON, no backticks:
       "optimal_rr": "what optimal could have been"
     },
     "entry_timing": {
-      "description": "Entry at the specific time — describe where in the price action",
+      "description": "Entry at the specific time — where in the price action",
       "risk_level": "High/Medium/Low"
     },
     "in_trade_behavior": {
@@ -500,81 +388,78 @@ Now provide the deep analysis. Return ONLY valid JSON, no backticks:
       "during_trade": "patience/premature exit/held too long/etc"
     },
     "what_you_did_vs_should_have": {
-      "what_you_did": "2-3 sentences about their actual behavior in plain English",
-      "what_to_do_instead": "2-3 sentences of specific, actionable behavioral advice",
+      "what_you_did": "2-3 sentences about their actual behavior",
+      "what_to_do_instead": "2-3 sentences of specific, actionable advice",
       "key_lesson": "One sentence takeaway"
     },
-    "last_5_trades_context": "Recent momentum going into this trade. Since it's trade #1, describe the opening mindset. For later trades, show the P&L of the last 5 and the emotional momentum.",
-    "psychology_coaching": "3-4 sentences. Be a mentor. Reference their exact entry at X, exit at Y, the P&L of Z. Acknowledge what they did right. Then point out the ONE thing to change. Make it personal and specific.",
-    "technical_analysis": "3-4 sentences. Reference actual price levels from the trade. Discuss support/resistance, trend direction, where the entry was relative to key levels.",
-    "counterfactual": "What-if scenario with specific behavioral changes and estimated impact. Not fake numbers — real behavioral advice."
+    "last_5_trades_context": "Since it's trade #1, describe the opening mindset.",
+    "psychology_coaching": "3-4 sentences. Be a mentor. Reference exact entry, exit, P&L. Acknowledge what they did right, then the ONE thing to change.",
+    "technical_analysis": "3-4 sentences. Reference actual price levels. Discuss support/resistance, trend direction.",
+    "counterfactual": "What-if scenario with specific behavioral changes and estimated impact."
   }
 }
 
-IMPORTANT: Provide ALL fields in first_trade_detail. Every single one including last_5_trades_context. The user sees this for free and it must be impressive enough to make them upgrade.`
+IMPORTANT: Return ALL fields. Every single one. The first_trade_detail is shown for free and must be impressive enough to make traders upgrade.`
       }
     ];
 
-    const call2 = await callAI(call2Content, 8000);
-    if (!call2.ok) {
-      console.error('Call 2 failed, returning basic results:', call2.error);
-      return NextResponse.json({
-        ...tradesData,
-        trades_shown: tradesData.trades?.length || 0,
-        summary: 'Analysis is temporarily limited. Your trade data has been extracted successfully.',
-        momentum: [],
-        vicious_cycle: [],
-        technical_insights: [],
-      });
+    const result = await callAI(combinedContent, 16000);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'OVERLOADED' ? 529 : 500 });
     }
 
-    const parsed2 = safeParseJSON(call2.data);
-    if (!parsed2.ok || !parsed2.data) {
-      console.error('Call 2 parse failed, returning basic results');
-      return NextResponse.json({
-        ...tradesData,
-        trades_shown: tradesData.trades?.length || 0,
-        summary: 'Detailed analysis could not be generated. Your trade data is shown below.',
-        momentum: [],
-        vicious_cycle: [],
-        technical_insights: [],
-      });
+    const parsed = safeParseJSON(result.data);
+    if (!parsed.ok || !parsed.data) {
+      return NextResponse.json({ error: 'Could not parse analysis. Please try a smaller file.', code: 'TRUNCATED' }, { status: 500 });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const analysis = parsed2.data as any;
-    console.log('Call 2 done: analysis complete');
+    const data = parsed.data as any;
+    console.log(`Analysis done: ${data.trades?.length || 0} trades extracted, provider: ${result.provider}`);
 
-    // Merge Call 1 trades with Call 2 analysis + first trade detail
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const trades = (tradesData.trades || []).map((t: any, i: number) => {
-      if (i === 0 && analysis.first_trade_detail) {
-        return { ...t, ...analysis.first_trade_detail };
-      }
-      return t;
-    });
+    // Sort trades chronologically and fix indices/cum_pnl
+    if (data.trades && data.trades.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data.trades.sort((a: any, b: any) => {
+        const timeA = (a.time || '00:00').replace(/:/g, '');
+        const timeB = (b.time || '00:00').replace(/:/g, '');
+        return parseInt(timeA) - parseInt(timeB);
+      });
+      let cumPnl = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data.trades.forEach((t: any, i: number) => {
+        t.index = i;
+        cumPnl += t.pnl || 0;
+        t.cum_pnl = cumPnl;
+      });
+    }
 
-    const result = {
-      broker: tradesData.broker,
-      market: tradesData.market,
-      trade_date: tradesData.trade_date,
-      currency: tradesData.currency,
-      total_trades_in_file: tradesData.total_trades_in_file || trades.length,
-      trades_shown: trades.length,
-      kpis: tradesData.kpis,
-      summary: analysis.summary || '',
-      momentum: analysis.momentum || [],
-      vicious_cycle: analysis.vicious_cycle || [],
-      technical_insights: analysis.technical_insights || [],
-      dqs: analysis.dqs || null,
-      financial_impact: analysis.financial_impact || null,
-      mistake_patterns: analysis.mistake_patterns || [],
-      rules_for_next_session: analysis.rules_for_next_session || [],
-      trades,
-      _truncated: parsed1.truncated || false,
+    // Merge first_trade_detail into the first trade object
+    if (data.first_trade_detail && data.trades?.length > 0) {
+      data.trades[0] = { ...data.trades[0], ...data.first_trade_detail };
+    }
+
+    const response = {
+      broker: data.broker,
+      market: data.market,
+      trade_date: data.trade_date,
+      currency: data.currency,
+      total_trades_in_file: data.total_trades_in_file || data.trades?.length || 0,
+      trades_shown: data.trades?.length || 0,
+      kpis: data.kpis,
+      summary: data.summary || '',
+      momentum: data.momentum || [],
+      vicious_cycle: data.vicious_cycle || [],
+      technical_insights: data.technical_insights || [],
+      dqs: data.dqs || null,
+      financial_impact: data.financial_impact || null,
+      mistake_patterns: data.mistake_patterns || [],
+      rules_for_next_session: data.rules_for_next_session || [],
+      trades: data.trades || [],
+      _truncated: parsed.truncated || false,
     };
 
-    return NextResponse.json(result);
+    return NextResponse.json(response);
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Analysis failed';
