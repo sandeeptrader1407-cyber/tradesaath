@@ -312,9 +312,14 @@ export default function UploadPage() {
           }),
         }).catch(() => {})
       } catch { /* ignore */ }
-    } catch {
+    } catch (fetchErr: unknown) {
       clearInterval(progressTimer)
-      setError('Failed to connect to server. Please try again.')
+      const msg = fetchErr instanceof Error ? fetchErr.message : ''
+      if (msg.includes('abort') || msg.includes('timeout') || msg.includes('AbortError')) {
+        setError('Analysis took too long. Please try a smaller file or try again.')
+      } else {
+        setError('Analysis timed out or lost connection. Please try again — if the file is large, try a single day\'s trades.')
+      }
       setErrorCode(null)
       setLoading(false); setLoadingPct(0)
     }
