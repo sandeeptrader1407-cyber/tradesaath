@@ -37,6 +37,8 @@ export interface ParsedKPIs {
   gross_loss: number;
   avg_win: number;
   avg_loss: number;
+  gross_buy_value: number;
+  gross_sell_value: number;
 }
 
 export interface ParseResult {
@@ -301,49 +303,76 @@ function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
 
   const paired: ParsedTrade[] = [];
 
-  for (const trades of Object.values(groups)) {
+  for (const [, trades] of Object.entries(groups)) {
+    // Sort by time within each symbol group
+    trades.sort((a, b) => {
+      const ta = (a.time || '00:00:00').replace(/:/g, '');
+      const tb = (b.time || '00:00:00').replace(/:/g, '');
+      return parseInt(ta) - parseInt(tb);
+    });
+
     const buys = trades.filter(t => t.side === 'BUY');
     const sells = trades.filter(t => t.side === 'SELL');
 
-    // Try to pair buys with sells
-    const maxPairs = Math.min(buys.length, sells.length);
-    for (let i = 0; i < maxPairs; i++) {
-      const buy = buys[i];
-      const sell = sells[i];
-      const qty = Math.min(buy.qty || 1, sell.qty || 1);
+    // FIFO matching: match buy qty with sell qty in chronological order
+    // Track remaining qty for each order
+    const buyQ = buys.map(b => ({ ...b, remaining: b.qty || 0 }));
+    const sellQ = sells.map(s => ({ ...s, remaining: s.qty || 0 }));
+
+    let bi = 0, si = 0;
+    while (bi < buyQ.length && si < sellQ.length) {
+      const buy = buyQ[bi];
+      const sell = sellQ[si];
+      if (buy.remaining <= 0) { bi++; continue; }
+      if (sell.remaining <= 0) { si++; continue; }
+
+      const matchQty = Math.min(buy.remaining, sell.remaining);
       const entry = buy.price || 0;
       const exit = sell.price || 0;
-      const pnl = buy.pnl || sell.pnl || Math.round((exit - entry) * qty * 100) / 100;
+      const pnl = Math.round((exit - entry) * matchQty * 100) / 100;
+
+      // Use the time of whichever came second (the closing trade)
+      const buyTime = (buy.time || '00:00').replace(/:/g, '');
+      const sellTime = (sell.time || '00:00').replace(/:/g, '');
+      const closingTime = parseInt(sellTime) >= parseInt(buyTime) ? sell.time : buy.time;
 
       paired.push({
-        index: 0, // Will be set later
-        time: buy.time || sell.time || '09:15',
+        index: 0,
+        time: closingTime || '09:15',
         symbol: buy.symbol || sell.symbol,
         side: 'BUY',
-        qty,
+        qty: matchQty,
         entry,
         exit,
         pnl,
         cum_pnl: 0,
-        session: classifySession(buy.time || sell.time || '09:15'),
+        session: classifySession(closingTime || '09:15'),
         time_gap_minutes: null,
         tag: pnl >= 0 ? 'win' : 'loss',
         label: pnl >= 0 ? 'Winner' : 'Loser',
       });
+
+      buy.remaining -= matchQty;
+      sell.remaining -= matchQty;
+      if (buy.remaining <= 0) bi++;
+      if (sell.remaining <= 0) si++;
     }
 
-    // Handle unpaired trades (if P&L is known directly)
-    const unpaired = [...buys.slice(maxPairs), ...sells.slice(maxPairs)];
-    for (const t of unpaired) {
+    // Handle unpaired trades with direct P&L
+    const allRemaining = [
+      ...buyQ.filter(b => b.remaining > 0),
+      ...sellQ.filter(s => s.remaining > 0),
+    ];
+    for (const t of allRemaining) {
       if (t.pnl !== undefined) {
         paired.push({
           index: 0,
           time: t.time || '09:15',
           symbol: t.symbol,
           side: t.side || 'BUY',
-          qty: t.qty || 1,
+          qty: t.remaining || t.qty || 1,
           entry: t.price || 0,
-          exit: t.side === 'BUY' ? (t.price || 0) + (t.pnl || 0) / (t.qty || 1) : (t.price || 0) - (t.pnl || 0) / (t.qty || 1),
+          exit: 0,
           pnl: t.pnl,
           cum_pnl: 0,
           session: classifySession(t.time || '09:15'),
@@ -400,7 +429,7 @@ function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
 /* ─── Calculate KPIs ─── */
 function calculateKPIs(trades: ParsedTrade[]): ParsedKPIs {
   if (trades.length === 0) {
-    return { net_pnl: 0, total_trades: 0, wins: 0, losses: 0, win_rate: 0, profit_factor: 0, best_trade_pnl: 0, worst_trade_pnl: 0, gross_profit: 0, gross_loss: 0, avg_win: 0, avg_loss: 0 };
+    return { net_pnl: 0, total_trades: 0, wins: 0, losses: 0, win_rate: 0, profit_factor: 0, best_trade_pnl: 0, worst_trade_pnl: 0, gross_profit: 0, gross_loss: 0, avg_win: 0, avg_loss: 0, gross_buy_value: 0, gross_sell_value: 0 };
   }
 
   const wins = trades.filter(t => t.pnl > 0);
@@ -408,6 +437,10 @@ function calculateKPIs(trades: ParsedTrade[]): ParsedKPIs {
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = losses.reduce((s, t) => s + t.pnl, 0);
   const netPnl = grossProfit + grossLoss;
+
+  // Cross P&L: total buy value vs total sell value
+  const grossBuyValue = trades.reduce((s, t) => s + (t.entry || 0) * (t.qty || 0), 0);
+  const grossSellValue = trades.reduce((s, t) => s + (t.exit || 0) * (t.qty || 0), 0);
 
   return {
     net_pnl: Math.round(netPnl * 100) / 100,
@@ -422,6 +455,8 @@ function calculateKPIs(trades: ParsedTrade[]): ParsedKPIs {
     gross_loss: Math.round(grossLoss * 100) / 100,
     avg_win: wins.length > 0 ? Math.round((grossProfit / wins.length) * 100) / 100 : 0,
     avg_loss: losses.length > 0 ? Math.round((grossLoss / losses.length) * 100) / 100 : 0,
+    gross_buy_value: Math.round(grossBuyValue * 100) / 100,
+    gross_sell_value: Math.round(grossSellValue * 100) / 100,
   };
 }
 
@@ -633,6 +668,107 @@ function parseFyersOrderBook(text: string): AnyRow[] {
   return trades;
 }
 
+/* ─── Parse Kotak PDF text ─── */
+function parseKotakPDF(text: string): AnyRow[] {
+  const trades: AnyRow[] = [];
+  // Kotak PDFs have lines like:
+  // "12/06/2025 14:13:21 OPTIDXNIFTY 12JUN2025CE 24750.00 - NSEDERV Buy Cash KotakSecurities 150 107.7500 16162.50 6.99 8.42"
+  // OR extracted text may have varied spacing. We search for OPTIDXNIFTY patterns.
+
+  // Normalize text: replace multiple spaces/tabs with single space
+  const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const lines = normalized.split('\n');
+
+  // Also try to find rows in fully concatenated text by splitting on date patterns
+  // Kotak format: DD/MM/YYYY HH:MM:SS ... Buy/Sell ... Qty ... Price
+  const dateTimePattern = /(\d{2}\/\d{2}\/\d{4})\s*(\d{1,2}:\d{2}:\d{2})/;
+  const tradeLinePattern = /(\d{2}\/\d{2}\/\d{4})\s*(\d{1,2}:\d{2}:\d{2})\s+(OPTIDX[A-Z]+\s+\d+[A-Z]+\d+(?:CE|PE)\s+[\d.]+)\s*-?\s*\w*\s*(Buy|Sell)\s+\w+\s+\w+\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i;
+
+  // Strategy 1: Try matching complete lines
+  for (const line of lines) {
+    const m = line.match(tradeLinePattern);
+    if (m) {
+      const [, dateStr, timeStr, secName, side, qtyStr, priceStr, , chargesStr, sttStr] = m;
+      const qty = parseInt(qtyStr);
+      const price = parseFloat(priceStr);
+      if (isNaN(qty) || isNaN(price) || qty === 0) continue;
+
+      // Clean symbol: "OPTIDXNIFTY 12JUN2025CE 24750.00" → "NIFTY 24750 CE"
+      let symbol = secName.trim();
+      const symMatch = symbol.match(/OPTIDX(NIFTY|BANKNIFTY|FINNIFTY)\s*(\d+[A-Z]+\d+)(CE|PE)\s+([\d.]+)/i);
+      if (symMatch) {
+        symbol = `${symMatch[1]} ${symMatch[4]} ${symMatch[3]}`;
+      }
+
+      trades.push({
+        time: timeStr,
+        symbol,
+        side: side.toUpperCase(),
+        qty,
+        price,
+        date: dateStr,
+        charges: parseFloat(chargesStr) + parseFloat(sttStr),
+      });
+      continue;
+    }
+  }
+
+  // Strategy 2: If no complete lines matched, try flexible parsing
+  // PDF extractors sometimes split across lines. Collect all text and re-split on date patterns.
+  if (trades.length === 0) {
+    const allText = lines.join(' ');
+    // Split on date/time patterns
+    const chunks = allText.split(/(?=\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2})/);
+
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      // Extract fields from each chunk
+      const dtm = chunk.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})/);
+      if (!dtm) continue;
+
+      const sideMatch = chunk.match(/\b(Buy|Sell)\b/i);
+      if (!sideMatch) continue;
+
+      const secMatch = chunk.match(/OPTIDX(NIFTY|BANKNIFTY|FINNIFTY)\s*(\d+[A-Z]*\d*)(CE|PE)\s*([\d.]+)/i);
+      if (!secMatch) continue;
+
+      // Find numbers after side: qty, price, total, charges, stt
+      const afterSide = chunk.substring(chunk.indexOf(sideMatch[0]) + sideMatch[0].length);
+      const numbers = afterSide.match(/[\d.]+/g);
+      if (!numbers || numbers.length < 3) continue;
+
+      // Skip "Cash" and "KotakSecurities" text — find qty (integer) and price
+      let qty = 0, price = 0;
+      for (let ni = 0; ni < numbers.length; ni++) {
+        const n = parseFloat(numbers[ni]);
+        if (Number.isInteger(n) && n >= 25 && n <= 100000 && qty === 0) {
+          qty = n;
+        } else if (qty > 0 && price === 0 && n > 0 && n < 1000000) {
+          price = n;
+          break;
+        }
+      }
+      if (qty === 0 || price === 0) continue;
+
+      const symbol = `${secMatch[1]} ${secMatch[4]} ${secMatch[3]}`;
+
+      trades.push({
+        time: dtm[2],
+        symbol,
+        side: sideMatch[1].toUpperCase(),
+        qty,
+        price,
+        date: dtm[1],
+      });
+    }
+  }
+
+  if (trades.length > 0) {
+    console.log(`[Parser] Kotak PDF format detected: ${trades.length} orders`);
+  }
+  return trades;
+}
+
 /* ─── Parse PDF buffer ─── */
 async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string; rows: AnyRow[] }> {
   let fullText = '';
@@ -694,7 +830,15 @@ async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string; rows: Any
     return { text: fullText, rows: [] };
   }
 
-  // Strategy 1: Try Fyers/Indian broker order book format (most common for this user)
+  // Strategy 1a: Try Kotak PDF format (OPTIDXNIFTY, Security Name, TransactionType)
+  if (/kotak|OPTIDX|Security.?Name|Transaction.?Type/i.test(fullText)) {
+    const kotakTrades = parseKotakPDF(fullText);
+    if (kotakTrades.length > 0) {
+      return { text: fullText, rows: kotakTrades };
+    }
+  }
+
+  // Strategy 1b: Try Fyers/Indian broker order book format
   const fyersTrades = parseFyersOrderBook(fullText);
   if (fyersTrades.length > 0) {
     console.log(`[Parser] Fyers format detected: ${fyersTrades.length} orders`);
