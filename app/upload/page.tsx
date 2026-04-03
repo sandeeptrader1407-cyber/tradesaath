@@ -4,6 +4,9 @@ import { useState, useRef, useCallback, useMemo } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRazorpay } from '@/hooks/useRazorpay'
 import { useRouter } from 'next/navigation'
+import { parseTradeFile, type ParseResult as UniversalParseResult } from '@/lib/parsers/universalParser'
+import TradePreview from '@/components/TradePreview'
+import { saveTradeSession, updateSessionAnalysis } from '@/lib/supabase/saveTrades'
 
 /* ─── Types ─── */
 interface EntryExitEfficiency {
@@ -206,6 +209,10 @@ export default function UploadPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiDone, setAiDone] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [uploadState, setUploadState] = useState<'idle' | 'parsed' | 'analysing' | 'results'>('idle')
+  const [universalParseResult, setUniversalParseResult] = useState<UniversalParseResult | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionKey] = useState(() => typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2))
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { user, isSignedIn } = useUser()
@@ -222,19 +229,69 @@ export default function UploadPage() {
     setFile(null); setLoading(false); setLoadingPct(0)
     setError(null); setErrorCode(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
     setUnlocked(false); setPaySuccess(null); setAiLoading(false); setAiDone(false); setAiError(null)
+    setUploadState('idle'); setUniversalParseResult(null); setSessionId(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const f = e.dataTransfer?.files?.[0]
-    if (f) { setFile(f); setError(null) }
+    if (f) { setFile(f); setError(null); handleFileParse(f) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
-    if (f) { setFile(f); setError(null) }
+    if (f) { setFile(f); setError(null); handleFileParse(f) }
     e.target.value = ''
+  }
+
+  /* ─── Instant client-side parse for CSV/Excel, fallback for PDF/images ─── */
+  async function handleFileParse(f: File) {
+    setError(null); setErrorCode(null)
+    try {
+      const uResult = await parseTradeFile(f)
+      if (uResult.parsedCount > 0 || uResult.requiresClaudeFallback) {
+        setUniversalParseResult(uResult)
+        setUploadState('parsed')
+        return
+      }
+      // If client-side parse found nothing, try server-side /api/parse as fallback
+      const fd = new FormData()
+      fd.append('file', f)
+      const res = await fetch('/api/parse', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (res.ok && data.trades?.length > 0) {
+        // Convert server parse result into UniversalParseResult shape
+        setUniversalParseResult({
+          success: true,
+          broker: data.broker || 'unknown',
+          brokerName: data.broker || 'Auto-Detected',
+          trades: (data.trades || []).map((t: Trade) => ({
+            date: data.trade_date || '',
+            time: t.time,
+            symbol: t.symbol,
+            tradeType: (t.side === 'BUY' ? 'BUY' : t.side === 'SELL' ? 'SELL' : 'UNKNOWN') as 'BUY' | 'SELL' | 'UNKNOWN',
+            quantity: t.qty,
+            price: t.entry || t.exit || 0,
+            pnl: t.pnl,
+            exchange: data.market || null,
+            rawRow: {},
+          })),
+          rawRowCount: data.total_trades_in_file || data.trades?.length || 0,
+          parsedCount: data.trades?.length || 0,
+          errors: [],
+          requiresClaudeFallback: false,
+        })
+        // Also store the full server result for analysis
+        setResult(data)
+        setUploadState('parsed')
+        return
+      }
+      setError(data.error || 'Could not parse this file. Please check that it has column headers.')
+    } catch {
+      setError('Could not parse this file. Please check the format and try again.')
+    }
   }
 
   function getContext() {
@@ -398,6 +455,203 @@ export default function UploadPage() {
       setAiError('AI analysis failed. Your trade data is still available above.')
       setAiLoading(false)
     }
+  }
+
+  /* ─── STEP: Confirm trades from preview → run analysis ─── */
+  async function handleConfirmTrades() {
+    if (!universalParseResult && !result) return
+    setUploadState('analysing')
+    setAiLoading(true); setAiError(null)
+
+    const ctx = getContext()
+
+    // Save to Supabase (non-blocking)
+    if (universalParseResult) {
+      saveTradeSession({
+        sessionKey,
+        userId: user?.id,
+        parseResult: universalParseResult,
+        context: ctx,
+        fileName: file?.name || 'unknown',
+      }).then(id => { if (id) setSessionId(id) }).catch(() => {})
+    }
+
+    // If we already have a server parse result (from /api/parse fallback), use it
+    if (result && result.trades?.length > 0) {
+      // Already have parsed data, go straight to AI analysis
+      try {
+        const res = await fetch('/api/analyse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trades: result.trades,
+            kpis: result.kpis,
+            broker: result.broker,
+            market: result.market,
+            trade_date: result.trade_date,
+            currency: result.currency,
+            total_trades_in_file: result.total_trades_in_file,
+            time_analysis: result.time_analysis,
+            context: ctx,
+            mode: 'json',
+          }),
+        })
+        const data = await res.json()
+        mergeAIResult(data)
+      } catch {
+        setAiError('AI analysis failed. Your trade data is still available.')
+        setAiLoading(false)
+        setUploadState('results')
+      }
+      return
+    }
+
+    // If universal parser got trades (CSV/Excel), send to /api/parse first for full KPI calc, then AI
+    if (universalParseResult && universalParseResult.parsedCount > 0 && !universalParseResult.requiresClaudeFallback) {
+      // First, run server-side parse for proper FIFO pairing + KPIs
+      try {
+        if (file) {
+          const fd = new FormData()
+          fd.append('file', file)
+          const parseRes = await fetch('/api/parse', { method: 'POST', body: fd })
+          const parseData = await parseRes.json()
+
+          if (parseRes.ok && parseData.trades?.length > 0) {
+            // Enrich with AI defaults
+            parseData.momentum = parseData.momentum || []
+            parseData.vicious_cycle = parseData.vicious_cycle || []
+            parseData.technical_insights = parseData.technical_insights || []
+            parseData.dqs = parseData.dqs || null
+            parseData.financial_impact = parseData.financial_impact || null
+            parseData.mistake_patterns = parseData.mistake_patterns || []
+            parseData.rules_for_next_session = parseData.rules_for_next_session || []
+            setResult(parseData)
+
+            // Now run AI analysis
+            const aiRes = await fetch('/api/analyse', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                trades: parseData.trades,
+                kpis: parseData.kpis,
+                broker: parseData.broker,
+                market: parseData.market,
+                trade_date: parseData.trade_date,
+                currency: parseData.currency,
+                total_trades_in_file: parseData.total_trades_in_file,
+                time_analysis: parseData.time_analysis,
+                context: ctx,
+                mode: 'json',
+              }),
+            })
+            const aiData = await aiRes.json()
+            mergeAIResult(aiData)
+          } else {
+            setError(parseData.error || 'Failed to parse trades on server.')
+            setAiLoading(false)
+            setUploadState('idle')
+          }
+        }
+      } catch {
+        setAiError('Analysis failed. Please try again.')
+        setAiLoading(false)
+        setUploadState('results')
+      }
+      return
+    }
+
+    // PDF/Image with Claude fallback — send file to /api/parse first
+    if (universalParseResult?.requiresClaudeFallback && file) {
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const parseRes = await fetch('/api/parse', { method: 'POST', body: fd })
+        const parseData = await parseRes.json()
+
+        if (parseRes.ok && parseData.trades?.length > 0) {
+          parseData.momentum = parseData.momentum || []
+          parseData.vicious_cycle = parseData.vicious_cycle || []
+          parseData.technical_insights = parseData.technical_insights || []
+          parseData.dqs = parseData.dqs || null
+          parseData.financial_impact = parseData.financial_impact || null
+          parseData.mistake_patterns = parseData.mistake_patterns || []
+          parseData.rules_for_next_session = parseData.rules_for_next_session || []
+          setResult(parseData)
+
+          // AI analysis
+          const aiRes = await fetch('/api/analyse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trades: parseData.trades,
+              kpis: parseData.kpis,
+              broker: parseData.broker,
+              market: parseData.market,
+              trade_date: parseData.trade_date,
+              currency: parseData.currency,
+              total_trades_in_file: parseData.total_trades_in_file,
+              time_analysis: parseData.time_analysis,
+              context: ctx,
+              mode: 'json',
+            }),
+          })
+          const aiData = await aiRes.json()
+          mergeAIResult(aiData)
+        } else {
+          setError(parseData.error || 'Could not extract trades from this file.')
+          setAiLoading(false)
+          setUploadState('idle')
+        }
+      } catch {
+        setAiError('Analysis failed. Please try again.')
+        setAiLoading(false)
+        setUploadState('results')
+      }
+      return
+    }
+  }
+
+  /* ─── Merge AI results helper ─── */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function mergeAIResult(data: any) {
+    setResult(prev => {
+      if (!prev && !data.trades) return prev
+      const base = prev || data
+      if (data.trades && data.trades.length > 0) {
+        data.trades.sort((a: Trade, b: Trade) => {
+          const timeA = (a.time || '00:00').replace(/:/g, '')
+          const timeB = (b.time || '00:00').replace(/:/g, '')
+          return parseInt(timeA) - parseInt(timeB)
+        })
+        let cumPnl = 0
+        data.trades.forEach((t: Trade, i: number) => {
+          t.index = i
+          cumPnl += t.pnl || 0
+          t.cum_pnl = cumPnl
+        })
+      }
+      const merged = {
+        ...base,
+        summary: data.summary || base.summary,
+        momentum: data.momentum?.length > 0 ? data.momentum : base.momentum || [],
+        vicious_cycle: data.vicious_cycle?.length > 0 ? data.vicious_cycle : base.vicious_cycle || [],
+        technical_insights: data.technical_insights?.length > 0 ? data.technical_insights : base.technical_insights || [],
+        dqs: data.dqs || base.dqs,
+        financial_impact: data.financial_impact || base.financial_impact,
+        mistake_patterns: data.mistake_patterns?.length > 0 ? data.mistake_patterns : base.mistake_patterns || [],
+        rules_for_next_session: data.rules_for_next_session?.length > 0 ? data.rules_for_next_session : base.rules_for_next_session || [],
+        trades: data.trades?.length > 0 ? data.trades : base.trades || [],
+      }
+      sessionStorage.setItem('tradesaath_results', JSON.stringify(merged))
+      // Update Supabase
+      if (sessionId) {
+        updateSessionAnalysis(sessionId, merged).catch(() => {})
+      }
+      return merged
+    })
+    setAiDone(true)
+    setAiLoading(false)
+    setUploadState('results')
   }
 
   /* ─── Payment handler ─── */
@@ -1204,7 +1458,7 @@ export default function UploadPage() {
                   onChange={handleFileSelect} />
                 <div className="dz-icon">📂</div>
                 <div className="dz-title">Drop files here or click to browse</div>
-                <div className="dz-sub">PDF, CSV, Excel, screenshots — any broker worldwide</div>
+                <div className="dz-sub">PDF, CSV, Excel, screenshots — any broker worldwide · Zerodha, IBKR, Robinhood, and 100+ more</div>
                 <div className="dz-tags"><span>PDF</span><span>CSV</span><span>XLSX</span><span>XLS</span><span>PNG</span><span>JPG</span><span>JPEG</span></div>
               </label>
             )}
@@ -1220,8 +1474,30 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* ═══ Trade Preview (shown after file parsed) ═══ */}
+            {universalParseResult && uploadState === 'parsed' && (
+              <TradePreview
+                result={universalParseResult}
+                onConfirm={handleConfirmTrades}
+                onReject={reset}
+              />
+            )}
+
+            {/* ═══ Analysing loading state ═══ */}
+            {uploadState === 'analysing' && (
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>
+                  AI is analysing your trading psychology...
+                </div>
+                <div className="loading-bar"><div className="loading-fill" style={{ width: '60%', animation: 'pulse 2s ease-in-out infinite' }} /></div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                  Detecting patterns, coaching insights loading...
+                </div>
+              </div>
+            )}
+
             {/* Trading Context */}
-            {!loading && (
+            {!loading && uploadState !== 'analysing' && (
               <div className="ctx-box">
                 <div className="ctx-header">
                   <span className="label" style={{ fontSize: 13, fontWeight: 600 }}>Trading Context</span>
@@ -1276,8 +1552,8 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Analyse button */}
-            {!loading && (
+            {/* Analyse button — only show in idle state */}
+            {!loading && uploadState === 'idle' && (
               <div className="analyse-row">
                 <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={!file}>
                   Parse My Trades
