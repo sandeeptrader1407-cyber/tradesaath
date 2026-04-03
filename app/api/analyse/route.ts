@@ -274,76 +274,79 @@ export async function POST(req: NextRequest) {
     if (parsed?.success && parsed.trades.length > 0) {
       console.log('=== STEP 2A: AI psychology analysis (text only, no file) ===');
 
-      const prompt = buildPsychologyPrompt(parsed, contextStr);
-      const aiContent = [{ type: 'text', text: prompt }];
-
-      const aiResult = await callAI(aiContent, 8000);
-
-      if (aiResult.ok) {
-        const aiParsed = safeParseJSON(aiResult.data);
-        if (aiParsed.ok && aiParsed.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const analysis = aiParsed.data as any;
-
-          // Update trade tags from AI
-          if (analysis.trade_tags) {
-            for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
-              const i = parseInt(idx);
-              if (parsed.trades[i]) {
-                parsed.trades[i].tag = tag as string;
-                parsed.trades[i].label = (tag as string).replace(/_/g, ' ');
-              }
-            }
-          }
-
-          // Merge first trade detail
-          if (analysis.first_trade_detail && parsed.trades.length > 0) {
-            parsed.trades[0] = { ...parsed.trades[0], ...analysis.first_trade_detail };
-          }
-
-          console.log(`Analysis complete via ${aiResult.provider} (text-only mode)`);
-
-          return NextResponse.json({
-            broker: parsed.broker,
-            market: parsed.market,
-            trade_date: parsed.trade_date,
-            currency: parsed.currency,
-            total_trades_in_file: parsed.total_trades_in_file,
-            trades_shown: parsed.trades.length,
-            kpis: parsed.kpis,
-            summary: analysis.summary || '',
-            momentum: analysis.momentum || [],
-            vicious_cycle: analysis.vicious_cycle || [],
-            technical_insights: analysis.technical_insights || [],
-            dqs: analysis.dqs || null,
-            financial_impact: analysis.financial_impact || null,
-            mistake_patterns: analysis.mistake_patterns || [],
-            rules_for_next_session: analysis.rules_for_next_session || [],
-            trades: parsed.trades,
-            _truncated: false,
-            _parsed_locally: true,
-          });
-        }
-      }
-
-      // AI psychology failed but local parsing worked → return data without deep analysis
-      console.warn('AI psychology failed, returning parsed data without analysis');
-      return NextResponse.json({
-        broker: parsed.broker,
-        market: parsed.market,
-        trade_date: parsed.trade_date,
-        currency: parsed.currency,
-        total_trades_in_file: parsed.total_trades_in_file,
-        trades_shown: parsed.trades.length,
-        kpis: parsed.kpis,
-        summary: `${parsed.trades.length} trades extracted. Net P&L: ${parsed.kpis.net_pnl} ${parsed.currency}. Win rate: ${parsed.kpis.win_rate}%. Deep analysis temporarily unavailable.`,
+      // Helper to build the "parsed data only" response (used as fallback)
+      const buildLocalResponse = (summary?: string) => ({
+        broker: parsed!.broker,
+        market: parsed!.market,
+        trade_date: parsed!.trade_date,
+        currency: parsed!.currency,
+        total_trades_in_file: parsed!.total_trades_in_file,
+        trades_shown: parsed!.trades.length,
+        kpis: parsed!.kpis,
+        summary: summary || `${parsed!.trades.length} trades extracted from ${parsed!.broker}. Net P&L: ${parsed!.kpis.net_pnl} ${parsed!.currency}. Win rate: ${parsed!.kpis.win_rate}% (${parsed!.kpis.wins}W/${parsed!.kpis.losses}L). Profit factor: ${parsed!.kpis.profit_factor}. Best: ${parsed!.kpis.best_trade_pnl}, Worst: ${parsed!.kpis.worst_trade_pnl}.`,
         momentum: [],
         vicious_cycle: [],
         technical_insights: [],
-        trades: parsed.trades,
+        dqs: null,
+        financial_impact: null,
+        mistake_patterns: [],
+        rules_for_next_session: [],
+        trades: parsed!.trades,
+        time_analysis: parsed!.time_analysis,
         _truncated: false,
         _parsed_locally: true,
       });
+
+      try {
+        const prompt = buildPsychologyPrompt(parsed, contextStr);
+        const aiContent = [{ type: 'text', text: prompt }];
+
+        const aiResult = await callAI(aiContent, 8000);
+
+        if (aiResult.ok) {
+          const aiParsed = safeParseJSON(aiResult.data);
+          if (aiParsed.ok && aiParsed.data) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const analysis = aiParsed.data as any;
+
+            // Update trade tags from AI
+            if (analysis.trade_tags) {
+              for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
+                const i = parseInt(idx);
+                if (parsed.trades[i]) {
+                  parsed.trades[i].tag = tag as string;
+                  parsed.trades[i].label = (tag as string).replace(/_/g, ' ');
+                }
+              }
+            }
+
+            // Merge first trade detail
+            if (analysis.first_trade_detail && parsed.trades.length > 0) {
+              parsed.trades[0] = { ...parsed.trades[0], ...analysis.first_trade_detail };
+            }
+
+            console.log(`Analysis complete via ${aiResult.provider} (text-only mode)`);
+
+            return NextResponse.json({
+              ...buildLocalResponse(analysis.summary),
+              momentum: analysis.momentum || [],
+              vicious_cycle: analysis.vicious_cycle || [],
+              technical_insights: analysis.technical_insights || [],
+              dqs: analysis.dqs || null,
+              financial_impact: analysis.financial_impact || null,
+              mistake_patterns: analysis.mistake_patterns || [],
+              rules_for_next_session: analysis.rules_for_next_session || [],
+            });
+          }
+        }
+        console.warn('AI psychology failed:', aiResult.error);
+      } catch (aiErr) {
+        console.error('AI psychology crashed:', aiErr instanceof Error ? aiErr.message : aiErr);
+      }
+
+      // AI failed but local parsing worked → ALWAYS return parsed data
+      console.log('Returning locally parsed data without AI psychology');
+      return NextResponse.json(buildLocalResponse());
     }
 
     /* ═══════════════════════════════════════════
