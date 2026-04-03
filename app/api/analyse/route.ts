@@ -2,7 +2,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { parseTradeFile, ParseResult } from '@/lib/trade-parser';
+import type { ParseResult } from '@/lib/trade-parser';
 
 /* ─── Types ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -247,14 +247,12 @@ IMPORTANT: Return ALL fields. The first_trade_detail is shown for free and must 
 
 /* ═══════════════════════════════════════════════════
    MAIN HANDLER
+   Accepts JSON body with pre-parsed trade data from /api/parse.
+   Only does AI psychology analysis — no file parsing.
 ═══════════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const context = formData.get('context') as string || '{}';
-
-    if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    const requestStartTime = Date.now();
 
     const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
     const hasGeminiKey = !!getGeminiKey();
@@ -262,223 +260,118 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No AI API key configured.' }, { status: 500 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-
-    let ctx: Record<string, string> = {};
-    try { ctx = JSON.parse(context); } catch { /* ignore */ }
-    const contextStr = Object.entries(ctx).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
-
-    const name = file.name.toLowerCase();
-    const requestStartTime = Date.now();
-
-    console.log('=== STEP 1: Local parsing (no AI) ===');
-    console.log('File:', file.name, 'Size:', bytes.byteLength);
-
-    /* ═══════════════════════════════════════════
-       STEP 1: Try LOCAL PARSING (fast, no AI)
-    ═══════════════════════════════════════════ */
-    let parsed: ParseResult | null = null;
-    try {
-      parsed = await parseTradeFile(buffer, file.name);
-      console.log(`Local parser: success=${parsed.success}, trades=${parsed.trades.length}, broker=${parsed.broker}`);
-      if (parsed.error) console.log(`Local parser note: ${parsed.error}`);
-    } catch (parseErr) {
-      console.error('Local parser crashed:', parseErr instanceof Error ? parseErr.stack : parseErr);
-      // Don't give up — set parsed to a failure result so we still try AI
-      parsed = null;
+    // Accept JSON body with pre-parsed data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await req.json(); } catch {
+      return NextResponse.json({ error: 'Invalid JSON body. Send parsed trade data.' }, { status: 400 });
     }
 
-    /* ═══════════════════════════════════════════
-       STEP 2A: If local parsing worked → AI for psychology ONLY (fast! no file attachment)
-    ═══════════════════════════════════════════ */
-    if (parsed?.success && parsed.trades.length > 0) {
-      console.log('=== STEP 2A: AI psychology analysis (text only, no file) ===');
+    const { trades, kpis, broker, market, trade_date, currency, total_trades_in_file, time_analysis, context } = body;
 
-      // Helper to build the "parsed data only" response (used as fallback)
-      const buildLocalResponse = (summary?: string) => ({
-        broker: parsed!.broker,
-        market: parsed!.market,
-        trade_date: parsed!.trade_date,
-        currency: parsed!.currency,
-        total_trades_in_file: parsed!.total_trades_in_file,
-        trades_shown: parsed!.trades.length,
-        kpis: parsed!.kpis,
-        summary: summary || `${parsed!.trades.length} trades extracted from ${parsed!.broker}. Net P&L: ${parsed!.kpis.net_pnl} ${parsed!.currency}. Win rate: ${parsed!.kpis.win_rate}% (${parsed!.kpis.wins}W/${parsed!.kpis.losses}L). Profit factor: ${parsed!.kpis.profit_factor}. Best: ${parsed!.kpis.best_trade_pnl}, Worst: ${parsed!.kpis.worst_trade_pnl}.`,
-        momentum: [],
-        vicious_cycle: [],
-        technical_insights: [],
-        dqs: null,
-        financial_impact: null,
-        mistake_patterns: [],
-        rules_for_next_session: [],
-        trades: parsed!.trades,
-        time_analysis: parsed!.time_analysis,
-        _truncated: false,
-        _parsed_locally: true,
-      });
+    if (!trades || !Array.isArray(trades) || trades.length === 0) {
+      return NextResponse.json({ error: 'No trades provided.' }, { status: 400 });
+    }
 
-      try {
-        const prompt = buildPsychologyPrompt(parsed, contextStr);
-        const aiContent = [{ type: 'text', text: prompt }];
+    let contextStr = '';
+    if (context && typeof context === 'object') {
+      contextStr = Object.entries(context).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
+    }
 
-        const aiResult = await callAI(aiContent, 8000, requestStartTime);
+    console.log('=== ANALYSE: AI psychology only (no file) ===');
+    console.log(`Trades: ${trades.length}, Broker: ${broker}`);
 
-        if (aiResult.ok) {
-          const aiParsed = safeParseJSON(aiResult.data);
-          if (aiParsed.ok && aiParsed.data) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const analysis = aiParsed.data as any;
+    // Build a ParseResult-like object for the prompt builder
+    const parsed: ParseResult = {
+      success: true,
+      trades,
+      kpis: kpis || { net_pnl: 0, total_trades: trades.length, wins: 0, losses: 0, win_rate: 0, profit_factor: 0, gross_profit: 0, gross_loss: 0, avg_win: 0, avg_loss: 0, best_trade_pnl: 0, worst_trade_pnl: 0 },
+      broker: broker || 'Unknown',
+      market: market || 'NSE',
+      trade_date: trade_date || '',
+      currency: currency || 'INR',
+      total_trades_in_file: total_trades_in_file || trades.length,
+      time_analysis: time_analysis || { avg_time_gap_minutes: 0, min_time_gap_minutes: 0, max_time_gap_minutes: 0, trading_duration_minutes: 0 },
+    };
 
-            // Update trade tags from AI
-            if (analysis.trade_tags) {
-              for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
-                const i = parseInt(idx);
-                if (parsed.trades[i]) {
-                  parsed.trades[i].tag = tag as string;
-                  parsed.trades[i].label = (tag as string).replace(/_/g, ' ');
-                }
+    // Helper to build the "parsed data only" response (fallback if AI fails)
+    const buildLocalResponse = (summary?: string) => ({
+      broker: parsed.broker,
+      market: parsed.market,
+      trade_date: parsed.trade_date,
+      currency: parsed.currency,
+      total_trades_in_file: parsed.total_trades_in_file,
+      trades_shown: parsed.trades.length,
+      kpis: parsed.kpis,
+      summary: summary || `${parsed.trades.length} trades from ${parsed.broker}. AI analysis unavailable — showing parsed data only.`,
+      momentum: [],
+      vicious_cycle: [],
+      technical_insights: [],
+      dqs: null,
+      financial_impact: null,
+      mistake_patterns: [],
+      rules_for_next_session: [],
+      trades: parsed.trades,
+      time_analysis: parsed.time_analysis,
+      _truncated: false,
+      _parsed_locally: true,
+      _ai_failed: true,
+    });
+
+    try {
+      const prompt = buildPsychologyPrompt(parsed, contextStr);
+      const aiContent = [{ type: 'text', text: prompt }];
+
+      const aiResult = await callAI(aiContent, 8000, requestStartTime);
+
+      if (aiResult.ok) {
+        const aiParsed = safeParseJSON(aiResult.data);
+        if (aiParsed.ok && aiParsed.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const analysis = aiParsed.data as any;
+
+          // Update trade tags from AI
+          if (analysis.trade_tags) {
+            for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
+              const i = parseInt(idx);
+              if (parsed.trades[i]) {
+                parsed.trades[i].tag = tag as string;
+                parsed.trades[i].label = (tag as string).replace(/_/g, ' ');
               }
             }
-
-            // Merge first trade detail
-            if (analysis.first_trade_detail && parsed.trades.length > 0) {
-              parsed.trades[0] = { ...parsed.trades[0], ...analysis.first_trade_detail };
-            }
-
-            console.log(`Analysis complete via ${aiResult.provider} (text-only mode)`);
-
-            return NextResponse.json({
-              ...buildLocalResponse(analysis.summary),
-              momentum: analysis.momentum || [],
-              vicious_cycle: analysis.vicious_cycle || [],
-              technical_insights: analysis.technical_insights || [],
-              dqs: analysis.dqs || null,
-              financial_impact: analysis.financial_impact || null,
-              mistake_patterns: analysis.mistake_patterns || [],
-              rules_for_next_session: analysis.rules_for_next_session || [],
-            });
           }
-        }
-        console.warn('AI psychology failed:', aiResult.error);
-      } catch (aiErr) {
-        console.error('AI psychology crashed:', aiErr instanceof Error ? aiErr.message : aiErr);
-      }
 
-      // AI failed but local parsing worked → ALWAYS return parsed data
-      console.log('Returning locally parsed data without AI psychology');
+          // Merge first trade detail
+          if (analysis.first_trade_detail && parsed.trades.length > 0) {
+            parsed.trades[0] = { ...parsed.trades[0], ...analysis.first_trade_detail };
+          }
+
+          console.log(`Analysis complete via ${aiResult.provider} (text-only mode)`);
+
+          return NextResponse.json({
+            ...buildLocalResponse(analysis.summary),
+            momentum: analysis.momentum || [],
+            vicious_cycle: analysis.vicious_cycle || [],
+            technical_insights: analysis.technical_insights || [],
+            dqs: analysis.dqs || null,
+            financial_impact: analysis.financial_impact || null,
+            mistake_patterns: analysis.mistake_patterns || [],
+            rules_for_next_session: analysis.rules_for_next_session || [],
+            _parsed_locally: true,
+            _ai_failed: false,
+          });
+        }
+      }
+      console.warn('AI psychology failed:', aiResult.error);
+      return NextResponse.json({ ...buildLocalResponse(), _ai_error: aiResult.error });
+    } catch (aiErr) {
+      console.error('AI psychology crashed:', aiErr instanceof Error ? aiErr.message : aiErr);
       return NextResponse.json(buildLocalResponse());
     }
-
-    /* ═══════════════════════════════════════════
-       STEP 2B: Local parsing FAILED → AI does EVERYTHING (send file)
-       This is the fallback — single combined call
-    ═══════════════════════════════════════════ */
-    console.log('=== STEP 2B: Full AI analysis (file attached — fallback) ===');
-
-    let mediaType = 'application/pdf';
-    if (name.endsWith('.csv') || name.endsWith('.tsv')) mediaType = 'text/csv';
-    else if (name.endsWith('.xlsx') || name.endsWith('.xls')) mediaType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    else if (name.endsWith('.png')) mediaType = 'image/png';
-    else if (name.endsWith('.jpg') || name.endsWith('.jpeg')) mediaType = 'image/jpeg';
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let fileContent: any[];
-    if (mediaType === 'text/csv') {
-      const text = buffer.toString('utf-8');
-      fileContent = [{ type: 'text', text: 'Trade file (CSV):\n\n' + text }];
-    } else if (mediaType.startsWith('image/')) {
-      fileContent = [{ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } }];
-    } else if (mediaType.includes('spreadsheet')) {
-      // Convert Excel to CSV for AI
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const XLSX = require('xlsx');
-        const wb = XLSX.read(buffer, { type: 'buffer' });
-        const csvText = wb.SheetNames.map((s: string) => XLSX.utils.sheet_to_csv(wb.Sheets[s])).join('\n\n');
-        fileContent = [{ type: 'text', text: 'Trade file (Excel→CSV):\n\n' + csvText }];
-      } catch {
-        fileContent = [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }];
-      }
-    } else {
-      fileContent = [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }];
-    }
-
-    const combinedContent = [
-      ...fileContent,
-      {
-        type: 'text',
-        text: `You are TradeSaath, a personal trading mentor. Extract ALL trades and provide deep analysis.
-${contextStr ? `User context: ${contextStr}` : ''}
-
-STEP 1 — EXTRACT ALL TRADES:
-- Pair BUY+SELL for same instrument. P&L = (Sell-Buy)*Qty. cum_pnl = running total.
-- Tag: "win","fomo","revenge","averaging","panic","against_trend","hope_hold","decision_fatigue"
-- Session: "morning" (<11AM), "midday" (11-1:30PM), "afternoon" (>1:30PM)
-
-STEP 2 — PSYCHOLOGY ANALYSIS using trades you extracted.
-
-Return ONLY valid JSON:
-{
-  "broker":"name","market":"NSE/NYSE","trade_date":"YYYY-MM-DD","currency":"INR","total_trades_in_file":N,
-  "kpis":{"net_pnl":N,"total_trades":N,"wins":N,"losses":N,"win_rate":N,"profit_factor":N,"best_trade_pnl":N,"worst_trade_pnl":N},
-  "trades":[{"index":0,"time":"HH:MM","symbol":"name","side":"BUY/SELL","qty":N,"entry":N,"exit":N,"pnl":N,"cum_pnl":N,"tag":"tag","label":"label","session":"session"}],
-  "summary":"2-3 paragraph narrative","momentum":[{"name":"Rule Following","score":0-100,"color":"green/red/gold/accent","desc":"text"},{"name":"Staying Calm","score":0-100,"color":"green/red/gold/accent","desc":"text"},{"name":"Entry Timing","score":0-100,"color":"green/red/gold/accent","desc":"text"},{"name":"Exit Discipline","score":0-100,"color":"green/red/gold/accent","desc":"text"}],
-  "vicious_cycle":[{"stage":"Disciplined Win","count":N,"icon":"check","desc":"text"},{"stage":"FOMO Re-entry","count":N,"icon":"zap","desc":"text"},{"stage":"Against Trend","count":N,"icon":"arrow","desc":"text"},{"stage":"Hope & Hold","count":N,"icon":"pray","desc":"text"},{"stage":"Averaging Down","count":N,"icon":"down","desc":"text"},{"stage":"Panic Exit","count":N,"icon":"wind","desc":"text"},{"stage":"Revenge Trade","count":N,"icon":"sword","desc":"text"},{"stage":"Decision Fatigue","count":N,"icon":"dizzy","desc":"text"}],
-  "technical_insights":[{"name":"Trend Alignment","score":0-100,"color":"green/red/gold","desc":"text"},{"name":"Entry Structure","score":0-100,"color":"green/red/gold","desc":"text"},{"name":"Exit Quality","score":0-100,"color":"green/red/gold","desc":"text"},{"name":"Entry Timing","score":0-100,"color":"green/red/gold","desc":"text"}],
-  "dqs":{"score":0-100,"factors":[{"name":"Entry Timing","score":0-100,"color":"green/blue/gold/red"},{"name":"Risk Management","score":0-100,"color":"green/blue/gold/red"},{"name":"Position Sizing","score":0-100,"color":"green/blue/gold/red"},{"name":"Emotional Control","score":0-100,"color":"green/blue/gold/red"},{"name":"Exit Discipline","score":0-100,"color":"green/blue/gold/red"}]},
-  "financial_impact":{"total_lost_to_mistakes":N,"potential_pnl_without_mistakes":N,"message":"text"},
-  "mistake_patterns":[{"name":"name","icon":"emoji","count":N,"cost":N,"frequency":"X of Y"}],
-  "rules_for_next_session":["rule1","rule2","rule3"],
-  "first_trade_detail":{"time_gap_from_last":"first trade","quick_summary":"text","vicious_cycle_stage":"text","entry_exit_efficiency":{"entry_score":0-100,"exit_score":0-100,"risk_reward":"1.5x","optimal_rr":"text"},"entry_timing":{"description":"text","risk_level":"High/Medium/Low"},"in_trade_behavior":{"discipline":"DISCIPLINED/IMPULSIVE/PANIC","description":"text","during_trade":"text"},"what_you_did_vs_should_have":{"what_you_did":"text","what_to_do_instead":"text","key_lesson":"text"},"last_5_trades_context":"text","psychology_coaching":"text","technical_analysis":"text","counterfactual":"text"}
-}`
-      }
-    ];
-
-    const result = await callAI(combinedContent, 16000, requestStartTime);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'OVERLOADED' ? 529 : 500 });
-    }
-
-    const aiParsed = safeParseJSON(result.data);
-    if (!aiParsed.ok || !aiParsed.data) {
-      return NextResponse.json({ error: 'Could not parse analysis. Try a smaller file.', code: 'TRUNCATED' }, { status: 500 });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = aiParsed.data as any;
-
-    // Sort and fix trades
-    if (data.trades?.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data.trades.sort((a: any, b: any) => parseInt((a.time || '0000').replace(/:/g, '')) - parseInt((b.time || '0000').replace(/:/g, '')));
-      let cumPnl = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data.trades.forEach((t: any, i: number) => { t.index = i; cumPnl += t.pnl || 0; t.cum_pnl = cumPnl; });
-    }
-
-    if (data.first_trade_detail && data.trades?.length > 0) {
-      data.trades[0] = { ...data.trades[0], ...data.first_trade_detail };
-    }
-
-    return NextResponse.json({
-      broker: data.broker, market: data.market, trade_date: data.trade_date, currency: data.currency,
-      total_trades_in_file: data.total_trades_in_file || data.trades?.length || 0,
-      trades_shown: data.trades?.length || 0, kpis: data.kpis,
-      summary: data.summary || '', momentum: data.momentum || [],
-      vicious_cycle: data.vicious_cycle || [], technical_insights: data.technical_insights || [],
-      dqs: data.dqs || null, financial_impact: data.financial_impact || null,
-      mistake_patterns: data.mistake_patterns || [], rules_for_next_session: data.rules_for_next_session || [],
-      trades: data.trades || [], _truncated: aiParsed.truncated || false, _parsed_locally: false,
-    });
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Analysis failed';
     console.error('Analysis error:', msg);
-    let userMsg = 'Analysis failed. Please try again.';
-    if (msg.includes('JSON')) userMsg = 'Response was cut off. Try a smaller file.';
-    else if (msg.includes('timeout') || msg.includes('TIMEOUT')) userMsg = 'Analysis took too long. Try again.';
-    return NextResponse.json({ error: userMsg }, { status: 500 });
+    return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 });
   }
 }
