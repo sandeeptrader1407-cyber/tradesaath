@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
     const parsed: ParseResult = {
       success: true,
       trades,
-      kpis: kpis || { net_pnl: 0, total_trades: trades.length, wins: 0, losses: 0, win_rate: 0, profit_factor: 0, gross_profit: 0, gross_loss: 0, avg_win: 0, avg_loss: 0, best_trade_pnl: 0, worst_trade_pnl: 0 },
+      kpis: kpis || { net_pnl: 0, total_trades: trades.length, wins: 0, losses: 0, win_rate: 0, profit_factor: 0, gross_profit: 0, gross_loss: 0, avg_win: 0, avg_loss: 0, best_trade_pnl: 0, worst_trade_pnl: 0, gross_buy_value: 0, gross_sell_value: 0 },
       broker: broker || 'Unknown',
       market: market || 'NSE',
       trade_date: trade_date || '',

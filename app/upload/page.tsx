@@ -38,6 +38,8 @@ interface TechInsight { name: string; score: number; color: string; desc: string
 interface KPIs {
   net_pnl: number; total_trades: number; wins: number; losses: number
   win_rate: number; profit_factor: number; best_trade_pnl: number; worst_trade_pnl: number
+  gross_buy_value?: number; gross_sell_value?: number
+  gross_profit?: number; gross_loss?: number
 }
 interface AnalysisResult {
   broker: string; market: string; trade_date: string; currency: string
@@ -472,6 +474,14 @@ export default function UploadPage() {
               { label: 'Profit Factor', val: String(kpis.profit_factor || '—'), color: 'var(--text)' },
               { label: 'Best Trade', val: fmtPnl(kpis.best_trade_pnl), color: 'var(--green)' },
               { label: 'Worst Trade', val: fmtPnl(kpis.worst_trade_pnl), color: 'var(--red)' },
+              ...(kpis.gross_buy_value ? [
+                { label: 'Buy Value', val: fmtPnl(kpis.gross_buy_value), color: 'var(--text)' },
+                { label: 'Sell Value', val: fmtPnl(kpis.gross_sell_value || 0), color: 'var(--text)' },
+              ] : []),
+              ...(kpis.gross_profit ? [
+                { label: 'Gross Profit', val: fmtPnl(kpis.gross_profit), color: 'var(--green)' },
+                { label: 'Gross Loss', val: fmtPnl(kpis.gross_loss || 0), color: 'var(--red)' },
+              ] : []),
             ].map((k, i) => (
               <div key={i} className="kpi-item">
                 <div className="kpi-label">{k.label}</div>
