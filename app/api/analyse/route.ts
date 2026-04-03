@@ -103,32 +103,37 @@ async function callAI(content: any[], maxTokens: number, startTime: number): Pro
 
   console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey);
 
-  // Vercel Hobby = 90s max. Reserve 5s buffer. Calculate remaining time.
+  // Vercel Hobby = 90s max. We MUST finish well before 90s so local data can return.
+  // Total AI budget = 60s max. This leaves 30s for parsing + response + buffer.
   const elapsed = Date.now() - startTime;
-  const remaining = Math.max(85000 - elapsed, 10000); // At least 10s
-  // If both keys: give Claude 55% of remaining, Gemini gets rest
-  const claudeTimeout = Math.min(Math.round(remaining * 0.55), 60000);
-  const geminiTimeout = Math.min(remaining - claudeTimeout - 2000, 60000); // 2s buffer
+  const remaining = Math.max(60000 - elapsed, 8000); // 60s total budget, min 8s
+  // Claude gets 35s max, Gemini gets 20s max — NEVER exceed these
+  const claudeTimeout = Math.min(Math.round(remaining * 0.6), 35000);
+  const geminiTimeout = Math.min(remaining - claudeTimeout - 2000, 20000);
 
-  console.log(`Time budget: ${Math.round(remaining/1000)}s remaining, Claude=${Math.round(claudeTimeout/1000)}s, Gemini=${Math.round(geminiTimeout/1000)}s`);
+  console.log(`Time budget: elapsed=${Math.round(elapsed/1000)}s, remaining=${Math.round(remaining/1000)}s, Claude=${Math.round(claudeTimeout/1000)}s, Gemini=${Math.round(geminiTimeout/1000)}s`);
 
   if (anthropicKey && geminiKey) {
     const result = await callClaude(anthropicKey, content, maxTokens, claudeTimeout);
     if (result.ok) return result;
     console.warn('Claude failed, trying Gemini:', result.error);
-    // Check if we still have time for Gemini
+    // Check if we still have time for Gemini (hard stop at 65s from request start)
     const now = Date.now() - startTime;
-    if (now > 80000) {
+    if (now > 65000) {
       console.warn('No time left for Gemini fallback, skipping');
       return result;
     }
-    const actualGeminiTimeout = Math.min(geminiTimeout, 85000 - now);
+    const actualGeminiTimeout = Math.min(geminiTimeout, 70000 - now);
+    if (actualGeminiTimeout < 5000) {
+      console.warn('Gemini budget too small, skipping');
+      return result;
+    }
     const gemResult = await callGemini(geminiKey, content, maxTokens, actualGeminiTimeout);
     if (gemResult.ok) return gemResult;
     return { ...result, error: `Claude: ${result.error} | Gemini: ${gemResult.error}` };
   }
-  if (anthropicKey) return callClaude(anthropicKey, content, maxTokens, Math.min(remaining - 3000, 70000));
-  if (geminiKey) return callGemini(geminiKey, content, maxTokens, Math.min(remaining - 3000, 70000));
+  if (anthropicKey) return callClaude(anthropicKey, content, maxTokens, Math.min(remaining - 2000, 35000));
+  if (geminiKey) return callGemini(geminiKey, content, maxTokens, Math.min(remaining - 2000, 20000));
   return { ok: false, error: 'No AI API key configured', code: 'NO_KEY' };
 }
 
