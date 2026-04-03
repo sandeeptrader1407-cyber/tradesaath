@@ -10,10 +10,10 @@ type AIResult = { ok: boolean; data?: any; error?: string; code?: string; provid
 
 /* ─── Helper: call Claude ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
+async function callClaude(apiKey: string, content: any[], maxTokens: number, timeoutMs = 55000): Promise<AIResult> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 80000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: controller.signal,
@@ -48,7 +48,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
     return { ok: true, data: text, provider: 'claude' };
   } catch (err: unknown) {
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
-    const msg = isAbort ? 'Claude timed out (80s)' : (err instanceof Error ? err.message : 'Claude error');
+    const msg = isAbort ? `Claude timed out (${Math.round(timeoutMs/1000)}s)` : (err instanceof Error ? err.message : 'Claude error');
     console.error('Claude error:', msg);
     return { ok: false, error: msg, code: isAbort ? 'TIMEOUT' : 'NETWORK', provider: 'claude' };
   }
@@ -56,7 +56,7 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number): Pr
 
 /* ─── Helper: call Gemini ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callGemini(apiKey: string, content: any[], maxTokens: number): Promise<AIResult> {
+async function callGemini(apiKey: string, content: any[], maxTokens: number, timeoutMs = 55000): Promise<AIResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [];
   for (const item of content) {
@@ -68,7 +68,7 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 80000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(url, {
       method: 'POST', signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
@@ -85,7 +85,7 @@ async function callGemini(apiKey: string, content: any[], maxTokens: number): Pr
     return { ok: true, data: text, provider: 'gemini' };
   } catch (err: unknown) {
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
-    const msg = isAbort ? 'Gemini timed out (80s)' : (err instanceof Error ? err.message : 'Gemini error');
+    const msg = isAbort ? `Gemini timed out (${Math.round(timeoutMs/1000)}s)` : (err instanceof Error ? err.message : 'Gemini error');
     return { ok: false, error: msg, code: isAbort ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK', provider: 'gemini' };
   }
 }
@@ -95,24 +95,40 @@ function getGeminiKey(): string | undefined {
   return process.env.Gemini_API_Key || process.env.GEMINI_API_KEY || process.env.Gemini_Api_Key || process.env.GEMINI_API_key || process.env.gemini_api_key;
 }
 
-/* ─── Unified AI caller ─── */
+/* ─── Unified AI caller with time budget ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callAI(content: any[], maxTokens: number): Promise<AIResult> {
+async function callAI(content: any[], maxTokens: number, startTime: number): Promise<AIResult> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const geminiKey = getGeminiKey();
 
   console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey);
 
+  // Vercel Hobby = 90s max. Reserve 5s buffer. Calculate remaining time.
+  const elapsed = Date.now() - startTime;
+  const remaining = Math.max(85000 - elapsed, 10000); // At least 10s
+  // If both keys: give Claude 55% of remaining, Gemini gets rest
+  const claudeTimeout = Math.min(Math.round(remaining * 0.55), 60000);
+  const geminiTimeout = Math.min(remaining - claudeTimeout - 2000, 60000); // 2s buffer
+
+  console.log(`Time budget: ${Math.round(remaining/1000)}s remaining, Claude=${Math.round(claudeTimeout/1000)}s, Gemini=${Math.round(geminiTimeout/1000)}s`);
+
   if (anthropicKey && geminiKey) {
-    const result = await callClaude(anthropicKey, content, maxTokens);
+    const result = await callClaude(anthropicKey, content, maxTokens, claudeTimeout);
     if (result.ok) return result;
     console.warn('Claude failed, trying Gemini:', result.error);
-    const gemResult = await callGemini(geminiKey, content, maxTokens);
+    // Check if we still have time for Gemini
+    const now = Date.now() - startTime;
+    if (now > 80000) {
+      console.warn('No time left for Gemini fallback, skipping');
+      return result;
+    }
+    const actualGeminiTimeout = Math.min(geminiTimeout, 85000 - now);
+    const gemResult = await callGemini(geminiKey, content, maxTokens, actualGeminiTimeout);
     if (gemResult.ok) return gemResult;
     return { ...result, error: `Claude: ${result.error} | Gemini: ${gemResult.error}` };
   }
-  if (anthropicKey) return callClaude(anthropicKey, content, maxTokens);
-  if (geminiKey) return callGemini(geminiKey, content, maxTokens);
+  if (anthropicKey) return callClaude(anthropicKey, content, maxTokens, Math.min(remaining - 3000, 70000));
+  if (geminiKey) return callGemini(geminiKey, content, maxTokens, Math.min(remaining - 3000, 70000));
   return { ok: false, error: 'No AI API key configured', code: 'NO_KEY' };
 }
 
@@ -250,6 +266,7 @@ export async function POST(req: NextRequest) {
     const contextStr = Object.entries(ctx).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
 
     const name = file.name.toLowerCase();
+    const requestStartTime = Date.now();
 
     console.log('=== STEP 1: Local parsing (no AI) ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength);
@@ -301,7 +318,7 @@ export async function POST(req: NextRequest) {
         const prompt = buildPsychologyPrompt(parsed, contextStr);
         const aiContent = [{ type: 'text', text: prompt }];
 
-        const aiResult = await callAI(aiContent, 8000);
+        const aiResult = await callAI(aiContent, 8000, requestStartTime);
 
         if (aiResult.ok) {
           const aiParsed = safeParseJSON(aiResult.data);
@@ -414,7 +431,7 @@ Return ONLY valid JSON:
       }
     ];
 
-    const result = await callAI(combinedContent, 16000);
+    const result = await callAI(combinedContent, 16000, requestStartTime);
     if (!result.ok) {
       return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'OVERLOADED' ? 529 : 500 });
     }
