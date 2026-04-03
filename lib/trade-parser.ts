@@ -59,11 +59,11 @@ export interface ParseResult {
 
 /* ─── Column name patterns for flexible matching ─── */
 const COL = {
-  time: /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at|date.?&?.?time|date.?time)/i,
-  symbol: /^(symbol|scrip|instrument|stock|name|contract|underlying|security)/i,
-  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction)/i,
+  time: /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at|date.?&?.?time|date.?time|order.?execution.?time)/i,
+  symbol: /^(symbol|scrip|instrument|stock|name|contract|underlying|security.?name|company|trading.?symbol)/i,
+  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction|transaction.?type)/i,
   qty: /^(qty|quantity|lots|volume|traded.?qty|net.?qty|filled)/i,
-  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price)/i,
+  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price|market.?rate)/i,
   amount: /^(amount|value|net.?amount|turnover|total|net.?total)/i,
   buyQty: /^(buy.?qty|buy.?quantity|buy.?vol)/i,
   sellQty: /^(sell.?qty|sell.?quantity|sell.?vol)/i,
@@ -73,7 +73,7 @@ const COL = {
   date: /^(date|trade.?date|order.?date|exec.?date)/i,
   expiry: /^(expiry|expiry.?date|exp)/i,
   strike: /^(strike|strike.?price)/i,
-  optType: /^(option.?type|opt.?type|ce.?pe|call.?put)/i,
+  optType: /^(option.?type|opt.?type|ce.?pe|call.?put|instrument.?type)/i,
 };
 
 /* ─── Broker detection ─── */
@@ -201,19 +201,39 @@ function parseRow(row: string[], colMap: Record<string, number>): AnyRow | null 
 
   const result: AnyRow = { symbol };
 
-  // Time — handle combined "Date & Time" column (e.g. "27-03-2026 14:34:43")
+  // Time — handle many formats:
+  //   "27-03-2026 14:34:43" (Fyers Date & Time)
+  //   "2023-11-13T09:15:36" (Zerodha order_execution_time)
+  //   "14:13:21" (Kotak Trade Time)
+  //   "14:02:43" (Upstox Trade Time)
   const timeVal = get('time');
   if (timeVal) {
-    // Extract HH:MM from various formats
+    // Extract HH:MM from any format containing time
     const tm = timeVal.match(/(\d{1,2}:\d{2})/);
     result.time = tm ? tm[1] : timeVal;
-    // Also extract date from combined field if present
-    const dateInTime = timeVal.match(/(\d{2}[-/]\d{2}[-/]\d{4})/);
-    if (dateInTime) result.date = dateInTime[1];
+    // Extract date from combined fields
+    const isoDate = timeVal.match(/(\d{4}-\d{2}-\d{2})/); // 2023-11-13T09:15
+    const ddmmDate = timeVal.match(/(\d{2}[-/]\d{2}[-/]\d{4})/); // 27-03-2026
+    if (isoDate) result.date = isoDate[1];
+    else if (ddmmDate) result.date = ddmmDate[1];
   }
 
   // Separate Date column
-  if (!result.date) result.date = get('date');
+  if (!result.date) {
+    const dateVal = get('date');
+    if (dateVal) {
+      // Handle Excel serial number dates (e.g., 45505)
+      const serial = parseFloat(dateVal);
+      if (!isNaN(serial) && serial > 40000 && serial < 60000) {
+        // Excel serial date to YYYY-MM-DD
+        const epoch = new Date(Date.UTC(1899, 11, 30));
+        const d = new Date(epoch.getTime() + serial * 86400000);
+        result.date = d.toISOString().split('T')[0];
+      } else {
+        result.date = dateVal;
+      }
+    }
+  }
 
   // Side detection
   const side = get('side');
@@ -245,14 +265,26 @@ function parseRow(row: string[], colMap: Record<string, number>): AnyRow | null 
     result.price = result.side === 'BUY' ? result.buyPrice : result.sellPrice;
   }
 
-  // Option components
+  // Option components — build full symbol from parts (Upstox: Company=NIFTY, Strike=25000, Type=European Put)
   const strike = get('strike');
   const optType = get('optType');
   const expiry = get('expiry');
   if (strike || optType) {
-    result.symbol = `${symbol} ${strike || ''} ${optType || ''}`.trim();
+    let opt = '';
+    if (optType) {
+      const o = optType.toLowerCase();
+      if (o.includes('call') || o === 'ce') opt = 'CE';
+      else if (o.includes('put') || o === 'pe') opt = 'PE';
+      else opt = optType;
+    }
+    result.symbol = `${symbol} ${strike || ''} ${opt}`.replace(/\s+/g, ' ').trim();
   }
   if (expiry) result.expiry = expiry;
+
+  // Clean up Kotak-style security names: "OPTIDXNIFTY     12JUN2025CE  24750.00"
+  if (result.symbol && /OPTIDX/i.test(result.symbol)) {
+    result.symbol = result.symbol.replace(/OPTIDX/i, '').replace(/\s+/g, ' ').trim();
+  }
 
   return result;
 }
