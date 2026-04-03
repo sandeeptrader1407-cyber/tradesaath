@@ -59,11 +59,11 @@ export interface ParseResult {
 
 /* ─── Column name patterns for flexible matching ─── */
 const COL = {
-  time: /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at)/i,
+  time: /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at|date.?&?.?time|date.?time)/i,
   symbol: /^(symbol|scrip|instrument|stock|name|contract|underlying|security)/i,
-  side: /^(side|type|trade.?type|buy.?sell|action|order.?type|b.?s|direction)/i,
+  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction)/i,
   qty: /^(qty|quantity|lots|volume|traded.?qty|net.?qty|filled)/i,
-  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate)/i,
+  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price)/i,
   amount: /^(amount|value|net.?amount|turnover|total|net.?total)/i,
   buyQty: /^(buy.?qty|buy.?quantity|buy.?vol)/i,
   sellQty: /^(sell.?qty|sell.?quantity|sell.?vol)/i,
@@ -201,16 +201,19 @@ function parseRow(row: string[], colMap: Record<string, number>): AnyRow | null 
 
   const result: AnyRow = { symbol };
 
-  // Time
-  const time = get('time');
-  if (time) {
+  // Time — handle combined "Date & Time" column (e.g. "27-03-2026 14:34:43")
+  const timeVal = get('time');
+  if (timeVal) {
     // Extract HH:MM from various formats
-    const tm = time.match(/(\d{1,2}:\d{2})/);
-    result.time = tm ? tm[1] : time;
+    const tm = timeVal.match(/(\d{1,2}:\d{2})/);
+    result.time = tm ? tm[1] : timeVal;
+    // Also extract date from combined field if present
+    const dateInTime = timeVal.match(/(\d{2}[-/]\d{2}[-/]\d{4})/);
+    if (dateInTime) result.date = dateInTime[1];
   }
 
-  // Date
-  result.date = get('date');
+  // Separate Date column
+  if (!result.date) result.date = get('date');
 
   // Side detection
   const side = get('side');
@@ -414,7 +417,32 @@ function calculateTimeAnalysis(trades: ParsedTrade[]) {
 function parseCSVText(text: string): AnyRow[] {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Papa = require('papaparse');
-  const result = Papa.parse(text.trim(), {
+
+  // Fyers CSVs have metadata rows before actual headers (Report Title, Date Range, Client Name, etc.)
+  // Strategy: Find the real header row by looking for a line with known column names
+  const lines = text.trim().split('\n');
+  let headerLineIdx = -1;
+  const headerPatterns = /symbol|instrument|scrip|trade.?time|date.?&?.?time|side|qty|quantity|price|traded.?price/i;
+
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
+    const line = lines[i];
+    // Count how many known column patterns match in this line
+    const cols = line.split(',');
+    const matches = cols.filter(c => headerPatterns.test(c.trim())).length;
+    if (matches >= 3) {
+      headerLineIdx = i;
+      break;
+    }
+  }
+
+  // If we found a header row that's not the first line, skip metadata
+  let csvText = text.trim();
+  if (headerLineIdx > 0) {
+    csvText = lines.slice(headerLineIdx).join('\n');
+    console.log(`[Parser] Skipped ${headerLineIdx} metadata rows, header: ${lines[headerLineIdx].substring(0, 100)}`);
+  }
+
+  const result = Papa.parse(csvText, {
     header: true,
     skipEmptyLines: true,
     dynamicTyping: false,
@@ -424,21 +452,32 @@ function parseCSVText(text: string): AnyRow[] {
 
   const headers = result.meta.fields || [];
   const colMap = mapColumns(headers);
-  console.log('CSV columns detected:', colMap);
+  console.log('[Parser] CSV columns detected:', JSON.stringify(colMap), 'from headers:', headers.join(', '));
 
   if (Object.keys(colMap).length < 2) {
-    console.log('Too few columns matched. Headers:', headers);
+    console.log('[Parser] Too few columns matched. Headers:', headers);
     return [];
   }
+
+  // Find status column (to filter out Rejected orders)
+  const statusIdx = headers.findIndex((h: string) => /^status$/i.test(h.trim()));
 
   const trades: AnyRow[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of result.data as any[]) {
+    // Filter out rejected/cancelled orders
+    if (statusIdx >= 0) {
+      const status = (row[headers[statusIdx]] || '').toString().trim().toLowerCase();
+      if (status === 'rejected' || status === 'cancelled' || status === 'canceled' || status === 'pending') {
+        continue;
+      }
+    }
     const values = headers.map((h: string) => row[h] || '');
     const trade = parseRow(values, colMap);
     if (trade && trade.symbol) trades.push(trade);
   }
 
+  console.log(`[Parser] Extracted ${trades.length} trades from CSV (filtered ${(result.data as unknown[]).length - trades.length} non-executed rows)`);
   return trades;
 }
 
@@ -461,22 +500,27 @@ function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[] } {
     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
     if (jsonData.length < 2) continue;
 
-    // Find header row (first row with multiple non-empty cells)
+    // Find header row — look for row with known column names (skip metadata rows)
     let headerIdx = 0;
-    for (let i = 0; i < Math.min(10, jsonData.length); i++) {
-      const nonEmpty = (jsonData[i] || []).filter((c: unknown) => c !== undefined && c !== null && c !== '').length;
-      if (nonEmpty >= 3) {
-        headerIdx = i;
-        break;
-      }
+    const hdrPattern = /symbol|instrument|scrip|trade.?time|date.?&?.?time|side|qty|quantity|price|traded.?price/i;
+    for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+      const row = (jsonData[i] || []).map((c: unknown) => String(c || ''));
+      const matches = row.filter(c => hdrPattern.test(c.trim())).length;
+      if (matches >= 3) { headerIdx = i; break; }
     }
 
     const headers = (jsonData[headerIdx] || []).map((c: unknown) => String(c || ''));
     const colMap = mapColumns(headers);
+    const statusCol = headers.findIndex(h => /^status$/i.test(h.trim()));
 
     if (Object.keys(colMap).length >= 2) {
       for (let i = headerIdx + 1; i < jsonData.length; i++) {
         const row = (jsonData[i] || []).map((c: unknown) => String(c ?? ''));
+        // Filter rejected/cancelled orders
+        if (statusCol >= 0) {
+          const status = (row[statusCol] || '').trim().toLowerCase();
+          if (status === 'rejected' || status === 'cancelled' || status === 'canceled' || status === 'pending') continue;
+        }
         const trade = parseRow(row, colMap);
         if (trade && trade.symbol) allRows.push(trade);
       }
@@ -488,61 +532,69 @@ function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[] } {
   return { text: allText, rows: parseCSVText(allText) };
 }
 
-/* ─── Parse Fyers/Indian broker order book format ─── */
+/* ─── Parse Fyers/Indian broker order book format (PDF text) ─── */
 function parseFyersOrderBook(text: string): AnyRow[] {
   const trades: AnyRow[] = [];
-  // Pattern: SYMBOL\nNFO DD Mon YYYY HH:MM:SS AM/PM BUY/SELL ... Executed ... Qty ₹Price ...
-  // Symbol is on its own line, details on the next line
   const lines = text.split('\n');
 
-  for (let i = 0; i < lines.length - 1; i++) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    const nextLine = lines[i + 1]?.trim() || '';
 
-    // Check if this is a symbol line (e.g., NIFTY2632422550CE, BANKNIFTY...)
-    if (/^(NIFTY|BANKNIFTY|FINNIFTY|SENSEX|MIDCPNIFTY)/i.test(line) && !line.includes('NFO') && !line.includes('Symbol')) {
-      // Next line should have the order details
-      // Format: NFO DD Mon YYYY HH:MM:SS AM/PM BUY/SELL Product Status OrderType Qty/Qty ₹Price ₹LimitPrice Source ...
-      const match = nextLine.match(
-        /(?:NFO|NSE|BSE|MCX)\s+(\d{1,2}\s+\w{3}\s+\d{4})\s+(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)\s+(BUY|SELL)\s+\w+\s+(\w+)\s+\w+\s+(\d+)\/(\d+)\s+₹?([\d,.]+)/i
+    // Check if this is a symbol line (e.g., NIFTY26MAR22900PE, BANKNIFTY...)
+    if (/^(NIFTY|BANKNIFTY|FINNIFTY|SENSEX|MIDCPNIFTY)/i.test(line) && !line.includes('Symbol')) {
+      // Next line(s) should have exchange (NFO/NSE) then order details
+      // PDF text format: "NFO\n27 Mar 2026 02:34:43 PMSELL\nOvernightExecutedMarket195/195₹243.26..."
+      // OR inline: "NFO 27 Mar 2026 02:34:43 PMSELL OvernightExecuted..."
+
+      // Collect next 3 lines as context (PDF extraction can split differently)
+      const context = [lines[i + 1], lines[i + 2], lines[i + 3]].filter(Boolean).join(' ').trim();
+
+      // Match pattern: date time AM/PM immediately followed by BUY/SELL
+      // Then: Overnight/Intraday + Executed/Rejected + Market/Limit + qty/qty + ₹price
+      const match = context.match(
+        /(\d{1,2}\s+\w{3}\s+\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(?:AM|PM)?\s*(BUY|SELL)/i
       );
 
-      if (match) {
-        const [, dateStr, timeStr, side, status, tradedQty, , priceStr] = match;
+      if (!match) continue;
 
-        // Skip rejected orders
-        if (status.toLowerCase() === 'rejected' || tradedQty === '0') continue;
+      const [, dateStr, timeRaw, side] = match;
 
-        // Parse time to HH:MM
-        const timeParts = timeStr.trim().match(/(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)?/i);
-        let hour = parseInt(timeParts?.[1] || '0');
-        const min = timeParts?.[2] || '00';
-        const ampm = timeParts?.[3]?.toUpperCase();
-        if (ampm === 'PM' && hour < 12) hour += 12;
-        if (ampm === 'AM' && hour === 12) hour = 0;
-        const time = `${hour.toString().padStart(2, '0')}:${min}`;
+      // Check if Executed (skip Rejected)
+      if (/Rejected/i.test(context)) continue;
+      if (!/Executed/i.test(context)) continue;
 
-        const price = parseFloat(priceStr.replace(/,/g, ''));
-        const qty = parseInt(tradedQty);
+      // Extract qty/qty and price: "195/195₹243.26" or "195/195 ₹243.26"
+      const qtyPriceMatch = context.match(/(\d+)\/(\d+)\s*₹?([\d,.]+)/);
+      if (!qtyPriceMatch) continue;
 
-        if (!isNaN(price) && !isNaN(qty) && qty > 0) {
-          // Format symbol nicely: NIFTY2632422550CE → NIFTY 22550 CE
-          let symbol = line;
-          const symMatch = line.match(/(NIFTY|BANKNIFTY|FINNIFTY|SENSEX|MIDCPNIFTY)\d*(\d{5})(CE|PE)/i);
-          if (symMatch) {
-            symbol = `${symMatch[1]} ${symMatch[2]} ${symMatch[3]}`;
-          }
+      const tradedQty = parseInt(qtyPriceMatch[1]);
+      const price = parseFloat(qtyPriceMatch[3].replace(/,/g, ''));
+      if (isNaN(price) || isNaN(tradedQty) || tradedQty === 0) continue;
 
-          trades.push({
-            time,
-            symbol,
-            side: side.toUpperCase(),
-            qty,
-            price,
-            date: dateStr,
-          });
-        }
+      // Parse time — check if AM/PM was concatenated with BUY/SELL
+      const fullTimeMatch = context.match(/(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)/i);
+      let hour = parseInt(fullTimeMatch?.[1] || timeRaw.split(':')[0]);
+      const min = fullTimeMatch?.[2] || timeRaw.split(':')[1] || '00';
+      const ampm = fullTimeMatch?.[3]?.toUpperCase();
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+      const time = `${hour.toString().padStart(2, '0')}:${min}`;
+
+      // Format symbol nicely
+      let symbol = line;
+      const symMatch = line.match(/(NIFTY|BANKNIFTY|FINNIFTY|SENSEX|MIDCPNIFTY)\w*?(\d{5})(CE|PE)/i);
+      if (symMatch) {
+        symbol = `${symMatch[1]} ${symMatch[2]} ${symMatch[3]}`;
       }
+
+      trades.push({
+        time,
+        symbol,
+        side: side.toUpperCase(),
+        qty: tradedQty,
+        price,
+        date: dateStr,
+      });
     }
   }
 
@@ -574,7 +626,8 @@ async function parsePDFBuffer(buffer: Buffer): Promise<{ text: string; rows: Any
   // Method 2: If unpdf failed or returned nothing, try pdf-parse
   if (!fullText || fullText.trim().length < 50) {
     try {
-      const pdfParse = (await import('pdf-parse')).default;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+      const pdfParse = require('pdf-parse') as any;
       const data = await pdfParse(buffer);
       if (data.text && data.text.trim().length > fullText.trim().length) {
         fullText = data.text;
