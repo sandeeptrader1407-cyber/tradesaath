@@ -49,6 +49,7 @@ interface AnalysisResult {
   mistake_patterns?: { name: string; icon: string; count: number; cost: number; frequency: string }[]
   rules_for_next_session?: string[]
   trades: Trade[]
+  time_analysis?: { avg_time_gap_minutes: number; trading_duration_minutes: number }
 }
 
 function fmtPnl(n: number) {
@@ -200,6 +201,9 @@ export default function UploadPage() {
   const [sideFilter, setSideFilter] = useState<string>('all')
   const [unlocked, setUnlocked] = useState(false)
   const [paySuccess, setPaySuccess] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiDone, setAiDone] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { user, isSignedIn } = useUser()
@@ -215,7 +219,7 @@ export default function UploadPage() {
   function reset() {
     setFile(null); setLoading(false); setLoadingPct(0)
     setError(null); setErrorCode(null); setResult(null); setExpandedTrade(0); setSideFilter('all')
-    setUnlocked(false); setPaySuccess(null)
+    setUnlocked(false); setPaySuccess(null); setAiLoading(false); setAiDone(false); setAiError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -244,48 +248,37 @@ export default function UploadPage() {
     return ctx
   }
 
+  /* ─── STEP 1: Fast local parse — no AI ─── */
   async function runAnalysis() {
     if (!file) { setError('Please select a file first'); return }
-    setError(null); setErrorCode(null); setLoading(true); setLoadingPct(5)
-
-    const progressTimer = setInterval(() => {
-      setLoadingPct(prev => Math.min(prev + 2, 90))
-    }, 1500)
+    setError(null); setErrorCode(null); setLoading(true); setLoadingPct(10)
+    setAiDone(false); setAiError(null)
 
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('context', JSON.stringify(getContext()))
 
-      const res = await fetch('/api/analyse', { method: 'POST', body: fd })
-      clearInterval(progressTimer)
-      setLoadingPct(95)
+      setLoadingPct(30)
+      const res = await fetch('/api/parse', { method: 'POST', body: fd })
+      setLoadingPct(80)
 
       const data = await res.json()
       if (!res.ok || data.error) {
-        const code = data.code || (res.status === 529 ? 'OVERLOADED' : null)
-        setErrorCode(code)
-        if (code === 'OVERLOADED') {
-          setError('Our AI is currently busy. Please try again in 30 seconds.')
-        } else if (code === 'TRUNCATED') {
-          setError('Your file has too many trades. Please try a smaller file or a single day\'s trades.')
-        } else {
-          setError(data.error || 'Analysis failed. Please try again.')
-        }
+        setErrorCode(data.code || null)
+        setError(data.error || 'Failed to parse file. Please try again.')
         setLoading(false); setLoadingPct(0)
         return
       }
 
       setLoadingPct(100)
 
-      // Sort trades chronologically by time (frontend safety net)
+      // Sort trades chronologically (frontend safety net)
       if (data.trades && data.trades.length > 0) {
         data.trades.sort((a: Trade, b: Trade) => {
           const timeA = (a.time || '00:00').replace(/:/g, '')
           const timeB = (b.time || '00:00').replace(/:/g, '')
           return parseInt(timeA) - parseInt(timeB)
         })
-        // Re-index after sort
         let cumPnl = 0
         data.trades.forEach((t: Trade, i: number) => {
           t.index = i
@@ -294,34 +287,114 @@ export default function UploadPage() {
         })
       }
 
+      // Add empty AI fields so the UI doesn't break
+      data.momentum = data.momentum || []
+      data.vicious_cycle = data.vicious_cycle || []
+      data.technical_insights = data.technical_insights || []
+      data.dqs = data.dqs || null
+      data.financial_impact = data.financial_impact || null
+      data.mistake_patterns = data.mistake_patterns || []
+      data.rules_for_next_session = data.rules_for_next_session || []
+
       setResult(data)
       setLoading(false); setLoadingPct(0)
 
       sessionStorage.setItem('tradesaath_results', JSON.stringify(data))
-
-      try {
-        fetch('/api/sessions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            trades: data.trades,
-            analysis: data,
-            broker: data.broker,
-            market: data.market,
-            trade_date: data.trade_date,
-            plan_used: 'free',
-          }),
-        }).catch(() => {})
-      } catch { /* ignore */ }
     } catch (fetchErr: unknown) {
-      clearInterval(progressTimer)
       const msg = fetchErr instanceof Error ? fetchErr.message : ''
       if (msg.includes('abort') || msg.includes('timeout') || msg.includes('AbortError')) {
-        setError('Analysis took too long. Please try a smaller file or try again.')
+        setError('Parsing took too long. Please try a smaller file.')
       } else {
-        setError('Analysis timed out or lost connection. Please try again — if the file is large, try a single day\'s trades.')
+        setError('Could not parse file. Please check the format and try again.')
       }
       setErrorCode(null)
       setLoading(false); setLoadingPct(0)
+    }
+  }
+
+  /* ─── STEP 2: AI psychology analysis (uses pre-parsed data, no file upload) ─── */
+  async function runAIAnalysis() {
+    if (!result) return
+    setAiLoading(true); setAiError(null)
+
+    try {
+      const ctx = getContext()
+      const res = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trades: result.trades,
+          kpis: result.kpis,
+          broker: result.broker,
+          market: result.market,
+          trade_date: result.trade_date,
+          currency: result.currency,
+          total_trades_in_file: result.total_trades_in_file,
+          time_analysis: result.time_analysis,
+          context: ctx,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.error && !data.trades) {
+        setAiError(data.error)
+        setAiLoading(false)
+        return
+      }
+
+      // Merge AI results into existing result
+      setResult(prev => {
+        if (!prev) return prev
+        // Sort AI trades same way
+        if (data.trades && data.trades.length > 0) {
+          data.trades.sort((a: Trade, b: Trade) => {
+            const timeA = (a.time || '00:00').replace(/:/g, '')
+            const timeB = (b.time || '00:00').replace(/:/g, '')
+            return parseInt(timeA) - parseInt(timeB)
+          })
+          let cumPnl = 0
+          data.trades.forEach((t: Trade, i: number) => {
+            t.index = i
+            cumPnl += t.pnl || 0
+            t.cum_pnl = cumPnl
+          })
+        }
+        const merged = {
+          ...prev,
+          summary: data.summary || prev.summary,
+          momentum: data.momentum?.length > 0 ? data.momentum : prev.momentum,
+          vicious_cycle: data.vicious_cycle?.length > 0 ? data.vicious_cycle : prev.vicious_cycle,
+          technical_insights: data.technical_insights?.length > 0 ? data.technical_insights : prev.technical_insights,
+          dqs: data.dqs || prev.dqs,
+          financial_impact: data.financial_impact || prev.financial_impact,
+          mistake_patterns: data.mistake_patterns?.length > 0 ? data.mistake_patterns : prev.mistake_patterns,
+          rules_for_next_session: data.rules_for_next_session?.length > 0 ? data.rules_for_next_session : prev.rules_for_next_session,
+          trades: data.trades?.length > 0 ? data.trades : prev.trades,
+        }
+        sessionStorage.setItem('tradesaath_results', JSON.stringify(merged))
+        // Save session
+        try {
+          fetch('/api/sessions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trades: merged.trades,
+              analysis: merged,
+              broker: merged.broker,
+              market: merged.market,
+              trade_date: merged.trade_date,
+              plan_used: 'free',
+            }),
+          }).catch(() => {})
+        } catch { /* ignore */ }
+        return merged
+      })
+
+      setAiDone(true)
+      setAiLoading(false)
+    } catch (fetchErr: unknown) {
+      setAiError('AI analysis failed. Your trade data is still available above.')
+      setAiLoading(false)
     }
   }
 
@@ -428,9 +501,65 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* ═══ AI Analysis Button / Status ═══ */}
+          {!aiDone && !aiLoading && (
+            <div style={{
+              padding: '16px 20px', marginBottom: 14, borderRadius: 10,
+              background: 'linear-gradient(135deg, rgba(93,120,255,.08), rgba(157,122,247,.08))',
+              border: '1px solid rgba(93,120,255,.25)',
+              display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+            }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Trades parsed successfully
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted2)' }}>
+                  Get AI psychology analysis, vicious cycle detection, coaching insights, and more.
+                </div>
+              </div>
+              <button className="btn btn-accent" style={{ fontSize: 13, padding: '10px 24px', whiteSpace: 'nowrap' }} onClick={runAIAnalysis}>
+                Analyse with AI
+              </button>
+            </div>
+          )}
+          {aiLoading && (
+            <div style={{
+              padding: '16px 20px', marginBottom: 14, borderRadius: 10,
+              background: 'rgba(93,120,255,.06)', border: '1px solid rgba(93,120,255,.2)',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginBottom: 8 }}>
+                AI is analysing your trading psychology...
+              </div>
+              <div className="loading-bar"><div className="loading-fill" style={{ width: '60%', animation: 'pulse 2s ease-in-out infinite' }} /></div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                This takes 20-60 seconds. Your trades are already visible below.
+              </div>
+            </div>
+          )}
+          {aiError && (
+            <div style={{
+              padding: '12px 16px', marginBottom: 14, borderRadius: 8,
+              background: 'rgba(244,63,94,.08)', border: '1px solid rgba(244,63,94,.2)',
+              fontSize: 13, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            }}>
+              <span style={{ flex: 1 }}>AI analysis: {aiError}</span>
+              <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Retry</button>
+            </div>
+          )}
+          {aiDone && (
+            <div style={{
+              padding: '10px 16px', marginBottom: 14, borderRadius: 8,
+              background: 'rgba(54,211,153,.08)', border: '1px solid rgba(54,211,153,.25)',
+              fontSize: 13, color: 'var(--green)', fontWeight: 600,
+            }}>
+              AI analysis complete
+            </div>
+          )}
+
           {/* AI Summary */}
           <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">AI Session Summary<span className="badge badge-free">FREE</span></div>
+            <div className="card-head">Session Summary<span className="badge badge-free">FREE</span></div>
             <div className="card-body">
               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
                 {result.summary}
@@ -1141,7 +1270,7 @@ export default function UploadPage() {
             {!loading && (
               <div className="analyse-row">
                 <button className="btn btn-accent btn-lg" onClick={runAnalysis} disabled={!file}>
-                  🔍 Analyse My Trades
+                  Parse My Trades
                 </button>
                 <span className="analyse-note">
                   No login required &middot; {file ? '1 file ready' : 'select a file to start'}
@@ -1153,11 +1282,11 @@ export default function UploadPage() {
             {loading && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginBottom: 12 }}>
-                  ⏳ AI is reading your file and analysing trades...
+                  Parsing your trades...
                 </div>
                 <div className="loading-bar"><div className="loading-fill" style={{ width: `${loadingPct}%` }} /></div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
-                  This takes 20-60 seconds. Do not close this tab.
+                  This takes just a few seconds.
                 </div>
               </div>
             )}
