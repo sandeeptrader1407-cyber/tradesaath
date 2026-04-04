@@ -5,9 +5,6 @@ const isPublicRoute = createRouteMatcher([
   '/upload',
   '/results',
   '/pricing',
-  '/dashboard',
-  '/journal',
-  '/coach',
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/parse',
@@ -15,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/extract',
   '/api/health',
   '/api/sessions',
+  '/api/user/plan',
   '/api/payments/(.*)',
 ])
 
