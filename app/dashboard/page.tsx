@@ -116,7 +116,38 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/sessions')
       .then(r => r.json())
-      .then(d => { setSessions(d.sessions || []); setLoading(false) })
+      .then(d => {
+        let allSessions = d.sessions || []
+        // If no saved sessions, try loading current analysis from sessionStorage
+        if (allSessions.length === 0) {
+          try {
+            const stored = sessionStorage.getItem('tradesaath_results')
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              if (parsed.trades && parsed.trades.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const totalPnl = parsed.trades.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const wins = parsed.trades.filter((t: any) => t.pnl > 0).length
+                const tradeCount = parsed.trades.length
+                allSessions = [{
+                  id: 'current-session',
+                  created_at: new Date().toISOString(),
+                  broker: parsed.broker || null,
+                  trades: parsed.trades,
+                  analysis: parsed,
+                  total_pnl: totalPnl,
+                  trade_count: tradeCount,
+                  win_rate: tradeCount > 0 ? Math.round(wins / tradeCount * 100) : 0,
+                  dqs_score: parsed.dqs?.score || 0,
+                }]
+              }
+            }
+          } catch { /* ignore */ }
+        }
+        setSessions(allSessions)
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 
