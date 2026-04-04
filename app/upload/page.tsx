@@ -449,7 +449,13 @@ export default function UploadPage() {
         return merged
       })
 
-      setAiDone(true)
+      // Check if AI actually succeeded
+      if (data._ai_failed) {
+        setAiDone(false)
+        setAiError(data._ai_error || 'AI analysis timed out. Click Retry for full psychology analysis.')
+      } else {
+        setAiDone(true)
+      }
       setAiLoading(false)
     } catch (fetchErr: unknown) {
       setAiError('AI analysis failed. Your trade data is still available above.')
@@ -643,13 +649,33 @@ export default function UploadPage() {
         trades: data.trades?.length > 0 ? data.trades : base.trades || [],
       }
       sessionStorage.setItem('tradesaath_results', JSON.stringify(merged))
-      // Update Supabase
+      // Update Supabase trade_sessions table
       if (sessionId) {
         updateSessionAnalysis(sessionId, merged).catch(() => {})
       }
+      // Also save to sessions table (used by dashboard/journal/coach)
+      try {
+        fetch('/api/sessions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trades: merged.trades,
+            analysis: merged,
+            broker: merged.broker,
+            market: merged.market,
+            trade_date: merged.trade_date,
+            plan_used: 'free',
+          }),
+        }).catch(() => {})
+      } catch { /* ignore */ }
       return merged
     })
-    setAiDone(true)
+    // Check if AI actually succeeded
+    if (data._ai_failed) {
+      setAiDone(false)
+      setAiError(data._ai_error || 'AI analysis timed out. Your trade data and KPIs are shown below — click Retry for full psychology analysis.')
+    } else {
+      setAiDone(true)
+    }
     setAiLoading(false)
     setUploadState('results')
   }
@@ -765,6 +791,34 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* ═══ Equity Curve ═══ */}
+          {trades.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">Session Equity Curve<span className="badge badge-free">FREE</span></div>
+              <div className="card-body">
+                <div className="equity-curve">
+                  {trades.map((t, i) => {
+                    const maxAbs = Math.max(...trades.map(tr => Math.abs(tr.pnl || 0)), 1)
+                    const pct = Math.abs(t.pnl || 0) / maxAbs * 100
+                    return (
+                      <div key={i} className="eq-bar" style={{
+                        height: `${Math.max(pct, 5)}%`,
+                        background: (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                        opacity: expandedTrade === i ? 1 : 0.6,
+                        cursor: 'pointer',
+                      }} title={`#${i+1} ${t.symbol} ${fmtPnl(t.pnl)}`} onClick={() => setExpandedTrade(i)} />
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
+                  <span>Trade #1</span>
+                  <span>Cumulative: {fmtPnl(kpis.net_pnl)}</span>
+                  <span>Trade #{trades.length}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ═══ AI Analysis Button / Status ═══ */}
           {!aiDone && !aiLoading && (
             <div style={{
@@ -832,10 +886,10 @@ export default function UploadPage() {
           </div>
 
           {/* Momentum */}
-          {momentum && momentum.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">Session Momentum<span className="badge badge-free">FREE</span></div>
-              <div className="card-body">
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">📊 Session Momentum<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              {momentum && momentum.length > 0 ? (
                 <div className="momentum-grid">
                   {momentum.map((m, i) => (
                     <div key={i} className="momentum-item">
@@ -848,15 +902,25 @@ export default function UploadPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)' }}>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>AI momentum analysis not available yet.</div>
+                  {!aiLoading && !aiDone && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Run AI Analysis</button>
+                  )}
+                  {aiError && !aiLoading && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Retry AI Analysis</button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Vicious Cycle */}
-          {vicious_cycle && vicious_cycle.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
-              <div className="card-body">
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">🔄 Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              {vicious_cycle && vicious_cycle.length > 0 ? (
                 <div className="cycle-grid">
                   {vicious_cycle.map((s, i) => (
                     <div key={i} className={`cycle-stage${s.count > 0 ? ' active' : ''}`}>
@@ -867,15 +931,25 @@ export default function UploadPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)' }}>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>AI vicious cycle detection not available yet.</div>
+                  {!aiLoading && !aiDone && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Run AI Analysis</button>
+                  )}
+                  {aiError && !aiLoading && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Retry AI Analysis</button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Technical Insights */}
-          {technical_insights && technical_insights.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
-              <div className="card-body">
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">📈 Free Technical Insights<span className="badge badge-free">FREE</span></div>
+            <div className="card-body">
+              {technical_insights && technical_insights.length > 0 ? (
                 <div className="fi-grid">
                   {technical_insights.map((ti, i) => (
                     <div key={i} className="fi-item">
@@ -888,9 +962,19 @@ export default function UploadPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)' }}>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>AI technical insights not available yet.</div>
+                  {!aiLoading && !aiDone && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Run AI Analysis</button>
+                  )}
+                  {aiError && !aiLoading && (
+                    <button className="btn btn-accent btn-sm" style={{ fontSize: 11 }} onClick={runAIAnalysis}>Retry AI Analysis</button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* ═══ DQS Ring + Factors ═══ */}
           {result.dqs && (
@@ -1005,12 +1089,13 @@ export default function UploadPage() {
                     padding: '12px 16px', borderBottom: '1px solid var(--border)',
                     background: 'rgba(255,255,255,.02)',
                   }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Running P&L</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Running P&L {selectedTrade ? `(Trade #${selectedTrade.index + 1})` : ''}</div>
                     <div style={{
                       fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace",
-                      color: kpis.net_pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                      color: (selectedTrade?.cum_pnl ?? kpis.net_pnl) >= 0 ? 'var(--green)' : 'var(--red)',
+                      transition: 'color .2s',
                     }}>
-                      {fmtPnl(kpis.net_pnl)}
+                      {fmtPnl(selectedTrade?.cum_pnl ?? kpis.net_pnl)}
                     </div>
                   </div>
 
@@ -1079,10 +1164,12 @@ export default function UploadPage() {
                             fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700,
                             color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)',
                           }}>{fmtPnl(t.pnl)}</span>
-                          <span style={{
-                            padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600,
-                            background: tagStyle.bg, color: tagStyle.color,
-                          }}>{t.label}</span>
+                          {t.label && (
+                            <span style={{
+                              padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 600,
+                              background: tagStyle.bg, color: tagStyle.color,
+                            }}>{t.label}</span>
+                          )}
                           {tradeIsLocked && <span style={{ fontSize: 9, marginLeft: 'auto' }}>🔒</span>}
                         </div>
                       </div>
@@ -1119,7 +1206,7 @@ export default function UploadPage() {
                           fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 16,
                           color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 'auto',
                         }}>{fmtPnl(selectedTrade.pnl)}</span>
-                        {(() => {
+                        {selectedTrade.label && (() => {
                           const tagStyle = ts[selectedTrade.tag] || { bg: 'rgba(150,150,150,.12)', color: 'var(--muted)' }
                           return (
                             <span style={{ padding: '3px 12px', borderRadius: 12, fontSize: 10, fontWeight: 700, background: tagStyle.bg, color: tagStyle.color }}>

@@ -267,10 +267,10 @@ export default function ResultsPage() {
         </div>
 
         {/* Momentum */}
-        {momentum && momentum.length > 0 && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Session Momentum<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">📊 Session Momentum<span className="badge badge-free">FREE</span></div>
+          <div className="card-body">
+            {momentum && momentum.length > 0 ? (
               <div className="momentum-grid">
                 {momentum.map((m, i) => (
                   <div key={i} className="momentum-item">
@@ -283,15 +283,19 @@ export default function ResultsPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)', fontSize: 13 }}>
+                AI momentum analysis not available for this session.
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Vicious Cycle */}
-        {vicious_cycle && vicious_cycle.length > 0 && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">🔄 Vicious Cycle Detector<span className="badge badge-free">FREE</span></div>
+          <div className="card-body">
+            {vicious_cycle && vicious_cycle.length > 0 ? (
               <div className="cycle-grid">
                 {vicious_cycle.map((s, i) => (
                   <div key={i} className={`cycle-stage${s.count > 0 ? ' active' : ''}`}>
@@ -302,15 +306,19 @@ export default function ResultsPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)', fontSize: 13 }}>
+                AI vicious cycle detection not available for this session.
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Technical Insights */}
-        {technical_insights && technical_insights.length > 0 && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Free Technical Insights<span className="badge badge-free">FREE</span></div>
-            <div className="card-body">
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">📈 Free Technical Insights<span className="badge badge-free">FREE</span></div>
+          <div className="card-body">
+            {technical_insights && technical_insights.length > 0 ? (
               <div className="fi-grid">
                 {technical_insights.map((ti, i) => (
                   <div key={i} className="fi-item">
@@ -323,9 +331,13 @@ export default function ResultsPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--muted2)', fontSize: 13 }}>
+                AI technical insights not available for this session.
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* ═══ DQS Ring + Factors ═══ */}
         {data.dqs && (
