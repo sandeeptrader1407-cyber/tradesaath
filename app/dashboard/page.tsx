@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useUserPlan } from '@/hooks/useUserPlan'
 
 interface Session {
   id: string
@@ -107,6 +108,7 @@ function getFirstDayOfMonth(year: number, month: number) {
 }
 
 export default function DashboardPage() {
+  const { isPro, loading: planLoading, plan } = useUserPlan()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [intentions, setIntentions] = useState<Set<string>>(new Set())
@@ -116,45 +118,44 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/sessions')
       .then(r => r.json())
-      .then(d => {
-        let allSessions = d.sessions || []
-        // If no saved sessions, try loading current analysis from sessionStorage
-        if (allSessions.length === 0) {
-          try {
-            const stored = sessionStorage.getItem('tradesaath_results')
-            if (stored) {
-              const parsed = JSON.parse(stored)
-              if (parsed.trades && parsed.trades.length > 0) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const totalPnl = parsed.trades.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const wins = parsed.trades.filter((t: any) => t.pnl > 0).length
-                const tradeCount = parsed.trades.length
-                allSessions = [{
-                  id: 'current-session',
-                  created_at: new Date().toISOString(),
-                  broker: parsed.broker || null,
-                  trades: parsed.trades,
-                  analysis: parsed,
-                  total_pnl: totalPnl,
-                  trade_count: tradeCount,
-                  win_rate: tradeCount > 0 ? Math.round(wins / tradeCount * 100) : 0,
-                  dqs_score: parsed.dqs?.score || 0,
-                }]
-              }
-            }
-          } catch { /* ignore */ }
-        }
-        setSessions(allSessions)
-        setLoading(false)
-      })
+      .then(d => { setSessions(d.sessions || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
-  if (loading) {
+  if (loading || planLoading) {
     return (
       <section style={{ paddingTop: 100, textAlign: 'center', minHeight: '80vh' }}>
         <div className="wrap"><div style={{ color: 'var(--muted)', fontSize: 14 }}>Loading dashboard...</div></div>
+      </section>
+    )
+  }
+
+  // Dashboard is Pro-only
+  if (!isPro) {
+    return (
+      <section style={{ paddingTop: 80, paddingBottom: 60 }}>
+        <div className="wrap" style={{ maxWidth: 600 }}>
+          <div className="card" style={{ textAlign: 'center', padding: 48 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Pro Dashboard</h2>
+            <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 8 }}>
+              {plan === 'single'
+                ? 'Your Single Report plan gives you full trade analysis. Upgrade to Pro for the full dashboard with monthly KPIs, discipline scores, smart insights, and more.'
+                : 'The Pro Dashboard shows your monthly KPIs, discipline score, smart insights, pattern intelligence, and trading calendar.'}
+            </p>
+            <div style={{
+              padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block',
+              background: 'rgba(240,180,41,.08)', border: '1px solid rgba(240,180,41,.25)',
+              fontSize: 12, color: 'var(--gold)',
+            }}>
+              Current plan: <strong>{plan === 'single' ? 'Single Report' : 'Free'}</strong>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href="/pricing" className="btn btn-accent">Upgrade to Pro — ₹799/mo</Link>
+              <Link href="/upload" className="btn btn-ghost">Upload Trades</Link>
+            </div>
+          </div>
+        </div>
       </section>
     )
   }

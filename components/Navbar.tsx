@@ -49,16 +49,34 @@ function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
 function NavLinks() {
   const { isSignedIn, isLoaded } = useUser()
   const pathname = usePathname()
+  const [userPlan, setUserPlan] = useState<string>('free')
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetch('/api/user/plan')
+        .then(r => r.json())
+        .then(d => setUserPlan(d.plan || 'free'))
+        .catch(() => {})
+    }
+  }, [isSignedIn])
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
-    const links = [
-      { href: '/dashboard', label: '📊 Dashboard' },
+    const isPro = userPlan === 'pro_monthly' || userPlan === 'pro_yearly'
+    const isPaid = userPlan !== 'free'
+
+    // Build nav links based on plan
+    const links: { href: string; label: string }[] = [
       { href: '/upload', label: '📤 Upload' },
-      { href: '/journal', label: '📓 Journal' },
-      { href: '/coach', label: '🎯 AI Coach' },
     ]
+    // Dashboard — Pro only
+    if (isPro) links.unshift({ href: '/dashboard', label: '📊 Dashboard' })
+    // Journal — paid users (single + pro)
+    if (isPaid) links.push({ href: '/journal', label: '📓 Journal' })
+    // AI Coach — Pro only
+    if (isPro) links.push({ href: '/coach', label: '🎯 AI Coach' })
+
     return (
       <>
         {links.map(l => (
@@ -80,16 +98,29 @@ function NavLinks() {
 
 function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
   const { isSignedIn, isLoaded } = useUser()
+  const [userPlan, setUserPlan] = useState<string>('free')
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetch('/api/user/plan')
+        .then(r => r.json())
+        .then(d => setUserPlan(d.plan || 'free'))
+        .catch(() => {})
+    }
+  }, [isSignedIn])
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
+    const isPro = userPlan === 'pro_monthly' || userPlan === 'pro_yearly'
+    const isPaid = userPlan !== 'free'
+
     return (
       <>
-        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>
+        {isPro && <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>}
         <Link href="/upload" onClick={closeMenu} className="nav-app-link">📤 Upload</Link>
-        <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>
-        <Link href="/coach" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>
+        {isPaid && <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>}
+        {isPro && <Link href="/coach" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>}
       </>
     )
   }
@@ -109,7 +140,8 @@ function LogoLink() {
 
   if (!isLoaded) return <Link className="nav-logo" href="/"><div className="nav-logo-dot"></div>TradeSaath</Link>
 
-  const href = isSignedIn ? '/dashboard' : '/'
+  // Signed-in users go to upload (dashboard is Pro-only, upload is always available)
+  const href = isSignedIn ? '/upload' : '/'
 
   return (
     <Link className="nav-logo" href={href}>
