@@ -18,19 +18,52 @@ interface InTradeBehavior {
 interface WhatVsShould {
   what_you_did: string; what_to_do_instead: string; key_lesson: string
 }
+interface MarketContext {
+  nifty?: string; vix?: string; news?: string; session_label?: string
+}
+interface PreviousTradeChip {
+  index: number; symbol?: string; pnl: number; tag?: string
+}
+interface FillRow {
+  qty: number; price: number; value?: number; time?: string
+}
+interface OptionsSpecific {
+  strike?: string; expiry?: string; iv?: string; oi_change?: string; greeks_note?: string
+}
 interface Trade {
   index: number; time: string; symbol: string; side: string
   qty: number; entry: number; exit: number; pnl: number; cum_pnl: number
   tag: string; label: string; session: string
   time_gap_from_last?: string; quick_summary?: string
   vicious_cycle_stage?: string
+  cycle_position_index?: number
   entry_exit_efficiency?: EntryExitEfficiency
   entry_timing?: EntryTiming
-  in_trade_behavior?: InTradeBehavior
+  entry_timing_candle_position?: string
+  in_trade_behavior?: InTradeBehavior & { flags?: string[] }
   what_you_did_vs_should_have?: WhatVsShould
   psychology_coaching?: string; technical_analysis?: string
   counterfactual?: string; last_5_trades_context?: string
+  // V12 rich fields
+  market_context?: MarketContext
+  previous_trades?: PreviousTradeChip[]
+  fills?: FillRow[]
+  fills_note?: string
+  setup_grade?: string
+  options_specific?: OptionsSpecific
 }
+const CANONICAL_CYCLE_STAGES = [
+  { key: 'disciplined_win', label: 'Disciplined Win', icon: '✓' },
+  { key: 'overconfidence', label: 'Overconfidence', icon: '⚡' },
+  { key: 'larger_position', label: 'Larger Position', icon: '📈' },
+  { key: 'market_against', label: 'Market Against', icon: '↘' },
+  { key: 'hope_hold', label: 'Hope & Hold', icon: '🙏' },
+  { key: 'averaging_down', label: 'Averaging Down', icon: '📉' },
+  { key: 'panic_exit', label: 'Panic Exit', icon: '💨' },
+  { key: 'revenge_trade', label: 'Revenge Trade', icon: '⚔' },
+  { key: 'decision_fatigue', label: 'Decision Fatigue', icon: '😵' },
+  { key: 'fomo_reentry', label: 'FOMO Re-entry', icon: '🔄' },
+]
 interface Momentum { name: string; score: number; color: string; desc: string }
 interface CycleStage { stage: string; count: number; icon: string; desc: string }
 interface TechInsight { name: string; score: number; color: string; desc: string }
@@ -47,6 +80,8 @@ interface AnalysisResult {
   financial_impact?: { total_lost_to_mistakes: number; potential_pnl_without_mistakes: number; message: string }
   mistake_patterns?: { name: string; icon: string; count: number; cost: number; frequency: string }[]
   rules_for_next_session?: string[]
+  fi_summary?: string | null
+  cross_user_insight?: string | null
   trades: Trade[]
   _truncated?: boolean
 }
@@ -114,6 +149,8 @@ export default function ResultsPage() {
   const [sideFilter, setSideFilter] = useState<string>('all')
   const [unlocked, setUnlocked] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
+  const [deepDive, setDeepDive] = useState(false)
+  const [reflections, setReflections] = useState<Record<number, string>>({})
   const { pay, loading: payLoading, paid } = useRazorpay()
 
   useEffect(() => {
@@ -737,6 +774,99 @@ export default function ResultsPage() {
                           ))}
                         </div>
 
+                        {/* Market Context strip */}
+                        {selectedTrade.market_context && (
+                          selectedTrade.market_context.nifty ||
+                          selectedTrade.market_context.vix ||
+                          selectedTrade.market_context.news ||
+                          selectedTrade.market_context.session_label
+                        ) && (
+                          <div style={{
+                            display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14,
+                            padding: '10px 12px', background: 'rgba(93,120,255,.04)',
+                            borderRadius: 8, border: '1px solid var(--border)',
+                          }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginRight: 4 }}>Market Context</div>
+                            {selectedTrade.market_context.nifty && (
+                              <span style={{ fontSize: 11, color: 'var(--text2)' }}>NIFTY <b style={{ color: 'var(--text)' }}>{selectedTrade.market_context.nifty}</b></span>
+                            )}
+                            {selectedTrade.market_context.vix && (
+                              <span style={{ fontSize: 11, color: 'var(--text2)' }}>VIX <b style={{ color: 'var(--text)' }}>{selectedTrade.market_context.vix}</b></span>
+                            )}
+                            {selectedTrade.market_context.session_label && (
+                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, background: 'var(--s2)', color: 'var(--muted2)', fontWeight: 700 }}>{selectedTrade.market_context.session_label}</span>
+                            )}
+                            {selectedTrade.market_context.news && (
+                              <span style={{ fontSize: 11, color: 'var(--muted2)', width: '100%', marginTop: 4 }}>📰 {selectedTrade.market_context.news}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Previous Trades chips */}
+                        {selectedTrade.previous_trades && selectedTrade.previous_trades.length > 0 && (
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Previous Trades</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {selectedTrade.previous_trades.slice(-3).map((pt, pi) => (
+                                <span key={pi} style={{
+                                  padding: '4px 10px', borderRadius: 12, fontSize: 10, fontWeight: 700,
+                                  fontFamily: "'JetBrains Mono', monospace",
+                                  background: pt.pnl >= 0 ? 'rgba(54,211,153,.12)' : 'rgba(240,93,108,.12)',
+                                  color: pt.pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                                  border: `1px solid ${pt.pnl >= 0 ? 'rgba(54,211,153,.3)' : 'rgba(240,93,108,.3)'}`,
+                                }}>
+                                  #{pt.index + 1} {pt.symbol || ''} {fmtPnl(pt.pnl)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Fills table */}
+                        {selectedTrade.fills && selectedTrade.fills.length > 0 && (
+                          <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--s2)', borderRadius: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Fills</div>
+                            <table style={{ width: '100%', fontSize: 11, fontFamily: "'JetBrains Mono', monospace", borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ color: 'var(--muted)', textAlign: 'left' }}>
+                                  <th style={{ padding: '3px 6px', fontWeight: 600 }}>Time</th>
+                                  <th style={{ padding: '3px 6px', fontWeight: 600, textAlign: 'right' }}>Qty</th>
+                                  <th style={{ padding: '3px 6px', fontWeight: 600, textAlign: 'right' }}>Price</th>
+                                  <th style={{ padding: '3px 6px', fontWeight: 600, textAlign: 'right' }}>Value</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedTrade.fills.map((f, fi) => (
+                                  <tr key={fi} style={{ borderTop: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '4px 6px', color: 'var(--muted2)' }}>{f.time || '—'}</td>
+                                    <td style={{ padding: '4px 6px', textAlign: 'right' }}>{f.qty}</td>
+                                    <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmtPrice(f.price)}</td>
+                                    <td style={{ padding: '4px 6px', textAlign: 'right', color: 'var(--muted2)' }}>
+                                      {fmtPrice(f.value ?? (f.qty * f.price))}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {(() => {
+                                  const totalQty = selectedTrade.fills!.reduce((s, f) => s + (f.qty || 0), 0)
+                                  const totalVal = selectedTrade.fills!.reduce((s, f) => s + (f.value ?? ((f.qty * f.price) || 0)), 0)
+                                  const wAvg = totalQty > 0 ? totalVal / totalQty : 0
+                                  return (
+                                    <tr style={{ borderTop: '1px solid var(--border)', fontWeight: 700 }}>
+                                      <td style={{ padding: '4px 6px', color: 'var(--muted)' }}>Wtd Avg</td>
+                                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>{totalQty}</td>
+                                      <td style={{ padding: '4px 6px', textAlign: 'right', color: 'var(--accent)' }}>{fmtPrice(wAvg)}</td>
+                                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>{fmtPrice(totalVal)}</td>
+                                    </tr>
+                                  )
+                                })()}
+                              </tbody>
+                            </table>
+                            {selectedTrade.fills_note && (
+                              <div style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 8, fontStyle: 'italic' }}>{selectedTrade.fills_note}</div>
+                            )}
+                          </div>
+                        )}
+
                         {/* 2. Quick Summary */}
                         {selectedTrade.quick_summary && (
                           <div style={{
@@ -955,6 +1085,162 @@ export default function ResultsPage() {
                               </div>
                             </div>
                           )
+                        )}
+
+                        {/* Cycle Position Timeline — 10 stages */}
+                        {typeof selectedTrade.cycle_position_index === 'number' && (
+                          <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--s2)', borderRadius: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>🔄 Cycle Position</div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, overflowX: 'auto' }}>
+                              {CANONICAL_CYCLE_STAGES.map((stg, si) => {
+                                const active = si === selectedTrade.cycle_position_index
+                                return (
+                                  <div key={stg.key} style={{ flex: 1, minWidth: 56, textAlign: 'center' }}>
+                                    <div style={{
+                                      width: 28, height: 28, margin: '0 auto 4px',
+                                      borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      background: active ? 'var(--gold)' : 'var(--s3)',
+                                      color: active ? '#000' : 'var(--muted)',
+                                      fontSize: 12, fontWeight: 800,
+                                      boxShadow: active ? '0 0 0 3px rgba(240,180,41,.2)' : 'none',
+                                    }}>{stg.icon}</div>
+                                    <div style={{
+                                      fontSize: 8, color: active ? 'var(--gold)' : 'var(--muted)',
+                                      fontWeight: active ? 800 : 500, lineHeight: 1.2,
+                                    }}>{stg.label}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Cross-User Insight — paid, losing trades */}
+                        {selectedTrade.pnl < 0 && data.cross_user_insight && (
+                          unlocked ? (
+                            <div style={{
+                              marginBottom: 16, padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid #38bdf8', background: 'rgba(56,189,248,.04)',
+                              fontSize: 13, color: 'var(--text2)', lineHeight: 1.7,
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#38bdf8', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                👥 Cross-User Pattern
+                              </div>
+                              {data.cross_user_insight}
+                            </div>
+                          ) : (
+                            <div style={{
+                              marginBottom: 16, padding: '12px 16px', borderRadius: '0 8px 8px 0',
+                              borderLeft: '3px solid #38bdf8', background: 'rgba(56,189,248,.04)',
+                              position: 'relative', overflow: 'hidden',
+                            }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#38bdf8', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                👥 Cross-User Pattern
+                              </div>
+                              <div style={{ filter: 'blur(4px)', userSelect: 'none', fontSize: 13, lineHeight: 1.7 }}>
+                                {data.cross_user_insight}
+                              </div>
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.3)' }}>
+                                <button className="btn btn-accent btn-sm" style={{ fontSize: 12 }} onClick={() => handlePay('single')} disabled={payLoading}>
+                                  🔒 Upgrade to unlock
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+
+                        {/* Deep Dive toggle */}
+                        <div style={{ marginBottom: 14 }}>
+                          <button
+                            onClick={() => setDeepDive(d => !d)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 11, width: '100%', padding: '8px 12px' }}
+                          >
+                            {deepDive ? '▲ Hide Deep Dive' : '▼ Show Deep Dive'}
+                          </button>
+                        </div>
+                        {deepDive && (
+                          <div style={{
+                            marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,.02)',
+                            borderRadius: 10, border: '1px dashed var(--border)',
+                          }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>🔬 Deep Dive</div>
+
+                            {selectedTrade.setup_grade && (
+                              <div style={{ marginBottom: 10 }}>
+                                <span style={{ fontSize: 10, color: 'var(--muted)', marginRight: 6 }}>Setup Grade:</span>
+                                <span style={{
+                                  padding: '2px 10px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                                  background: /[AB]/i.test(selectedTrade.setup_grade) ? 'rgba(54,211,153,.15)' :
+                                    /C/i.test(selectedTrade.setup_grade) ? 'rgba(240,180,41,.15)' : 'rgba(240,93,108,.15)',
+                                  color: /[AB]/i.test(selectedTrade.setup_grade) ? 'var(--green)' :
+                                    /C/i.test(selectedTrade.setup_grade) ? 'var(--gold)' : 'var(--red)',
+                                }}>{selectedTrade.setup_grade}</span>
+                              </div>
+                            )}
+
+                            {selectedTrade.entry_timing_candle_position && (
+                              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+                                <b style={{ color: 'var(--muted)' }}>Candle Position:</b> {selectedTrade.entry_timing_candle_position}
+                              </div>
+                            )}
+
+                            {selectedTrade.in_trade_behavior?.flags && selectedTrade.in_trade_behavior.flags.length > 0 && (
+                              <div style={{ marginBottom: 10 }}>
+                                <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>Behavior Flags</div>
+                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                  {selectedTrade.in_trade_behavior.flags.map((f, fi) => (
+                                    <span key={fi} style={{
+                                      padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                                      background: 'rgba(240,93,108,.12)', color: 'var(--red)',
+                                    }}>🚩 {f}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedTrade.options_specific && (
+                              selectedTrade.options_specific.strike ||
+                              selectedTrade.options_specific.expiry ||
+                              selectedTrade.options_specific.iv
+                            ) && (
+                              <div style={{ fontSize: 12, color: 'var(--text2)' }}>
+                                <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>Options Details</div>
+                                {selectedTrade.options_specific.strike && <div>Strike: <b>{selectedTrade.options_specific.strike}</b></div>}
+                                {selectedTrade.options_specific.expiry && <div>Expiry: <b>{selectedTrade.options_specific.expiry}</b></div>}
+                                {selectedTrade.options_specific.iv && <div>IV: <b>{selectedTrade.options_specific.iv}</b></div>}
+                                {selectedTrade.options_specific.oi_change && <div>OI Change: <b>{selectedTrade.options_specific.oi_change}</b></div>}
+                                {selectedTrade.options_specific.greeks_note && <div style={{ color: 'var(--muted2)', marginTop: 4 }}>{selectedTrade.options_specific.greeks_note}</div>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Reflection notes — paid */}
+                        {unlocked ? (
+                          <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>📝 Your Reflection</div>
+                            <textarea
+                              value={reflections[selectedTrade.index] || ''}
+                              onChange={e => setReflections(r => ({ ...r, [selectedTrade.index]: e.target.value }))}
+                              placeholder="What did you learn from this trade? What would you do differently?"
+                              style={{
+                                width: '100%', minHeight: 70, padding: 10, borderRadius: 8,
+                                background: 'var(--s2)', border: '1px solid var(--border)',
+                                color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', resize: 'vertical',
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div style={{
+                            marginBottom: 16, padding: '12px 16px', borderRadius: 10,
+                            background: 'var(--s2)', border: '1px dashed var(--border)', textAlign: 'center',
+                          }}>
+                            <div style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 8 }}>📝 Reflection journal — Pro</div>
+                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => handlePay('pro_monthly')} disabled={payLoading}>
+                              Unlock Journal
+                            </button>
+                          </div>
                         )}
 
                         {/* Fallback if no detailed fields */}
