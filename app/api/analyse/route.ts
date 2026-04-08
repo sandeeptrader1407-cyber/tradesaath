@@ -54,87 +54,43 @@ async function callClaude(apiKey: string, content: any[], maxTokens: number, tim
   }
 }
 
-/* ─── Helper: call Gemini ─── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callGemini(apiKey: string, content: any[], maxTokens: number, timeoutMs = 55000): Promise<AIResult> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const parts: any[] = [];
-  for (const item of content) {
-    if (item.type === 'text') parts.push({ text: item.text });
-    else if (item.type === 'document' && item.source) parts.push({ inlineData: { mimeType: item.source.media_type, data: item.source.data } });
-    else if (item.type === 'image' && item.source) parts.push({ inlineData: { mimeType: item.source.media_type, data: item.source.data } });
-  }
-
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch(url, {
-      method: 'POST', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 } })
-    });
-    clearTimeout(timeout);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await response.json() as any;
-    if (data.error) return { ok: false, error: `Gemini: ${data.error.message}`, code: 'GEMINI_ERROR', provider: 'gemini' };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!text) return { ok: false, error: 'Gemini empty response', code: 'EMPTY', provider: 'gemini' };
-    return { ok: true, data: text, provider: 'gemini' };
-  } catch (err: unknown) {
-    const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
-    const msg = isAbort ? `Gemini timed out (${Math.round(timeoutMs/1000)}s)` : (err instanceof Error ? err.message : 'Gemini error');
-    return { ok: false, error: msg, code: isAbort ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK', provider: 'gemini' };
-  }
-}
-
-/* ─── Get Gemini key ─── */
-function getGeminiKey(): string | undefined {
-  return process.env.Gemini_API_Key || process.env.GEMINI_API_KEY || process.env.Gemini_Api_Key || process.env.GEMINI_API_key || process.env.gemini_api_key;
-}
-
-/* ─── Unified AI caller with time budget ─── */
+/* ─── Unified AI caller — Claude only ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callAI(content: any[], maxTokens: number, startTime: number): Promise<AIResult> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const geminiKey = getGeminiKey();
 
-  console.log('AI keys — Claude:', !!anthropicKey, 'Gemini:', !!geminiKey);
-
-  // Vercel Hobby = 90s max. We MUST finish well before 90s so local data can return.
-  // Total AI budget = 60s max. This leaves 30s for parsing + response + buffer.
-  const elapsed = Date.now() - startTime;
-  const remaining = Math.max(60000 - elapsed, 8000); // 60s total budget, min 8s
-  // Claude gets 35s max, Gemini gets 20s max — NEVER exceed these
-  const claudeTimeout = Math.min(Math.round(remaining * 0.6), 35000);
-  const geminiTimeout = Math.min(remaining - claudeTimeout - 2000, 20000);
-
-  console.log(`Time budget: elapsed=${Math.round(elapsed/1000)}s, remaining=${Math.round(remaining/1000)}s, Claude=${Math.round(claudeTimeout/1000)}s, Gemini=${Math.round(geminiTimeout/1000)}s`);
-
-  if (anthropicKey && geminiKey) {
-    const result = await callClaude(anthropicKey, content, maxTokens, claudeTimeout);
-    if (result.ok) return result;
-    console.warn('Claude failed, trying Gemini:', result.error);
-    // Check if we still have time for Gemini (hard stop at 65s from request start)
-    const now = Date.now() - startTime;
-    if (now > 65000) {
-      console.warn('No time left for Gemini fallback, skipping');
-      return result;
-    }
-    const actualGeminiTimeout = Math.min(geminiTimeout, 70000 - now);
-    if (actualGeminiTimeout < 5000) {
-      console.warn('Gemini budget too small, skipping');
-      return result;
-    }
-    const gemResult = await callGemini(geminiKey, content, maxTokens, actualGeminiTimeout);
-    if (gemResult.ok) return gemResult;
-    return { ...result, error: `Claude: ${result.error} | Gemini: ${gemResult.error}` };
+  if (!anthropicKey) {
+    return { ok: false, error: 'No AI API key configured', code: 'NO_KEY' };
   }
-  if (anthropicKey) return callClaude(anthropicKey, content, maxTokens, Math.min(remaining - 2000, 35000));
-  if (geminiKey) return callGemini(geminiKey, content, maxTokens, Math.min(remaining - 2000, 20000));
-  return { ok: false, error: 'No AI API key configured', code: 'NO_KEY' };
+
+  // Vercel Hobby = 90s max. Total AI budget = 60s max.
+  // Claude gets the FULL budget now (no Gemini fallback)
+  const elapsed = Date.now() - startTime;
+  const remaining = Math.max(60000 - elapsed, 8000);
+  const claudeTimeout = Math.min(remaining - 2000, 55000); // Full budget, up to 55s
+
+  console.log(`Time budget: elapsed=${Math.round(elapsed/1000)}s, remaining=${Math.round(remaining/1000)}s, Claude=${Math.round(claudeTimeout/1000)}s`);
+
+  const result = await callClaude(anthropicKey, content, maxTokens, claudeTimeout);
+
+  // Provide user-friendly error messages for billing/limit errors
+  if (!result.ok && result.error) {
+    if (result.error.includes('usage limits') || result.error.includes('spending') || result.code === 'RATE_LIMIT') {
+      return {
+        ...result,
+        error: 'AI service temporarily unavailable — usage limit reached. Please try again later or contact support.',
+        code: 'BILLING_LIMIT',
+      };
+    }
+    if (result.code === 'OVERLOADED') {
+      return {
+        ...result,
+        error: 'AI service is busy right now. Please wait a moment and try again.',
+      };
+    }
+  }
+
+  return result;
 }
 
 /* ─── JSON parser with recovery ─── */
@@ -156,10 +112,11 @@ function safeParseJSON(raw: string): { ok: boolean; data?: Record<string, unknow
   try { return { ok: true, data: JSON.parse(cleaned), truncated: true }; } catch { return { ok: false }; }
 }
 
-/* ─── Build psychology-only AI prompt (NO file attachment — fast!) ─── */
+/* ─── Build psychology AI prompt — V12 spec compliant ─── */
 function buildPsychologyPrompt(parsed: ParseResult, contextStr: string): string {
   const tradesJson = JSON.stringify(parsed.trades);
-  return `You are TradeSaath, a personal trading mentor who watched the trader's screen all day.
+  const isOptions = /NIFTY|BANKNIFTY|CE|PE|FINNIFTY/i.test(JSON.stringify(parsed.trades).slice(0, 2000));
+  return `You are TradeSaath, a personal trading mentor who watched the trader's screen all day. You are empathetic but direct. You never give generic advice.
 
 TRADE DATA (already extracted and calculated):
 Broker: ${parsed.broker} | Market: ${parsed.market} | Date: ${parsed.trade_date} | Currency: ${parsed.currency}
@@ -169,6 +126,7 @@ KPIs: Net P&L ${parsed.kpis.net_pnl}, ${parsed.kpis.total_trades} trades, ${pars
 Gross Profit: ${parsed.kpis.gross_profit}, Gross Loss: ${parsed.kpis.gross_loss}, Avg Win: ${parsed.kpis.avg_win}, Avg Loss: ${parsed.kpis.avg_loss}
 Best Trade: ${parsed.kpis.best_trade_pnl}, Worst Trade: ${parsed.kpis.worst_trade_pnl}
 Time: Avg gap ${parsed.time_analysis.avg_time_gap_minutes}m, Duration ${parsed.time_analysis.trading_duration_minutes}m
+${isOptions ? 'This is an OPTIONS session — include options-specific analysis (CE/PE, moneyness, theta risk, VIX).' : ''}
 
 Trades (sorted by time):
 ${tradesJson}
@@ -178,62 +136,153 @@ TONE — Write like a mentor who watched their screen all day:
 - Reference actual trade times, prices, symbols from the data above
 - Say WHAT emotion, WHEN, and WHAT it cost in rupees
 - Be empathetic but honest. Tell the STORY of the trading day.
+- Every insight must include a specific ₹ amount or trade index from the data.
 
-VICIOUS CYCLE DETECTION:
-- After 2+ wins → overconfidence? After a loss → revenge within 5 min?
-- After 2+ losses → panic exits, averaging, decision fatigue?
+════════════════════════════════════════════════════════
+THE 10-STAGE VICIOUS CYCLE (canonical — use these EXACT names and order):
+ 1. Disciplined Win        — clean execution, rules followed
+ 2. Overconfidence         — win streak creating false confidence
+ 3. Larger Position        — size/lots increased on next entry
+ 4. Market Goes Against    — position underwater, mental stop breached
+ 5. Hope & Hold            — "it will come back" thinking, no exit
+ 6. Averaging Down         — adding to loser, deepening the trap
+ 7. Panic Exit             — capitulation at worst price
+ 8. Revenge Trade          — immediate re-entry to recover losses (within 5 min)
+ 9. Decision Fatigue       — too many trades, random entries after 2 PM
+10. FOMO Re-entry          — chasing a move already in progress
+
+DETECTION RULES:
+- After 2+ wins → Stages 2-3 risk (Overconfidence, Larger Position)
+- Loss followed by re-entry < 5 min → Stage 8 (Revenge Trade)
+- 2+ losses in a row → Stages 5-7 (Hope, Averaging, Panic)
 - Trades after 2 PM with prior losses = highest revenge risk
+- >15 trades in one session → Stage 9 (Decision Fatigue)
+- Entry near intraday high after a rally → Stage 10 (FOMO)
 
-Return ONLY valid JSON, no backticks:
+Every trade must be assigned to exactly ONE of these 10 stages (cycle_position_index 0-9).
+════════════════════════════════════════════════════════
+
+Return ONLY valid JSON (no backticks, no markdown):
 {
-  "summary": "2-3 paragraph narrative of the trading day",
+  "summary": "2-3 paragraph narrative of the trading day — morning vs afternoon, emotional pattern, one key recommendation",
+  "fi_summary": "One sentence summarising free technical insights",
+
   "momentum": [
-    {"name": "Rule Following", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific"},
-    {"name": "Staying Calm", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific"},
-    {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific"},
-    {"name": "Exit Discipline", "score": 0-100, "color": "green/red/gold/accent", "desc": "specific"}
+    {"name": "Win Rate",        "score": 0-100, "color": "green|red|gold|accent", "desc": "specific one-liner"},
+    {"name": "Profit Factor",   "score": 0-100, "color": "green|red|gold|accent", "desc": "specific one-liner"},
+    {"name": "Discipline Score","score": 0-100, "color": "green|red|gold|accent", "desc": "specific one-liner"},
+    {"name": "Risk:Reward",     "score": 0-100, "color": "green|red|gold|accent", "desc": "specific one-liner"}
   ],
+
   "vicious_cycle": [
-    {"stage": "Disciplined Win", "count": N, "icon": "check", "desc": "text"},
-    {"stage": "FOMO Re-entry", "count": N, "icon": "zap", "desc": "text"},
-    {"stage": "Against Trend", "count": N, "icon": "arrow", "desc": "text"},
-    {"stage": "Hope & Hold", "count": N, "icon": "pray", "desc": "text"},
-    {"stage": "Averaging Down", "count": N, "icon": "down", "desc": "text"},
-    {"stage": "Panic Exit", "count": N, "icon": "wind", "desc": "text"},
-    {"stage": "Revenge Trade", "count": N, "icon": "sword", "desc": "text"},
-    {"stage": "Decision Fatigue", "count": N, "icon": "dizzy", "desc": "text"}
+    {"stage": "Disciplined Win",     "count": N, "icon": "check",   "desc": "text", "index": 0},
+    {"stage": "Overconfidence",      "count": N, "icon": "flame",   "desc": "text", "index": 1},
+    {"stage": "Larger Position",     "count": N, "icon": "expand",  "desc": "text", "index": 2},
+    {"stage": "Market Goes Against", "count": N, "icon": "arrow",   "desc": "text", "index": 3},
+    {"stage": "Hope & Hold",         "count": N, "icon": "pray",    "desc": "text", "index": 4},
+    {"stage": "Averaging Down",      "count": N, "icon": "down",    "desc": "text", "index": 5},
+    {"stage": "Panic Exit",          "count": N, "icon": "wind",    "desc": "text", "index": 6},
+    {"stage": "Revenge Trade",       "count": N, "icon": "sword",   "desc": "text", "index": 7},
+    {"stage": "Decision Fatigue",    "count": N, "icon": "dizzy",   "desc": "text", "index": 8},
+    {"stage": "FOMO Re-entry",       "count": N, "icon": "zap",     "desc": "text", "index": 9}
   ],
+
   "technical_insights": [
-    {"name": "Trend Alignment", "score": 0-100, "color": "green/red/gold", "desc": "text"},
-    {"name": "Entry Structure", "score": 0-100, "color": "green/red/gold", "desc": "text"},
-    {"name": "Exit Quality", "score": 0-100, "color": "green/red/gold", "desc": "text"},
-    {"name": "Entry Timing", "score": 0-100, "color": "green/red/gold", "desc": "text"}
+    {"name": "Entry Quality",    "score": 0-100, "color": "green|red|gold", "desc": "specific one-liner"},
+    {"name": "Trend Alignment",  "score": 0-100, "color": "green|red|gold", "desc": "specific one-liner"},
+    {"name": "Volume Analysis",  "score": 0-100, "color": "green|red|gold", "desc": "specific one-liner"},
+    {"name": "Setup Quality",    "score": 0-100, "color": "green|red|gold", "desc": "specific one-liner"}
   ],
+
   "dqs": {
     "score": 0-100,
     "factors": [
-      {"name": "Entry Timing", "score": 0-100, "color": "green/blue/gold/red"},
-      {"name": "Risk Management", "score": 0-100, "color": "green/blue/gold/red"},
-      {"name": "Position Sizing", "score": 0-100, "color": "green/blue/gold/red"},
-      {"name": "Emotional Control", "score": 0-100, "color": "green/blue/gold/red"},
-      {"name": "Exit Discipline", "score": 0-100, "color": "green/blue/gold/red"}
+      {"name": "Entry Timing",      "score": 0-100, "color": "green|blue|gold|red"},
+      {"name": "Risk Management",   "score": 0-100, "color": "green|blue|gold|red"},
+      {"name": "Position Sizing",   "score": 0-100, "color": "green|blue|gold|red"},
+      {"name": "Emotional Control", "score": 0-100, "color": "green|blue|gold|red"},
+      {"name": "Exit Discipline",   "score": 0-100, "color": "green|blue|gold|red"}
     ]
   },
+
   "financial_impact": {
     "total_lost_to_mistakes": N,
     "potential_pnl_without_mistakes": N,
     "message": "One sentence about disciplined trading"
   },
-  "mistake_patterns": [{"name": "pattern", "icon": "emoji", "count": N, "cost": N, "frequency": "X of Y"}],
-  "rules_for_next_session": ["rule 1", "rule 2", "rule 3"],
-  "trade_tags": {${parsed.trades.map((t, i) => `"${i}": "win/fomo/revenge/averaging/panic/against_trend/hope_hold/decision_fatigue"`).slice(0, 3).join(', ')}},
+
+  "mistake_patterns": [
+    {"name": "pattern", "icon": "emoji", "count": N, "cost": N, "frequency": "X of Y"}
+  ],
+
+  "rules_for_next_session": ["rule 1 referencing real data", "rule 2", "rule 3"],
+
+  "trade_tags": {${parsed.trades.map((_t, i) => `"${i}": "win|fomo|revenge|averaging|panic|against_trend|hope_hold|decision_fatigue|overconfidence|larger_position"`).slice(0, 3).join(', ')}},
+
+  "cross_user_insight": "From 847 traders: one anonymised insight referencing this trader's biggest pattern (e.g. FOMO, revenge) and a concrete improvement stat",
+
+  "trades_deep": [
+    // One entry per trade — ALL trades. The UI will gate behind paywall but needs data for all of them.
+    {
+      "index": 0,
+      "market_context": {
+        "nifty": "e.g. 22,850 ▲",
+        "vix": "e.g. 14.2",
+        "news": "optional headline or session mood",
+        "session_label": "Morning|Midday|Afternoon"
+      },
+      "previous_trades": [
+        {"pnl": N, "result": "win|loss", "symbol": "..."},
+        {"pnl": N, "result": "win|loss", "symbol": "..."},
+        {"pnl": N, "result": "win|loss", "symbol": "..."}
+      ],
+      "fills_note": "If the trade had multiple fills, note the weighted average and any slippage",
+      "quick_summary": "2-3 sentences tying this trade to the cycle stage",
+      "vicious_cycle_stage": "Exact stage name from the 10",
+      "cycle_position_index": 0,
+      "psychology_coaching": "3-4 sentences mentor advice — reference the exact emotion and timestamp",
+      "counterfactual": "What-if: if you had followed your rule, you would have saved ₹X / captured ₹Y more",
+      "technical_analysis": "3-4 sentences with price levels and structure call",
+      "setup_grade": "A|B|C|D|F",
+      "options_specific": ${isOptions ? `{
+        "type": "CE|PE",
+        "moneyness": "ITM|ATM|OTM",
+        "theta_risk": "MODERATE|HIGH|EXTREME",
+        "vix_env": "low|normal|high",
+        "time_to_expiry": "e.g. 2h 15m",
+        "avg_fill": "weighted avg fill price"
+      }` : 'null'},
+      "entry_exit_efficiency": {
+        "entry_score": 0-100,
+        "exit_score": 0-100,
+        "risk_reward": "e.g. 1.5x",
+        "optimal_rr": "e.g. 2x"
+      },
+      "entry_timing_candle_position": "first-minute high vol|middle stabilization|last-minute breakout|mid-candle drift",
+      "entry_timing": {"description": "entry at HH:MM — what was happening", "risk_level": "High|Medium|Low"},
+      "in_trade_behavior": {
+        "discipline": "DISCIPLINED|IMPULSIVE|PANIC",
+        "description": "what happened after entry",
+        "during_trade": "patience|premature exit|held too long|added to loser",
+        "flags": ["REVENGE", "AVERAGING", "PANIC", "FOMO", "AGAINST_TREND", "DISCIPLINED", "OVERSIZED"]
+      },
+      "what_you_did_vs_should_have": {
+        "what_you_did": "2-3 sentences — the actual action",
+        "what_to_do_instead": "2-3 sentences — the rule-based alternative",
+        "key_lesson": "one sentence takeaway"
+      }
+    }
+    // ... repeat for every trade index. Keep each trade concise but complete.
+  ],
+
   "first_trade_detail": {
+    // Legacy field — mirror the first entry of trades_deep for backwards compatibility
     "time_gap_from_last": "first trade",
-    "quick_summary": "2-3 sentences about this trade",
-    "vicious_cycle_stage": "Which stage and why",
+    "quick_summary": "copy of trades_deep[0].quick_summary",
+    "vicious_cycle_stage": "copy of trades_deep[0].vicious_cycle_stage",
     "entry_exit_efficiency": {"entry_score": 0-100, "exit_score": 0-100, "risk_reward": "1.5x", "optimal_rr": "optimal"},
-    "entry_timing": {"description": "entry at specific time", "risk_level": "High/Medium/Low"},
-    "in_trade_behavior": {"discipline": "DISCIPLINED/IMPULSIVE/PANIC", "description": "what happened", "during_trade": "patience/premature/etc"},
+    "entry_timing": {"description": "entry at specific time", "risk_level": "High|Medium|Low"},
+    "in_trade_behavior": {"discipline": "DISCIPLINED|IMPULSIVE|PANIC", "description": "what happened", "during_trade": "patience|premature|etc"},
     "what_you_did_vs_should_have": {"what_you_did": "2-3 sentences", "what_to_do_instead": "2-3 sentences", "key_lesson": "one sentence"},
     "last_5_trades_context": "Opening mindset for trade #1",
     "psychology_coaching": "3-4 sentences mentor advice",
@@ -242,7 +291,7 @@ Return ONLY valid JSON, no backticks:
   }
 }
 
-IMPORTANT: Return ALL fields. The first_trade_detail is shown for free and must be impressive.`;
+CRITICAL: Return ALL fields. trades_deep must contain one entry per trade. The first trade's detail is shown for free and must be impressive. Use ONLY the 10 cycle stages listed above.`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -254,9 +303,7 @@ export async function POST(req: NextRequest) {
   try {
     const requestStartTime = Date.now();
 
-    const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
-    const hasGeminiKey = !!getGeminiKey();
-    if (!hasAnthropicKey && !hasGeminiKey) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'No AI API key configured.' }, { status: 500 });
     }
 
@@ -341,9 +388,19 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Merge first trade detail
+          // Merge first trade detail (legacy)
           if (analysis.first_trade_detail && parsed.trades.length > 0) {
             parsed.trades[0] = { ...parsed.trades[0], ...analysis.first_trade_detail };
+          }
+
+          // Merge trades_deep[] V12 rich per-trade data
+          if (Array.isArray(analysis.trades_deep)) {
+            for (const deep of analysis.trades_deep) {
+              const i = typeof deep?.index === 'number' ? deep.index : -1;
+              if (i >= 0 && parsed.trades[i]) {
+                parsed.trades[i] = { ...parsed.trades[i], ...deep };
+              }
+            }
           }
 
           console.log(`Analysis complete via ${aiResult.provider} (text-only mode)`);
@@ -357,6 +414,8 @@ export async function POST(req: NextRequest) {
             financial_impact: analysis.financial_impact || null,
             mistake_patterns: analysis.mistake_patterns || [],
             rules_for_next_session: analysis.rules_for_next_session || [],
+            fi_summary: analysis.fi_summary || null,
+            cross_user_insight: analysis.cross_user_insight || null,
             _parsed_locally: true,
             _ai_failed: false,
           });

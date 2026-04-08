@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: 'What is the Vicious Cycle?',
-    a: 'The Vicious Cycle is our proprietary 8-stage framework: Disciplined Win → FOMO Re-entry → Against Trend → Hope & Hold → Averaging Down → Panic Exit → Revenge Trade → Decision Fatigue. Each trade is mapped to a stage.',
+    a: 'The Vicious Cycle is our proprietary 10-stage framework: Disciplined Win → Overconfidence → Larger Position → Market Goes Against → Hope & Hold → Averaging Down → Panic Exit → Revenge Trade → Decision Fatigue → FOMO Re-entry. Every trade you make is mapped to exactly one of these stages, so you can see — not just feel — where your emotions took over.',
   },
   {
     q: 'Can I cancel my subscription?',

@@ -136,15 +136,9 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 }
 
 function LogoLink() {
-  const { isSignedIn, isLoaded } = useUser()
-
-  if (!isLoaded) return <Link className="nav-logo" href="/"><div className="nav-logo-dot"></div>TradeSaath</Link>
-
-  // Signed-in users go to upload (dashboard is Pro-only, upload is always available)
-  const href = isSignedIn ? '/upload' : '/'
-
+  // Per V12 spec: logo always goes to landing page (goHome behavior)
   return (
-    <Link className="nav-logo" href={href}>
+    <Link className="nav-logo" href="/">
       <div className="nav-logo-dot"></div>TradeSaath
     </Link>
   )
