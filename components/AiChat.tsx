@@ -9,12 +9,16 @@ interface Message {
 }
 
 /* Quick suggestion chips per C9 chat response library */
-const QUICK_PROMPTS = [
-  'Why do I keep revenge trading?',
-  'How to fix my stop loss discipline?',
-  'Am I overtrading?',
-  'Best time to stop trading today?',
-  'How to handle a losing streak?',
+const QUICK_PROMPTS: { label: string; prompt: string; tag: string; color: string }[] = [
+  { label: 'Why do I keep revenge trading?', prompt: 'Why do I keep revenge trading? What triggers it and how do I break the cycle?', tag: 'PSYCH', color: 'var(--red)' },
+  { label: 'How to fix my stop loss discipline?', prompt: 'How can I fix my stop loss discipline? What specific rules should I follow?', tag: 'RULES', color: 'var(--accent)' },
+  { label: 'Am I overtrading?', prompt: 'Am I overtrading? Analyse my recent sessions and tell me the truth.', tag: 'AUDIT', color: 'var(--orange)' },
+  { label: 'Best time to stop trading today?', prompt: 'When should I stop trading today? Give me a clear rule based on my behavior.', tag: 'RULES', color: 'var(--accent)' },
+  { label: 'How to handle a losing streak?', prompt: 'How should I handle a losing streak? What does my data say about recovery?', tag: 'PSYCH', color: 'var(--red)' },
+  // NEW V12 templates
+  { label: 'Analyse my last 5 sessions for patterns', prompt: 'Analyse my last 5 sessions and identify the top 3 recurring patterns. For each, give me frequency, cost, and a concrete fix.', tag: 'PATTERN', color: 'var(--purple)' },
+  { label: 'What\u2019s my trader personality?', prompt: 'Based on my trade history, what trader personality type am I (revenge trader, FOMO chaser, disciplined scalper, hope-holder, etc.)? Explain why and what I should optimize for.', tag: 'PROFILE', color: 'var(--gold)' },
+  { label: 'I\u2019m trading LIVE right now \u2014 guide me', prompt: 'I am trading LIVE right now. Based on my history, what are the top 3 things I must watch out for in the next hour? Give me rapid-fire rules.', tag: 'LIVE', color: 'var(--blue)' },
 ]
 
 export default function AiChat() {
@@ -25,6 +29,7 @@ export default function AiChat() {
   const [tradeContext, setTradeContext] = useState<string | null>(null)
   const [sessionCount, setSessionCount] = useState(0)
   const [patternCount, setPatternCount] = useState(0)
+  const [memoryStats, setMemoryStats] = useState<{ pnl: number; avgDqs: number; topPattern: string | null }>({ pnl: 0, avgDqs: 0, topPattern: null })
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -62,6 +67,11 @@ export default function AiChat() {
         }
         const patternEntries = Object.entries(patterns).sort((a, b) => b[1] - a[1])
         setPatternCount(patternEntries.length)
+        setMemoryStats({
+          pnl: totalPnl,
+          avgDqs: Math.round(avgDqs),
+          topPattern: patternEntries[0]?.[0] || null,
+        })
 
         const ctx = `Last ${recent.length} sessions: Net P&L ₹${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
         setTradeContext(ctx)
@@ -144,14 +154,37 @@ export default function AiChat() {
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>
           </div>
 
-          {/* Coaching Memory Indicator */}
+          {/* Coaching Memory Bar — shows what the AI remembers about you */}
           {sessionCount > 0 && (
             <div style={{
-              padding: '6px 16px', borderBottom: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--muted2)',
+              padding: '8px 14px', borderBottom: '1px solid var(--border)',
+              background: 'linear-gradient(90deg, rgba(62,232,196,.06), rgba(91,141,239,.04))',
             }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 2s infinite' }} />
-              TradeSaath remembers: {sessionCount} sessions analyzed, {patternCount} patterns detected
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6, fontSize: 9,
+                color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase',
+                letterSpacing: '.08em', marginBottom: 5,
+              }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 6px var(--accent)' }} />
+                Coaching Memory Active
+              </div>
+              <div style={{
+                display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 10,
+                fontFamily: "'JetBrains Mono', monospace", color: 'var(--text2)',
+              }}>
+                <span><span style={{ color: 'var(--muted)' }}>SESSIONS</span> <strong style={{ color: 'var(--text)' }}>{sessionCount}</strong></span>
+                <span style={{ color: 'var(--border)' }}>·</span>
+                <span><span style={{ color: 'var(--muted)' }}>P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
+                <span style={{ color: 'var(--border)' }}>·</span>
+                <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
+                <span style={{ color: 'var(--border)' }}>·</span>
+                <span><span style={{ color: 'var(--muted)' }}>PATTERNS</span> <strong style={{ color: 'var(--text)' }}>{patternCount}</strong></span>
+              </div>
+              {memoryStats.topPattern && (
+                <div style={{ fontSize: 10, color: 'var(--muted2)', marginTop: 4 }}>
+                  Top behaviour: <span style={{ color: 'var(--orange)', fontWeight: 700 }}>{memoryStats.topPattern}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -167,11 +200,19 @@ export default function AiChat() {
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 16 }}>I analyse your patterns and give specific, actionable coaching</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {QUICK_PROMPTS.map(p => (
-                    <button key={p} onClick={() => sendMessage(p)} style={{
+                    <button key={p.label} onClick={() => sendMessage(p.prompt)} style={{
                       padding: '8px 12px', fontSize: 11, background: 'var(--s2)',
                       border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                       color: 'var(--text2)', cursor: 'pointer', textAlign: 'left',
-                    }}>{p}</button>
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span style={{
+                        fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+                        background: 'rgba(255,255,255,.04)', color: p.color,
+                        letterSpacing: '.05em', flexShrink: 0,
+                      }}>{p.tag}</span>
+                      <span style={{ flex: 1 }}>{p.label}</span>
+                    </button>
                   ))}
                 </div>
               </div>
