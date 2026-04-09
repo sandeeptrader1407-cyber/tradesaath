@@ -65,7 +65,7 @@ export default function HowItWorks() {
             <div className="how-step-body">
               <div className="how-step-tag" style={{ color: '#a78bfa', background: 'rgba(139,92,246,.1)', borderColor: 'rgba(139,92,246,.25)' }}>Analyse Free</div>
               <h3 className="how-step-title">Instant P&amp;L + Vicious Cycle + 1 deep trade</h3>
-              <p className="how-step-desc">Your session KPIs, the 8-stage Vicious Cycle breakdown, and one complete trade analysis with technical entry review, mindset coaching, and counterfactual scenario — all free, no login.</p>
+              <p className="how-step-desc">Your session KPIs, the 10-stage Vicious Cycle breakdown, and one complete trade analysis with technical entry review, mindset coaching, and counterfactual scenario — all free, no login.</p>
               <div className="how-result-preview">
                 <div className="hrp-item hrp-green"><span>✓</span>Net P&amp;L calculated</div>
                 <div className="hrp-item hrp-purple"><span>🔁</span>Cycle stage detected</div>

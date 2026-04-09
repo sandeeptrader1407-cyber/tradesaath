@@ -1,6 +1,6 @@
 const features = [
   { icon: '🌍', bg: 'rgba(62,232,196,.1)', title: 'All Global Markets', desc: 'NSE, BSE, NYSE, NASDAQ, LSE, ASX, SGX, Forex, Crypto, Commodities. Any currency, auto-converted.' },
-  { icon: '🧠', bg: 'rgba(139,92,246,.1)', title: 'Psychology Coaching', desc: '8-stage Vicious Cycle detection — FOMO, revenge trading, averaging down, panic exits. Named and coached.' },
+  { icon: '🧠', bg: 'rgba(139,92,246,.1)', title: 'Psychology Coaching', desc: '10-stage Vicious Cycle detection — FOMO, revenge trading, averaging down, panic exits. Named and coached.' },
   { icon: '📊', bg: 'rgba(59,130,246,.1)', title: 'Technical Analysis', desc: 'Price action based — market structure, entry quality, exit logic, key levels. Indicator analysis only when you provide your strategy.' },
   { icon: '📓', bg: 'rgba(245,166,35,.1)', title: 'Premium Journal', desc: 'Session history, trade timeline, pattern intelligence alerts, and performance trend tracking.' },
   { icon: '🗺', bg: 'rgba(244,63,94,.1)', title: 'Trading Journey', desc: 'Optional deep profiling of your habits, experience, and mindset. Unlocks personalised coaching.' },

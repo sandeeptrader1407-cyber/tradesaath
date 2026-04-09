@@ -85,6 +85,19 @@ body.day::before { opacity: .3 }
 ═══════════════════════════════════════════════════════ */
 @keyframes pulse { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:.5; transform:scale(.8) } }
 @keyframes fadeUp { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+/* Predictive Warning — critical-level pulsing glow (no scale) */
+@keyframes warningPulse {
+  0%,100% {
+    box-shadow: 0 0 0 0 rgba(240,93,108,.35), 0 0 18px rgba(240,93,108,.15);
+    border-color: rgba(240,93,108,.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(240,93,108,0), 0 0 32px rgba(240,93,108,.35);
+    border-color: rgba(240,93,108,.95);
+  }
+}
+.warning-critical { animation: warningPulse 2s var(--ease) infinite; }
+.warning-critical-icon { animation: pulse 1.4s ease-in-out infinite; display: inline-block; }
 
 /* ═══════════════════════════════════════════════════════
    NAV
@@ -341,25 +354,56 @@ body.day nav { background: rgba(247,248,252,.88); border-bottom-color: rgba(223,
 /* ═══════════════════════════════════════════════════════
    PRICING
 ═══════════════════════════════════════════════════════ */
-.billing-toggle-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 36px }
-.bt-label { font-size: 13px; font-weight: 600; transition: color .2s }
+.billing-toggle-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 36px }
+.bt-label { font-size: 13px; font-weight: 600; transition: color .25s var(--ease) }
 .bt-label.dim { color: var(--muted) }
-.toggle-track {
-  width: 44px; height: 24px; border-radius: 12px;
-  background: var(--border2); position: relative;
-  cursor: pointer; transition: background .25s var(--ease); flex-shrink: 0;
+/* Pill-switch track: contains two labels, an accent pill slides between them */
+.billing-pill {
+  position: relative;
+  display: inline-flex;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.15);
 }
-.toggle-track.on { background: var(--accent) }
-.toggle-thumb {
-  position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
-  border-radius: 50%; background: #fff;
-  transition: transform .25s var(--ease); box-shadow: 0 2px 6px rgba(0,0,0,.2);
+.billing-pill-slider {
+  position: absolute;
+  top: 4px; left: 4px;
+  height: calc(100% - 8px);
+  width: calc(50% - 4px);
+  background: var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(62,232,196,.35), 0 1px 2px rgba(0,0,0,.2);
+  transition: transform .35s var(--ease), background .25s var(--ease);
+  z-index: 0;
 }
-.toggle-track.on .toggle-thumb { transform: translateX(20px) }
+.billing-pill.yearly .billing-pill-slider { transform: translateX(100%) }
+.billing-pill-opt {
+  position: relative; z-index: 1;
+  padding: 8px 22px;
+  font-size: 12px; font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  font-family: 'JetBrains Mono', monospace;
+  transition: color .35s var(--ease);
+  background: transparent; border: none; cursor: pointer;
+}
+.billing-pill-opt.active { color: var(--bg) }
 .save-badge {
-  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
-  background: rgba(54,211,153,.08); color: var(--green); border: 1px solid rgba(54,211,153,.2);
+  padding: 4px 12px; border-radius: 999px; font-size: 10px; font-weight: 800;
+  background: rgba(54,211,153,.1); color: var(--green); border: 1px solid rgba(54,211,153,.3);
+  text-transform: uppercase; letter-spacing: .05em;
+  font-family: 'JetBrains Mono', monospace;
+  animation: fadeUp .35s var(--ease);
 }
+/* Legacy toggle (kept for back-compat if referenced elsewhere) */
+.toggle-track { width: 44px; height: 24px; border-radius: 12px; background: var(--border2); position: relative; cursor: pointer; transition: background .25s var(--ease); flex-shrink: 0 }
+.toggle-track.on { background: var(--accent) }
+.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .25s var(--ease); box-shadow: 0 2px 6px rgba(0,0,0,.2) }
+.toggle-track.on .toggle-thumb { transform: translateX(20px) }
 .pricing-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px; max-width: 960px; margin: 0 auto;

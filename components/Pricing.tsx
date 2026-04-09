@@ -32,11 +32,27 @@ export default function Pricing() {
         )}
 
         <div className="billing-toggle-row">
-          <span className={`bt-label${yearly ? ' dim' : ''}`}>Monthly</span>
-          <div className={`toggle-track${yearly ? ' on' : ''}`} onClick={() => setYearly(!yearly)}>
-            <div className="toggle-thumb"></div>
+          <div className={`billing-pill${yearly ? ' yearly' : ''}`} role="tablist" aria-label="Billing frequency">
+            <div className="billing-pill-slider" aria-hidden="true" />
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!yearly}
+              className={`billing-pill-opt${!yearly ? ' active' : ''}`}
+              onClick={() => setYearly(false)}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={yearly}
+              className={`billing-pill-opt${yearly ? ' active' : ''}`}
+              onClick={() => setYearly(true)}
+            >
+              Yearly
+            </button>
           </div>
-          <span className={`bt-label${yearly ? '' : ' dim'}`}>Yearly</span>
           {yearly && <span className="save-badge">Save 38%</span>}
         </div>
 

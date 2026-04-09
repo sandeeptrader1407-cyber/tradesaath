@@ -382,12 +382,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Predictive Warning Card */}
-        <div style={{
+        <div className={warning.level === 'critical' ? 'warning-critical' : ''} style={{
           background: warning.bg, border: `1px solid ${warning.border}`, borderRadius: 'var(--radius)',
           padding: '14px 18px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 14,
-          ...(warning.level === 'critical' ? { animation: 'pulse 2s infinite' } : {}),
         }}>
-          <div style={{ fontSize: 24, lineHeight: 1 }}>{warning.level === 'low' ? '✅' : warning.level === 'medium' ? '⚠️' : '🚨'}</div>
+          <div className={warning.level === 'critical' ? 'warning-critical-icon' : ''} style={{ fontSize: 24, lineHeight: 1 }}>{warning.level === 'low' ? '✅' : warning.level === 'medium' ? '⚠️' : '🚨'}</div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: warning.color }}>
