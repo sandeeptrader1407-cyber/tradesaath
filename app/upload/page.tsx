@@ -1181,7 +1181,7 @@ export default function UploadPage() {
                         }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--muted)', width: 22 }}>#{t.index + 1}</span>
-                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{t.time}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--muted)' }}>{t.time}</span>
                           <span style={{ padding: '1px 5px', borderRadius: 6, fontSize: 8, fontWeight: 700, background: sess.bg, color: sess.color }}>{sess.label}</span>
                           {timeGapLabel && (
                             <span style={{ fontSize: 8, color: gapColor, fontWeight: 600 }}>⏱{timeGapLabel}</span>
@@ -1194,6 +1194,7 @@ export default function UploadPage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
                           <span style={{ fontWeight: 700, fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.symbol}</span>
+                          <span style={{ fontSize: 9, color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace" }}>×{t.qty}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
                           <span style={{
@@ -1207,6 +1208,14 @@ export default function UploadPage() {
                             }}>{t.label}</span>
                           )}
                           {tradeIsLocked && <span style={{ fontSize: 9, marginLeft: 'auto' }}>🔒</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginTop: 2 }}>
+                          <span style={{ fontSize: 9, color: 'var(--muted2)', letterSpacing: 0.3 }}>CUM</span>
+                          <span style={{
+                            marginLeft: 4,
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+                            color: (t.cum_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                          }}>{fmtPnl(t.cum_pnl ?? t.pnl)}</span>
                         </div>
                       </div>
                     )
@@ -1222,7 +1231,7 @@ export default function UploadPage() {
                         <span style={{ fontSize: 18, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
                           Trade #{selectedTrade.index + 1}
                         </span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedTrade.time}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--muted)' }}>{selectedTrade.time}</span>
                         {selectedTrade.session && (() => {
                           const s = SESSION_COLORS[selectedTrade.session] || SESSION_COLORS.morning
                           return (
@@ -1237,7 +1246,27 @@ export default function UploadPage() {
                           background: selectedTrade.side === 'BUY' ? 'rgba(54,211,153,.15)' : 'rgba(240,93,108,.15)',
                           color: selectedTrade.side === 'BUY' ? 'var(--green)' : 'var(--red)',
                         }}>{selectedTrade.side}</span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>&times;{selectedTrade.qty}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: 'var(--muted)', padding: '2px 8px', background: 'var(--s2)', borderRadius: 6 }}>Qty &times;{selectedTrade.qty}</span>
+                        {selectedTrade.setup_grade && (() => {
+                          const g = selectedTrade.setup_grade
+                          const isGood = /[AB]/i.test(g)
+                          const isMid = /C/i.test(g)
+                          return (
+                            <span style={{
+                              fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 6,
+                              background: isGood ? 'rgba(54,211,153,.15)' : isMid ? 'rgba(240,180,41,.15)' : 'rgba(240,93,108,.15)',
+                              color: isGood ? 'var(--green)' : isMid ? 'var(--gold)' : 'var(--red)',
+                              fontFamily: "'JetBrains Mono', monospace",
+                            }}>SETUP {g}</span>
+                          )
+                        })()}
+                        {selectedTrade.options_specific?.strike && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                            background: 'rgba(157,122,247,.12)', color: 'var(--purple)',
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}>{selectedTrade.options_specific.strike}{selectedTrade.options_specific.expiry ? ` ${selectedTrade.options_specific.expiry}` : ''}</span>
+                        )}
                         <span style={{
                           fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 16,
                           color: selectedTrade.pnl >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 'auto',
@@ -1424,6 +1453,11 @@ export default function UploadPage() {
                               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
                                 {selectedTrade.entry_timing.description}
                               </div>
+                              {selectedTrade.entry_timing_candle_position && (
+                                <div style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 4 }}>
+                                  <b style={{ color: 'var(--muted)' }}>Candle:</b> {selectedTrade.entry_timing_candle_position}
+                                </div>
+                              )}
                               <span style={{
                                 marginTop: 6, display: 'inline-block',
                                 padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700,
@@ -1455,7 +1489,22 @@ export default function UploadPage() {
                               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
                                 {selectedTrade.in_trade_behavior.description}
                               </div>
-                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                              {selectedTrade.in_trade_behavior.flags && selectedTrade.in_trade_behavior.flags.length > 0 && (
+                                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+                                  {selectedTrade.in_trade_behavior.flags.map((f, fi) => {
+                                    const up = String(f).toUpperCase()
+                                    const isNeg = /REVENGE|AVERAG|PANIC|FOMO|AGAINST|OVERSIZ|IMPULS/.test(up)
+                                    return (
+                                      <span key={fi} style={{
+                                        padding: '3px 9px', borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                                        background: isNeg ? 'rgba(240,93,108,.15)' : 'rgba(54,211,153,.12)',
+                                        color: isNeg ? 'var(--red)' : 'var(--green)',
+                                      }}>🚩 {up}</span>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
                                 During trade: {selectedTrade.in_trade_behavior.during_trade}
                               </div>
                             </div>
