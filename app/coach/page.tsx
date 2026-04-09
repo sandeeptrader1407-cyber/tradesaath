@@ -37,6 +37,23 @@ export default function CoachPage() {
   const [aiPlan, setAiPlan] = useState<AiPlan | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiCache, setAiCache] = useState<Record<string, AiPlan>>({})
+  const [rulesChecked, setRulesChecked] = useState<Record<string, boolean>>({})
+
+  // Load persisted rule check state
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('tradesaath_coach_rules_checked')
+      if (saved) setRulesChecked(JSON.parse(saved))
+    } catch { /* ignore */ }
+  }, [])
+
+  function toggleRule(rule: string) {
+    setRulesChecked(prev => {
+      const next = { ...prev, [rule]: !prev[rule] }
+      try { localStorage.setItem('tradesaath_coach_rules_checked', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   useEffect(() => {
     fetch('/api/sessions')
@@ -320,19 +337,80 @@ export default function CoachPage() {
           </div>
         )}
 
-        {/* Actionable Rules */}
-        {stats.rules.length > 0 && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head">Action Items</div>
-            <div className="card-body">
-              {stats.rules.map((rule, i) => (
-                <div key={i} className="action-item" style={{ borderLeft: '3px solid var(--accent)' }}>
-                  <strong style={{ color: 'var(--accent)' }}>Rule {i + 1}:</strong> {rule}
+        {/* Personal Rules — monospace card with persistent checkboxes */}
+        {(() => {
+          const DEFAULT_RULES = [
+            'MAX 10 TRADES PER DAY',
+            'NO REVENGE TRADES',
+            'STOP AT 10:30 AM IF -2R',
+            'ONE SETUP AT A TIME',
+            'NO ENTRIES AFTER 14:30',
+          ]
+          // Normalize session rules: uppercase, strip "Rule N:" prefixes
+          const sessionRules = stats.rules
+            .map(r => (r || '').replace(/^(rule\s*\d+:\s*)/i, '').trim().toUpperCase())
+            .filter(Boolean)
+          const seen = new Set<string>()
+          const merged = [...sessionRules, ...DEFAULT_RULES].filter(r => {
+            if (seen.has(r)) return false
+            seen.add(r); return true
+          }).slice(0, 8)
+
+          if (merged.length === 0) return null
+          const completed = merged.filter(r => rulesChecked[r]).length
+
+          return (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Personal Rules</span>
+                <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: 'var(--muted)' }}>
+                  {completed}/{merged.length} FOLLOWED
+                </span>
+              </div>
+              <div className="card-body">
+                <div style={{
+                  background: '#0a0a0a',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: 16,
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {merged.map((rule, i) => {
+                    const checked = !!rulesChecked[rule]
+                    return (
+                      <div key={rule} onClick={() => toggleRule(rule)} style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '8px 4px',
+                        borderBottom: i < merged.length - 1 ? '1px dashed rgba(255,255,255,.06)' : 'none',
+                        cursor: 'pointer',
+                        opacity: checked ? 0.55 : 1,
+                      }}>
+                        <span style={{
+                          width: 16, height: 16, flexShrink: 0,
+                          border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--muted)'}`,
+                          borderRadius: 3,
+                          background: checked ? 'var(--accent)' : 'transparent',
+                          color: 'var(--bg)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 900,
+                        }}>{checked ? '✓' : ''}</span>
+                        <span style={{
+                          fontSize: 12, fontWeight: 700,
+                          color: checked ? 'var(--muted)' : 'var(--text)',
+                          textDecoration: checked ? 'line-through' : 'none',
+                          letterSpacing: '.02em',
+                        }}>{rule}</span>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 10, textAlign: 'center' }}>
+                  Tap to mark followed. State persists across sessions.
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Discipline Trend */}
         {current.sessions.length > 1 && (

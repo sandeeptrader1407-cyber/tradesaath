@@ -372,6 +372,80 @@ export default function JournalPage() {
                       <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>{journeyData.story}</div>
                     </div>
                   )}
+
+                  {/* Step 2 — Cross-reference struggles with actual trade data */}
+                  {journeyData.struggles.length > 0 && sessions.length > 0 && (() => {
+                    // Map struggle label → keywords to match in tag labels
+                    const STRUGGLE_MAP: Record<string, string[]> = {
+                      'Revenge trading': ['revenge', 'tilt', 'retaliat'],
+                      'Cutting losses': ['no stop', 'held', 'hope', 'averag', 'refused to exit', 'no exit'],
+                      'FOMO': ['fomo', 'chase', 'late entry', 'missed'],
+                      'Overtrading': ['overtrad', 'too many', 'fatigue'],
+                      'No system': ['random', 'no plan', 'no setup', 'unplanned', 'impulse'],
+                    }
+
+                    // Build map of all tags + their total cost from losing trades
+                    const tagStats: Record<string, { count: number; cost: number }> = {}
+                    sessions.forEach(s => {
+                      const ptArr = s.analysis?.perTrade || []
+                      const trArr = s.trades || []
+                      ptArr.forEach(p => {
+                        const label = (p.label || '').toLowerCase()
+                        if (!label || p.tagColor === 'green') return
+                        const t = trArr[p.tradeIndex]
+                        const pnl = t?.pnl || 0
+                        if (!tagStats[label]) tagStats[label] = { count: 0, cost: 0 }
+                        tagStats[label].count++
+                        if (pnl < 0) tagStats[label].cost += Math.abs(pnl)
+                      })
+                    })
+
+                    const insights = journeyData.struggles.map(struggle => {
+                      const keywords = STRUGGLE_MAP[struggle] || [struggle.toLowerCase()]
+                      let count = 0
+                      let cost = 0
+                      Object.entries(tagStats).forEach(([label, st]) => {
+                        if (keywords.some(k => label.includes(k))) {
+                          count += st.count
+                          cost += st.cost
+                        }
+                      })
+                      return { struggle, count, cost }
+                    })
+
+                    const withData = insights.filter(i => i.count > 0)
+                    const withoutData = insights.filter(i => i.count === 0)
+
+                    return (
+                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                          ✓ Your Data vs Your Self-Assessment
+                        </div>
+                        {withData.length === 0 && withoutData.length === journeyData.struggles.length && (
+                          <div style={{ fontSize: 12, color: 'var(--muted2)', lineHeight: 1.7 }}>
+                            Your trade data doesn&apos;t yet show evidence of the struggles you mentioned. Either you&apos;re improving, or we need more sessions to cross-reference. Keep logging.
+                          </div>
+                        )}
+                        {withData.map(i => (
+                          <div key={i.struggle} style={{
+                            fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 6,
+                            padding: '8px 12px', background: 'rgba(240,93,108,.05)',
+                            border: '1px solid rgba(240,93,108,.15)', borderRadius: 8,
+                          }}>
+                            You said <strong style={{ color: 'var(--red)' }}>{i.struggle}</strong> — your data confirms it:{' '}
+                            <strong>{i.count} trade{i.count !== 1 ? 's' : ''}</strong>
+                            {i.cost > 0 && <> costing <strong style={{ color: 'var(--red)' }}>₹{i.cost.toLocaleString('en-IN')}</strong></>}
+                            {' '}across {sessions.length} session{sessions.length !== 1 ? 's' : ''}.
+                          </div>
+                        ))}
+                        {withoutData.length > 0 && withData.length > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--muted2)', lineHeight: 1.6, marginTop: 8 }}>
+                            No data yet for: {withoutData.map(i => i.struggle).join(', ')}. {withoutData.length === 1 ? 'This may be a self-reported fear that isn\u2019t showing in execution — good sign.' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )}
@@ -500,6 +574,90 @@ export default function JournalPage() {
                 </div>
               </div>
             )}
+
+            {/* Per-Session Pattern Alert — detects session-specific patterns */}
+            {selected && (() => {
+              const trades = selected.trades || []
+              const pt = selected.analysis?.perTrade || []
+              const alerts: { title: string; detail: string }[] = []
+
+              // Afternoon Tilt detection — %loss after 12:30
+              const losingTrades = trades.filter(t => (t.pnl || 0) < 0)
+              if (losingTrades.length >= 3) {
+                const afterNoon = losingTrades.filter(t => {
+                  const [h, m] = (t.time || '00:00').split(':').map(Number)
+                  return (h * 60 + (m || 0)) >= (12 * 60 + 30)
+                })
+                const pct = Math.round((afterNoon.length / losingTrades.length) * 100)
+                if (pct >= 60) {
+                  const cost = afterNoon.reduce((s, t) => s + (t.pnl || 0), 0)
+                  alerts.push({
+                    title: 'Afternoon Tilt detected',
+                    detail: `${pct}% of losses (${afterNoon.length}/${losingTrades.length}) occurred after 12:30 — cost ₹${Math.abs(cost).toLocaleString('en-IN')}. Consider stopping at lunch.`,
+                  })
+                }
+              }
+
+              // Morning rush — losses in first 30 min
+              if (losingTrades.length >= 2 && trades.length >= 3) {
+                const firstTime = trades[0]?.time || '09:15'
+                const [fh, fm] = firstTime.split(':').map(Number)
+                const cutoff = (fh * 60 + (fm || 0)) + 30
+                const earlyLosses = losingTrades.filter(t => {
+                  const [h, m] = (t.time || '00:00').split(':').map(Number)
+                  return (h * 60 + (m || 0)) <= cutoff
+                })
+                if (earlyLosses.length >= 2 && earlyLosses.length / losingTrades.length >= 0.5) {
+                  const cost = earlyLosses.reduce((s, t) => s + (t.pnl || 0), 0)
+                  alerts.push({
+                    title: 'Morning Rush detected',
+                    detail: `${earlyLosses.length} losses in the first 30 minutes — cost ₹${Math.abs(cost).toLocaleString('en-IN')}. Wait for the opening range to settle.`,
+                  })
+                }
+              }
+
+              // Revenge cluster — 2+ red-tagged trades in a row
+              let maxRun = 0, curRun = 0
+              pt.forEach(p => {
+                if (p.tagColor === 'red') { curRun++; maxRun = Math.max(maxRun, curRun) } else { curRun = 0 }
+              })
+              if (maxRun >= 2) {
+                alerts.push({
+                  title: 'Revenge Cluster detected',
+                  detail: `${maxRun} consecutive poor-quality trades tagged red. This is the vicious cycle — stop after 2 reds.`,
+                })
+              }
+
+              // Overtrading — >10 trades
+              if (trades.length > 10) {
+                alerts.push({
+                  title: 'Overtrading detected',
+                  detail: `${trades.length} trades in one session — V12 data shows traders with >10 trades/day lose 68% of the time. Cap at 10.`,
+                })
+              }
+
+              if (alerts.length === 0) return null
+              return (
+                <div style={{
+                  marginBottom: 14,
+                  padding: '14px 16px',
+                  background: 'rgba(157,122,247,.06)',
+                  border: '1px solid rgba(157,122,247,.25)',
+                  borderLeft: '3px solid var(--purple)',
+                  borderRadius: 'var(--radius-sm)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                    ⚠ Session Pattern Alert
+                  </div>
+                  {alerts.map((a, i) => (
+                    <div key={i} style={{ marginBottom: i < alerts.length - 1 ? 8 : 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{a.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.6, marginTop: 2 }}>{a.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             {/* Selected Session Detail */}
             {selected && (
