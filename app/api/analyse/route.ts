@@ -3,6 +3,8 @@ export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { DEMO_RESPONSE } from '@/lib/demoData';
+import { auth } from '@clerk/nextjs/server';
+import { saveTradeSession } from '@/lib/supabase/saveTrades';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
@@ -49,14 +51,16 @@ async function callClaude(
 /* ─── JSON parser with truncation recovery ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: boolean } {
-  let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  let cleaned = raw.replace(/```json
+?/g, '').replace(/```
+?/g, '').trim();
   try { return { ok: true, data: JSON.parse(cleaned) }; } catch { /* fall through */ }
   const lastBrace = cleaned.lastIndexOf('}]');
   const lastComma = cleaned.lastIndexOf('},');
   if (lastBrace > 0 && lastBrace > lastComma) cleaned = cleaned.substring(0, lastBrace + 2);
   else if (lastComma > 0) cleaned = cleaned.substring(0, lastComma + 1);
   const openBraces = (cleaned.match(/{/g) || []).length - (cleaned.match(/}/g) || []).length;
-  const openBrackets = (cleaned.match(/\[/g) || []).length - (cleaned.match(/\]/g) || []).length;
+  const openBrackets = (cleaned.match(/[/g) || []).length - (cleaned.match(/]/g) || []).length;
   for (let i = 0; i < openBrackets; i++) cleaned += ']';
   for (let i = 0; i < openBraces; i++) cleaned += '}';
   try { return { ok: true, data: JSON.parse(cleaned), truncated: true }; } catch { return { ok: false }; }
@@ -192,7 +196,9 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   const analyseResult = await callClaude(
     apiKey, buildAnalysePrompt(context),
-    [{ type: 'text', text: `Extracted trades:\n${JSON.stringify(trades, null, 2)}\nTotal: ${trades.length}, Net P&L: ${netPnl}` }],
+    [{ type: 'text', text: `Extracted trades:
+${JSON.stringify(trades, null, 2)}
+Total: ${trades.length}, Net P&L: ${netPnl}` }],
     8192, c2Timeout,
   );
   console.log(`Call 2 took ${Date.now() - c2Start}ms`);
@@ -214,6 +220,30 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       processing_time_ms: Date.now() - startTime,
     },
   };
+
+  // Save session to Supabase (non-blocking — don't fail analysis if save fails)
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      await saveTradeSession({
+        userId,
+        trades,
+        analysis: response.analysis,
+        context,
+        metadata: {
+          detected_market: extracted.detected_market || 'Unknown',
+          detected_currency: extracted.detected_currency || 'INR',
+          detected_broker: extracted.detected_broker || 'Unknown',
+          trade_date: extracted.trade_date || '',
+        },
+        plan: 'free',
+      });
+      console.log(`Session saved to Supabase for user ${userId}`);
+    }
+  } catch (e) {
+    console.error('Session save failed (non-blocking):', e);
+  }
+
   console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl}`);
   return NextResponse.json(response);
 }
