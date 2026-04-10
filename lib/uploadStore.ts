@@ -13,7 +13,7 @@ export interface TradingContext {
   notes: string
 }
 
-export type AnalysisState = 'idle' | 'uploading' | 'analysing' | 'complete' | 'error'
+export type AnalysisState = 'idle' | 'uploading' | 'analysing' | 'parsed' | 'ai_running' | 'complete' | 'error'
 
 /* ─── Market Detection ─── */
 function detectMarketFromFiles(files: File[]): string | null {

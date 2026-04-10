@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
-import { useCallback, useRef, useEffect } from 'react'
-import { useUploadStore } from '@/lib/uploadStore'
-import { useAnalysisStore } from '@/lib/analysisStore'
+import { useCallback, useRef, useEffect } from "react"
+import { useUploadStore } from "@/lib/uploadStore"
+import { useAnalysisStore } from "@/lib/analysisStore"
 
 export default function AnalyseButton() {
   const files = useUploadStore((s) => s.files)
@@ -15,55 +15,82 @@ export default function AnalyseButton() {
   const barRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLSpanElement>(null)
 
-  const isAnalysing = analysisState === 'uploading' || analysisState === 'analysing'
-  const isComplete = analysisState === 'complete'
+  const isAnalysing = analysisState === "uploading" || analysisState === "analysing" || analysisState === "ai_running"
   const noFiles = !files || files.length === 0
 
   useEffect(() => {
     if (!barRef.current) return
-    if (isAnalysing) {
-      barRef.current.style.width = '0%'
-      requestAnimationFrame(() => { if (barRef.current) barRef.current.style.width = '88%' })
-    } else if (isComplete) {
-      if (barRef.current) barRef.current.style.width = '100%'
+    if (analysisState === "analysing") {
+      barRef.current.style.width = "0%"
+      requestAnimationFrame(() => { if (barRef.current) barRef.current.style.width = "45%" })
+    } else if (analysisState === "ai_running") {
+      if (barRef.current) barRef.current.style.width = "88%"
+    } else if (analysisState === "parsed" || analysisState === "complete") {
+      if (barRef.current) barRef.current.style.width = "100%"
     } else {
-      barRef.current.style.width = '0%'
+      barRef.current.style.width = "0%"
     }
-  }, [isAnalysing, isComplete])
+  }, [analysisState])
 
   const setStatus = (msg: string) => {
     if (statusRef.current) statusRef.current.textContent = msg
   }
 
+  const runAIAnalysis = async (allTrades: unknown[], broker: string, market: string, tradeDate: string, currency: string) => {
+    setAnalysisState("ai_running")
+    setStatus("Running AI psychology analysis...")
+    try {
+      const res = await fetch("/api/analyse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trades: allTrades,
+          broker,
+          market,
+          trade_date: tradeDate,
+          currency,
+          total_trades_in_file: allTrades.length,
+          context,
+        }),
+      })
+      const data = await res.json()
+      if (data._ai_failed || data._ai_error) {
+        console.warn("AI coaching unavailable:", data._ai_error)
+      }
+      setAnalysis(data)
+      setAnalysisState("complete")
+    } catch (err) {
+      console.warn("AI analysis failed:", err)
+      // Keep parsed results visible, just mark complete
+      setAnalysisState("complete")
+    }
+  }
+
   const handleAnalyse = useCallback(async () => {
     if (isAnalysing) return
-    setAnalysisState('analysing')
+    setAnalysisState("analysing")
     setLoading(true)
 
     try {
-      // Require at least one file
       if (!files || files.length === 0) {
-        setError('Please upload at least one broker statement to analyse.')
-        setAnalysisState('error')
+        setError("Please upload at least one broker statement to analyse.")
+        setAnalysisState("error")
         return
       }
 
-      // ── STEP 1: Local Parse (instant, no AI) ──
-      setStatus('Parsing your files locally...')
+      // Step 1: Local Parse
+      setStatus("Parsing your files locally...")
       let allTrades: unknown[] = []
-      let broker = 'Unknown'
-      let market = 'NSE'
-      let tradeDate = ''
-      let currency = 'INR'
-      let kpis = {}
-      let timeAnalysis = {}
-      let localParseFailed = false
+      let broker = "Unknown"
+      let market = "NSE"
+      let tradeDate = ""
+      let currency = "INR"
 
       for (const file of files) {
         const parseForm = new FormData()
-        parseForm.append('file', file)
+        parseForm.append("file", file)
         try {
-          const parseRes = await fetch('/api/parse', { method: 'POST', body: parseForm })
+          const parseRes = await fetch("/api/parse", { method: "POST", body: parseForm })
           if (parseRes.ok) {
             const parsed = await parseRes.json()
             if (parsed.trades && parsed.trades.length > 0) {
@@ -72,65 +99,54 @@ export default function AnalyseButton() {
               market = parsed.market || market
               tradeDate = parsed.trade_date || tradeDate
               currency = parsed.currency || currency
-              kpis = parsed.kpis || kpis
-              timeAnalysis = parsed.time_analysis || timeAnalysis
             }
           }
         } catch {
-          // Individual file parse failed, continue with others
+          // continue
         }
       }
 
-      // If local parse found no trades, fall back to AI extraction
       if (allTrades.length === 0) {
-        localParseFailed = true
-        setStatus('Local parse found no trades, trying AI extraction...')
+        // Fallback: send files directly to AI for extraction + analysis
+        setStatus("Local parse found no trades, trying AI extraction...")
         const formData = new FormData()
-        for (const file of files) formData.append('files', file)
-        formData.append('context', JSON.stringify(context))
-        const res = await fetch('/api/analyse', { method: 'POST', body: formData })
+        for (const file of files) formData.append("files", file)
+        formData.append("context", JSON.stringify(context))
+        const res = await fetch("/api/analyse", { method: "POST", body: formData })
         const data = await res.json()
         if (!res.ok || data.error) {
-          setError(data.error || 'Analysis failed')
-          setAnalysisState('error')
+          setError(data.error || "Analysis failed")
+          setAnalysisState("error")
           return
         }
         setAnalysis(data)
-        setAnalysisState('complete')
+        setAnalysisState("complete")
         return
       }
 
-      // ── STEP 2: AI Psychology Analysis (with pre-parsed trades) ──
-      setStatus('Trades parsed! Running AI psychology analysis...')
-      const analyseRes = await fetch('/api/analyse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trades: allTrades,
-          kpis,
-          broker,
-          market,
+      // Step 2: Show parsed results immediately
+      setStatus("Trades parsed! Loading dashboard...")
+      setAnalysis({
+        trades: allTrades,
+        analysis: null,
+        metadata: {
+          detected_market: market,
+          detected_currency: currency,
+          detected_broker: broker,
           trade_date: tradeDate,
-          currency,
-          total_trades_in_file: allTrades.length,
-          time_analysis: timeAnalysis,
-          context,
-        }),
+          trade_count: allTrades.length,
+          net_pnl: (allTrades as any[]).reduce((s: number, t: any) => s + (t.pnl || 0), 0),
+          processing_time_ms: 0,
+        },
       })
+      setAnalysisState("parsed")
 
-      const analyseData = await analyseRes.json()
-
-      // Even if AI fails, we still have local data — show results
-      if (analyseData._ai_failed || analyseData._ai_error) {
-        console.warn('AI coaching unavailable:', analyseData._ai_error)
-      }
-
-      setAnalysis(analyseData)
-      setAnalysisState('complete')
+      // Step 3: Auto-trigger AI analysis in background
+      runAIAnalysis(allTrades, broker, market, tradeDate, currency)
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed')
-      setAnalysisState('error')
+      setError(err instanceof Error ? err.message : "Analysis failed")
+      setAnalysisState("error")
     }
   }, [files, context, isAnalysing, setAnalysisState, setAnalysis, setLoading, setError])
 
@@ -141,29 +157,29 @@ export default function AnalyseButton() {
         disabled={isAnalysing || noFiles}
         className="px-8 py-3 rounded-xl text-base font-semibold transition-all duration-200"
         style={{
-          background: (isAnalysing || noFiles) ? 'var(--s3)' : 'var(--accent)',
-          color: (isAnalysing || noFiles) ? 'var(--muted)' : '#0a0e17',
-          cursor: (isAnalysing || noFiles) ? 'not-allowed' : 'pointer',
+          background: (isAnalysing || noFiles) ? "var(--s3)" : "var(--accent)",
+          color: (isAnalysing || noFiles) ? "var(--muted)" : "#0a0e17",
+          cursor: (isAnalysing || noFiles) ? "not-allowed" : "pointer",
           opacity: (isAnalysing || noFiles) ? 0.7 : 1,
           fontFamily: "'Outfit', sans-serif",
-          boxShadow: isAnalysing ? 'none' : '0 0 20px rgba(62,232,196,.2)',
+          boxShadow: isAnalysing ? "none" : "0 0 20px rgba(62,232,196,.2)",
         }}
       >
-        {isAnalysing ? '⏳ Analysing…' : '🔍 Run Free Analysis'}
+        {isAnalysing ? "⏳ Analysing…" : "🔍 Run Free Analysis"}
       </button>
-      <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         {isAnalysing
           ? <span ref={statusRef}>Analysing {files.length} file(s)…</span>
-          : 'No login required · upload your broker statement to start'}
+          : "No login required · upload your broker statement to start"}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"
-        style={{ background: 'var(--s3)', opacity: isAnalysing || isComplete ? 1 : 0, transition: 'opacity 0.3s' }}
+        style={{ background: "var(--s3)", opacity: isAnalysing ? 1 : 0, transition: "opacity 0.3s" }}
       >
         <div
           ref={barRef}
           className="h-full rounded-full"
-          style={{ background: 'var(--accent)', width: '0%', transition: isAnalysing ? 'width 2.8s cubic-bezier(.4,0,.2,1)' : 'width 0.3s' }}
+          style={{ background: "var(--accent)", width: "0%", transition: isAnalysing ? "width 2.8s cubic-bezier(.4,0,.2,1)" : "width 0.3s" }}
         />
       </div>
     </div>
