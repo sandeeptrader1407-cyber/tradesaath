@@ -83,6 +83,7 @@ export async function POST(req: Request) {
 
   const supabase = getSupabaseAdmin()
 
+  // First try INSERT; on duplicate (Clerk retry or payment-verify race), just update name/email
   const { error } = await supabase.from('users').insert({
     clerk_id: clerkId,
     email: primaryEmail,
@@ -90,12 +91,27 @@ export async function POST(req: Request) {
     plan: 'free',
   })
 
+  if (error && error.code === '23505') {
+    // Duplicate key — user already exists (Clerk retry or payment-verify created them first)
+    // Update name/email but DON'T overwrite their plan
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({ email: primaryEmail, name })
+      .eq('clerk_id', clerkId)
+
+    if (updateErr) {
+      console.error('Supabase update on duplicate error:', updateErr.message)
+      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    }
+    console.log(`Updated existing Supabase user for Clerk ID: ${clerkId} (duplicate handled)`)
+    return NextResponse.json({ message: 'User updated' }, { status: 200 })
+  }
+
   if (error) {
-    // Log but don't fail hard — Clerk will retry the webhook
     console.error('Supabase insert error:', error.message)
     return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }
 
-  console.log(`Created Supabase user for Clerk ID: ${clerkId}`)
+  console.log(`Upserted Supabase user for Clerk ID: ${clerkId}`)
   return NextResponse.json({ message: 'User created' }, { status: 201 })
 }

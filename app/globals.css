@@ -128,13 +128,13 @@ body.day nav { background: rgba(247,248,252,.88); border-bottom-color: rgba(223,
 }
 
 .nav-links { display: flex; align-items: center; gap: 2px; flex-shrink: 0 }
-.nav-links a {
+.nav-links a, .nav-app-link {
   font-size: 13px; font-weight: 500; color: var(--muted2); padding: 6px 14px;
   border-radius: var(--radius-xs); text-decoration: none; transition: all .2s var(--ease);
   letter-spacing: .01em;
 }
-.nav-links a:hover { color: var(--text); background: var(--s2) }
-.nav-links a.nav-active { color: var(--accent); background: var(--accent2) }
+.nav-links a:hover, .nav-app-link:hover { color: var(--text); background: var(--s2) }
+.nav-links a.nav-active, .nav-app-link.nav-active { color: var(--accent); background: var(--accent2) }
 
 .nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0 }
 
