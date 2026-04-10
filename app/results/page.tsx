@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRazorpay } from '@/hooks/useRazorpay'
+import { useUserPlan } from '@/hooks/useUserPlan'
 
 /* ─── Types (matches new API response) ─── */
 interface EntryExitEfficiency {
@@ -152,9 +153,12 @@ export default function ResultsPage() {
   const [deepDive, setDeepDive] = useState(false)
   const [reflections, setReflections] = useState<Record<number, string>>({})
   const { pay, loading: payLoading, paid } = useRazorpay()
+  const { isPaid, plan, loading: planLoading } = useUserPlan()
 
   useEffect(() => {
+    // Try sessionStorage first, then localStorage (survives redirects)
     const stored = sessionStorage.getItem('tradesaath_results')
+      || localStorage.getItem('tradesaath_pending_analysis')
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
@@ -177,9 +181,14 @@ export default function ResultsPage() {
     }
   }, [])
 
+  // Auto-unlock: if user has a paid plan OR just completed payment
   useEffect(() => {
     if (paid) setUnlocked(true)
   }, [paid])
+
+  useEffect(() => {
+    if (!planLoading && isPaid) setUnlocked(true)
+  }, [planLoading, isPaid])
 
   const filteredTrades = useMemo(() => {
     if (!data) return []
@@ -216,11 +225,27 @@ export default function ResultsPage() {
   const selectedTrade = trades[expandedTrade]
   const isLocked = expandedTrade > 0 && !unlocked
 
-  function handlePay(plan: string) {
+  function handlePay(selectedPlan: string) {
     setPayError(null)
     pay({
-      plan,
-      onSuccess: () => setUnlocked(true),
+      plan: selectedPlan,
+      onSuccess: () => {
+        setUnlocked(true)
+        // Re-save session with actual paid plan_used
+        if (data) {
+          fetch('/api/sessions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trades: data.trades,
+              analysis: data,
+              broker: data.broker,
+              market: data.market,
+              trade_date: data.trade_date,
+              plan_used: selectedPlan,
+            }),
+          }).catch(() => {})
+        }
+      },
       onError: (err: string) => setPayError(err),
     })
   }
@@ -232,7 +257,7 @@ export default function ResultsPage() {
         {/* Nav */}
         <div className="results-nav">
           <Link href="/upload" className="btn btn-ghost btn-sm">&larr; New Analysis</Link>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{unlocked ? 'Pro' : 'Free tier'} &middot; {data.broker} &middot; {data.market}</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{unlocked ? (plan === 'single' ? 'Single Report' : 'Pro') : 'Free tier'} &middot; {data.broker} &middot; {data.market}</span>
         </div>
 
         {/* KPI Strip */}

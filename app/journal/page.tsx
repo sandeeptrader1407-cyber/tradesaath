@@ -86,7 +86,8 @@ export default function JournalPage() {
   }
 
   // Journal requires a paid plan (single report or pro)
-  if (!isPaid) {
+  // V12: Journal is Pro-only (Single Report users see upgrade CTA)
+  if (!isPro) {
     return (
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600 }}>
@@ -94,10 +95,21 @@ export default function JournalPage() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>📓</div>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Trading Journal</h2>
             <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 20 }}>
-              The Journal saves all your sessions with AI insights, pattern spotting, and trade timeline. Upgrade to unlock.
+              {plan === 'single'
+                ? 'Your Single Report plan gives you full trade analysis. Upgrade to Pro for the Trading Journal with session history, pattern intelligence, and your trading journey profile.'
+                : 'The Journal saves all your sessions with AI insights, pattern spotting, and trade timeline. Upgrade to unlock.'}
             </p>
+            {plan === 'single' && (
+              <div style={{
+                padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block',
+                background: 'rgba(240,180,41,.08)', border: '1px solid rgba(240,180,41,.25)',
+                fontSize: 12, color: 'var(--gold)',
+              }}>
+                Current plan: <strong>Single Report</strong>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/pricing" className="btn btn-accent">View Plans</Link>
+              <Link href="/pricing" className="btn btn-accent">{plan === 'single' ? 'Upgrade to Pro — ₹799/mo' : 'View Plans'}</Link>
               <Link href="/upload" className="btn btn-ghost">Upload Trades</Link>
             </div>
           </div>
