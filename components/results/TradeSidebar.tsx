@@ -81,11 +81,11 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={\`px-3 py-1 rounded-full text-xs font-medium transition-colors \${
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 activeFilter === filter
                   ? 'bg-[var(--accent)] text-black'
                   : 'bg-[var(--s2)] text-[var(--text2)] hover:bg-[var(--s3)]'
-              }\`}
+              }`}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
             </button>
@@ -97,9 +97,9 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
       <div className="px-5 py-3 bg-[var(--s2)] border-b border-[var(--border)]">
         <div className="text-xs text-[var(--muted)] mb-1">Visible P&L</div>
         <div
-          className={\`font-jetbrains-mono font-bold text-lg \${
+          className={`font-jetbrains-mono font-bold text-lg ${
             cumulativePnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'
-          }\`}
+          }`}
         >
           {formatPnl(cumulativePnl)}
         </div>
@@ -122,11 +122,11 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
               <div
                 key={idx}
                 onClick={() => !locked && onSelectTrade(globalIndex)}
-                className={\`px-4 py-3 border-l-4 cursor-pointer transition-colors \${
+                className={`px-4 py-3 border-l-4 cursor-pointer transition-colors ${
                   isActive
                     ? 'bg-[var(--s2)] border-l-[var(--accent)]'
                     : 'border-l-transparent hover:bg-[var(--s2)]'
-                } \${locked ? 'opacity-50 cursor-not-allowed' : ''}\`}
+                } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {/* Trade number and symbol */}
                 <div className="flex items-start justify-between mb-2">
@@ -150,7 +150,7 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
 
                 {/* Side badge */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className={\`text-[10px] px-2.5 py-1 rounded-full font-bold \${sideColors.bg} \${sideColors.text}\`}>
+                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sideColors.bg} ${sideColors.text}`}>
                     {trade.side?.toUpperCase()}
                   </span>
                   <span className="text-[10px] text-[var(--text2)]">
@@ -162,9 +162,9 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
                 <div className="flex justify-between items-end">
                   <div>
                     <div
-                      className={\`font-jetbrains-mono font-bold text-sm \${
+                      className={`font-jetbrains-mono font-bold text-sm ${
                         trade.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'
-                      }\`}
+                      }`}
                     >
                       {formatPnl(trade.pnl)}
                     </div>
