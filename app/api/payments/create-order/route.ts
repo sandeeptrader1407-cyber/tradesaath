@@ -21,6 +21,12 @@ const razorpay = new Razorpay({
 
 export async function POST(req: NextRequest) {
   try {
+    // Require authentication — no anonymous orders
+    const { userId: clerkId } = await auth()
+    if (!clerkId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const { plan } = await req.json()
 
     // Determine amount based on plan
@@ -47,21 +53,16 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Razorpay] Order created: ${order.id}`)
 
-    // Get user info if authenticated
-    let userId = null
+    // Get user email for Razorpay prefill
     let userEmail = null
     try {
-      const { userId: clerkId } = await auth()
-      if (clerkId) {
-        userId = clerkId
-        const { data } = await supabaseAdmin
-          .from('users')
-          .select('email')
-          .eq('clerk_id', clerkId)
-          .single()
-        if (data) userEmail = data.email
-      }
-    } catch { /* anonymous user — fine */ }
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('email')
+        .eq('clerk_id', clerkId)
+        .single()
+      if (data) userEmail = data.email
+    } catch { /* email lookup failed — non-critical */ }
 
     // Save pending payment to Supabase
     try {
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
         amount: selectedPlan.amount,
         currency: 'INR',
         status: 'pending',
-        clerk_id: userId,
+        clerk_id: clerkId,
         email: userEmail,
         created_at: new Date().toISOString(),
       })

@@ -72,8 +72,8 @@ function NavLinks() {
     ]
     // Dashboard — Pro only
     if (isPro) links.unshift({ href: '/dashboard', label: '📊 Dashboard' })
-    // Journal — paid users (single + pro)
-    if (isPaid) links.push({ href: '/journal', label: '📓 Journal' })
+    // Journal — Pro only (V12: Journal is a Pro feature)
+    if (isPro) links.push({ href: '/journal', label: '📓 Journal' })
     // AI Coach — Pro only
     if (isPro) links.push({ href: '/coach', label: '🎯 AI Coach' })
 
@@ -119,7 +119,7 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
       <>
         {isPro && <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>}
         <Link href="/upload" onClick={closeMenu} className="nav-app-link">📤 Upload</Link>
-        {isPaid && <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>}
+        {isPro && <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>}
         {isPro && <Link href="/coach" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>}
       </>
     )

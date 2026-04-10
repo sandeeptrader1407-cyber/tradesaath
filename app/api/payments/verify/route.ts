@@ -76,15 +76,20 @@ export async function POST(req: NextRequest) {
 
         const plan = payment?.plan || 'single'
 
-        await supabaseAdmin
+        // UPSERT: handles case where user row doesn't exist yet (webhook race)
+        const { error: upsertErr } = await supabaseAdmin
           .from('users')
-          .update({
+          .upsert({
+            clerk_id: clerkId,
             plan,
             plan_updated_at: new Date().toISOString(),
-          })
-          .eq('clerk_id', clerkId)
+          }, { onConflict: 'clerk_id' })
 
-        console.log(`[Razorpay] User ${clerkId} upgraded to plan: ${plan}`)
+        if (upsertErr) {
+          console.error(`[Razorpay] Failed to upsert user plan for ${clerkId}:`, upsertErr.message)
+        } else {
+          console.log(`[Razorpay] User ${clerkId} upgraded to plan: ${plan}`)
+        }
       }
     } catch (userErr) {
       console.error('Failed to update user plan (non-critical):', userErr)
