@@ -8,6 +8,7 @@ import SessionDetail from "@/components/journal/SessionDetail"
 import CalendarCard from "@/components/journal/CalendarCard"
 import TradingJourney from "@/components/journal/TradingJourney"
 import JournalStats from "@/components/journal/JournalStats"
+import { ChatWrapper } from "@/components/chat/ChatWrapper"
 
 type TabType = "sessions" | "journey"
 
@@ -122,6 +123,7 @@ function JournalContent() {
           </>
         )}
       </div>
+      <ChatWrapper />
     </main>
   )
 }

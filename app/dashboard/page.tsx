@@ -10,6 +10,7 @@ import PerformanceKPIs from "@/components/dashboard/PerformanceKPIs"
 import DashboardEquityCurve from "@/components/dashboard/DashboardEquityCurve"
 import SummaryCards from "@/components/dashboard/SummaryCards"
 import BehavioralInsights from "@/components/dashboard/BehavioralInsights"
+import { ChatWrapper } from "@/components/chat/ChatWrapper"
 
 interface DashStats {
   hasData: boolean
@@ -169,6 +170,7 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+      <ChatWrapper />
     </main>
   )
 }
