@@ -2,7 +2,6 @@ export const runtime = 'nodejs';
 export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DEMO_RESPONSE } from '@/lib/demoData';
 import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession } from '@/lib/supabase/saveTrades';
 
@@ -138,8 +137,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   if (contextRaw) { try { context = JSON.parse(contextRaw); } catch { /* ignore */ } }
 
   if (!files || files.length === 0) {
-    console.log('No files — returning demo response');
-    return NextResponse.json({ ...DEMO_RESPONSE, metadata: { ...DEMO_RESPONSE.metadata, processing_time_ms: Date.now() - startTime } });
+    return NextResponse.json({ error: 'No files uploaded. Please upload at least one broker statement.' }, { status: 400 });
   }
 
   for (const file of files) {
@@ -251,13 +249,13 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any;
   try { body = await req.json(); } catch {
-    return NextResponse.json({ ...DEMO_RESPONSE, metadata: { ...DEMO_RESPONSE.metadata, processing_time_ms: Date.now() - startTime } });
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
   const { trades, kpis, broker, market, trade_date, currency, total_trades_in_file, time_analysis, context } = body;
 
   if (!trades || !Array.isArray(trades) || trades.length === 0) {
-    return NextResponse.json({ ...DEMO_RESPONSE, metadata: { ...DEMO_RESPONSE.metadata, processing_time_ms: Date.now() - startTime } });
+    return NextResponse.json({ error: 'No trades provided. Please upload a broker statement.' }, { status: 400 });
   }
 
   let contextStr = '';
