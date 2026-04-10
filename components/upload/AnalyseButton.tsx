@@ -17,6 +17,7 @@ export default function AnalyseButton() {
 
   const isAnalysing = analysisState === 'uploading' || analysisState === 'analysing'
   const isComplete = analysisState === 'complete'
+  const noFiles = !files || files.length === 0
 
   useEffect(() => {
     if (!barRef.current) return
@@ -40,20 +41,10 @@ export default function AnalyseButton() {
     setLoading(true)
 
     try {
-      // ── DEMO MODE: No files uploaded ──
+      // Require at least one file
       if (!files || files.length === 0) {
-        setStatus('Loading demo data...')
-        const formData = new FormData()
-        formData.append('context', JSON.stringify(context))
-        const res = await fetch('/api/analyse', { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok || data.error) {
-          setError(data.error || 'Demo analysis failed')
-          setAnalysisState('error')
-          return
-        }
-        setAnalysis(data)
-        setAnalysisState('complete')
+        setError('Please upload at least one broker statement to analyse.')
+        setAnalysisState('error')
         return
       }
 
@@ -147,13 +138,13 @@ export default function AnalyseButton() {
     <div className="flex flex-col items-center gap-3">
       <button
         onClick={handleAnalyse}
-        disabled={isAnalysing}
+        disabled={isAnalysing || noFiles}
         className="px-8 py-3 rounded-xl text-base font-semibold transition-all duration-200"
         style={{
-          background: isAnalysing ? 'var(--s3)' : 'var(--accent)',
-          color: isAnalysing ? 'var(--muted)' : '#0a0e17',
-          cursor: isAnalysing ? 'not-allowed' : 'pointer',
-          opacity: isAnalysing ? 0.7 : 1,
+          background: (isAnalysing || noFiles) ? 'var(--s3)' : 'var(--accent)',
+          color: (isAnalysing || noFiles) ? 'var(--muted)' : '#0a0e17',
+          cursor: (isAnalysing || noFiles) ? 'not-allowed' : 'pointer',
+          opacity: (isAnalysing || noFiles) ? 0.7 : 1,
           fontFamily: "'Outfit', sans-serif",
           boxShadow: isAnalysing ? 'none' : '0 0 20px rgba(62,232,196,.2)',
         }}
@@ -162,8 +153,8 @@ export default function AnalyseButton() {
       </button>
       <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>
         {isAnalysing
-          ? <span ref={statusRef}>Analysing {files.length || 'demo'} file(s)…</span>
-          : 'No login required · runs with demo data if no file'}
+          ? <span ref={statusRef}>Analysing {files.length} file(s)…</span>
+          : 'No login required · upload your broker statement to start'}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"
