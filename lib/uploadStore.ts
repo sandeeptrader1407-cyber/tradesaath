@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 /* ─── Trading Context Types ─── */
 export interface TradingContext {
@@ -57,40 +58,52 @@ const defaultContext: TradingContext = {
   notes: '',
 }
 
-export const useUploadStore = create<UploadStore>((set, get) => ({
-  files: [],
-  context: { ...defaultContext },
-  detectedMarket: null,
-  analysisState: 'idle',
-
-  addFiles: (newFiles) => {
-    const current = get().files
-    const combined = [...current, ...newFiles].slice(0, 40)
-    set({
-      files: combined,
-      detectedMarket: detectMarketFromFiles(combined),
-      analysisState: combined.length > 0 ? 'idle' : get().analysisState,
-    })
-  },
-
-  removeFile: (index) => {
-    const updated = get().files.filter((_, i) => i !== index)
-    set({
-      files: updated,
-      detectedMarket: updated.length > 0 ? detectMarketFromFiles(updated) : null,
-    })
-  },
-
-  setContext: (key, value) =>
-    set((s) => ({ context: { ...s.context, [key]: value } })),
-
-  setAnalysisState: (state) => set({ analysisState: state }),
-
-  reset: () =>
-    set({
+export const useUploadStore = create<UploadStore>()(
+  persist(
+    (set, get) => ({
       files: [],
       context: { ...defaultContext },
       detectedMarket: null,
-      analysisState: 'idle',
+      analysisState: 'idle' as AnalysisState,
+
+      addFiles: (newFiles) => {
+        const current = get().files
+        const combined = [...current, ...newFiles].slice(0, 40)
+        set({
+          files: combined,
+          detectedMarket: detectMarketFromFiles(combined),
+          analysisState: combined.length > 0 ? 'idle' : get().analysisState,
+        })
+      },
+
+      removeFile: (index) => {
+        const updated = get().files.filter((_, i) => i !== index)
+        set({
+          files: updated,
+          detectedMarket: updated.length > 0 ? detectMarketFromFiles(updated) : null,
+        })
+      },
+
+      setContext: (key, value) =>
+        set((s) => ({ context: { ...s.context, [key]: value } })),
+
+      setAnalysisState: (state) => set({ analysisState: state }),
+
+      reset: () =>
+        set({
+          files: [],
+          context: { ...defaultContext },
+          detectedMarket: null,
+          analysisState: 'idle' as AnalysisState,
+        }),
     }),
-}))
+    {
+      name: 'tradesaath-upload',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        analysisState: state.analysisState,
+        context: state.context,
+      }),
+    }
+  )
+)

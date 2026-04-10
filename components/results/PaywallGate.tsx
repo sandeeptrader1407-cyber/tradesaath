@@ -55,7 +55,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
             {plan.badge && <div className="mb-3"><span className="inline-block px-2 py-1 rounded text-xs font-semibold" style={{ background: 'rgba(54,211,153,.15)', color: 'var(--green)' }}>{plan.badge}</span></div>}
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text)' }}>{plan.name}</h3>
             <div className="mb-3">
-              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>\u20B9{plan.price}</span>
+              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>₹{plan.price}</span>
               <span className="text-xs ml-1" style={{ color: 'var(--text2)' }}>{plan.period}</span>
             </div>
             <p className="text-xs" style={{ color: 'var(--text2)' }}>{plan.desc}</p>

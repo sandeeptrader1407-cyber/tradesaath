@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 /* ─── Types ─── */
 export interface Trade {
@@ -102,31 +103,44 @@ function computeKPIs(trades: Trade[]): KPIs {
   }
 }
 
-export const useAnalysisStore = create<AnalysisStore>((set) => ({
-  trades: [], analysis: null, metadata: null, kpis: null,
-  isLoading: false, error: null,
+export const useAnalysisStore = create<AnalysisStore>()(
+  persist(
+    (set) => ({
+      trades: [], analysis: null, metadata: null, kpis: null,
+      isLoading: false, error: null,
 
-  setAnalysis: (data) => {
-    const trades = data.trades || []
-    // Merge trade_analyses into trades if available
-    const analyses = data.analysis?.trade_analyses || []
-    for (const a of analyses) {
-      const idx = a.trade_index
-      if (idx >= 0 && idx < trades.length) {
-        trades[idx] = { ...trades[idx], ...a }
-      }
+      setAnalysis: (data) => {
+        const trades = data.trades || []
+        const analyses = data.analysis?.trade_analyses || []
+        for (const a of analyses) {
+          const idx = a.trade_index
+          if (idx >= 0 && idx < trades.length) {
+            trades[idx] = { ...trades[idx], ...a }
+          }
+        }
+        set({
+          trades,
+          analysis: data.analysis || null,
+          metadata: data.metadata || null,
+          kpis: computeKPIs(trades),
+          isLoading: false,
+          error: null,
+        })
+      },
+
+      setLoading: (loading) => set({ isLoading: loading }),
+      setError: (error) => set({ error, isLoading: false }),
+      reset: () => set({ trades: [], analysis: null, metadata: null, kpis: null, isLoading: false, error: null }),
+    }),
+    {
+      name: 'tradesaath-analysis',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        trades: state.trades,
+        analysis: state.analysis,
+        metadata: state.metadata,
+        kpis: state.kpis,
+      }),
     }
-    set({
-      trades,
-      analysis: data.analysis || null,
-      metadata: data.metadata || null,
-      kpis: computeKPIs(trades),
-      isLoading: false,
-      error: null,
-    })
-  },
-
-  setLoading: (loading) => set({ isLoading: loading }),
-  setError: (error) => set({ error, isLoading: false }),
-  reset: () => set({ trades: [], analysis: null, metadata: null, kpis: null, isLoading: false, error: null }),
-}))
+  )
+)
