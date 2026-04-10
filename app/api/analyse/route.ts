@@ -279,30 +279,47 @@ Analyse EVERY trade.`;
 
   const aiResult = await callClaude(apiKey, buildAnalysePrompt(context || {}), [{ type: 'text', text: promptText }], 8192, claudeTimeout);
 
-  const buildFallback = (summary?: string) => ({
-    broker: broker || 'Unknown', market: market || 'NSE', trade_date: trade_date || '',
-    currency: currency || 'INR', total_trades_in_file: total_trades_in_file || trades.length,
-    trades_shown: trades.length, kpis: kpis || {},
-    summary: summary || `${trades.length} trades from ${broker || 'Unknown'}. AI analysis unavailable.`,
-    momentum: [], vicious_cycle: [], technical_insights: [],
-    dqs: null, financial_impact: null, mistake_patterns: [], rules_for_next_session: [],
-    trades, time_analysis: time_analysis || {}, _ai_failed: true,
+  const buildResponse = (aiAnalysis?: Record<string, unknown>, aiError?: string) => ({
+    success: true,
+    trades,
+    analysis: aiAnalysis ? {
+      session_summary: (aiAnalysis.session_summary || aiAnalysis.summary || '') as string,
+      momentum_indicators: (aiAnalysis.momentum_indicators || aiAnalysis.momentum || []) as unknown[],
+      vicious_cycle: (aiAnalysis.vicious_cycle || []) as unknown[],
+      technical_insights: (aiAnalysis.technical_insights || []) as unknown[],
+      dqs: aiAnalysis.dqs || null,
+      financial_impact: aiAnalysis.financial_impact || null,
+      mistake_patterns: aiAnalysis.mistake_patterns || [],
+      rules_for_next_session: aiAnalysis.rules_for_next_session || [],
+      cross_user_insight: aiAnalysis.cross_user_insight || null,
+      trade_analyses: aiAnalysis.trade_analyses || [],
+    } : {
+      session_summary: `${trades.length} trades from ${broker || 'Unknown'}. AI coaching unavailable — showing your locally parsed results.`,
+      momentum_indicators: [], vicious_cycle: [], technical_insights: [],
+      trade_analyses: [],
+    },
+    metadata: {
+      detected_market: market || 'NSE',
+      detected_currency: currency || 'INR',
+      detected_broker: broker || 'Unknown',
+      trade_date: trade_date || '',
+      trade_count: trades.length,
+      net_pnl: kpis?.net_pnl || trades.reduce((s: number, t: { pnl?: number }) => s + (t.pnl || 0), 0),
+      processing_time_ms: Date.now() - startTime,
+    },
+    _ai_failed: !aiAnalysis,
+    _ai_error: aiError,
+    _parsed_locally: true,
   });
 
   if (!aiResult.ok) {
     console.warn('AI failed:', aiResult.error);
-    if (aiResult.code === 'RATE_LIMIT' || aiResult.error?.includes('usage limits')) {
-      return NextResponse.json({ ...buildFallback(), _ai_error: 'AI service temporarily unavailable — usage limit reached.' });
-    }
-    if (aiResult.code === 'OVERLOADED') {
-      return NextResponse.json({ ...buildFallback(), _ai_error: 'AI service is busy. Please try again.' });
-    }
-    return NextResponse.json({ ...buildFallback(), _ai_error: aiResult.error });
+    return NextResponse.json(buildResponse(undefined, aiResult.error));
   }
 
   const aiParsed = safeParseJSON(aiResult.data);
   if (!aiParsed.ok || !aiParsed.data) {
-    return NextResponse.json({ ...buildFallback(), _ai_error: 'Failed to parse AI response' });
+    return NextResponse.json(buildResponse(undefined, 'Failed to parse AI response'));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -325,13 +342,5 @@ Analyse EVERY trade.`;
   }
 
   console.log(`Analysis complete: ${Date.now() - startTime}ms`);
-  return NextResponse.json({
-    ...buildFallback(analysis.summary),
-    momentum: analysis.momentum || [], vicious_cycle: analysis.vicious_cycle || [],
-    technical_insights: analysis.technical_insights || [], dqs: analysis.dqs || null,
-    financial_impact: analysis.financial_impact || null, mistake_patterns: analysis.mistake_patterns || [],
-    rules_for_next_session: analysis.rules_for_next_session || [],
-    fi_summary: analysis.fi_summary || null, cross_user_insight: analysis.cross_user_insight || null,
-    _ai_failed: false,
-  });
+  return NextResponse.json(buildResponse(analysis));
 }

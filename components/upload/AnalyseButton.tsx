@@ -13,6 +13,7 @@ export default function AnalyseButton() {
   const setLoading = useAnalysisStore((s) => s.setLoading)
   const setError = useAnalysisStore((s) => s.setError)
   const barRef = useRef<HTMLDivElement>(null)
+  const statusRef = useRef<HTMLSpanElement>(null)
 
   const isAnalysing = analysisState === 'uploading' || analysisState === 'analysing'
   const isComplete = analysisState === 'complete'
@@ -29,23 +30,113 @@ export default function AnalyseButton() {
     }
   }, [isAnalysing, isComplete])
 
+  const setStatus = (msg: string) => {
+    if (statusRef.current) statusRef.current.textContent = msg
+  }
+
   const handleAnalyse = useCallback(async () => {
     if (isAnalysing) return
     setAnalysisState('analysing')
     setLoading(true)
+
     try {
-      const formData = new FormData()
-      for (const file of files) formData.append('files', file)
-      formData.append('context', JSON.stringify(context))
-      const res = await fetch('/api/analyse', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok || data.error) {
-        setError(data.error || 'Analysis failed')
-        setAnalysisState('error')
+      // ── DEMO MODE: No files uploaded ──
+      if (!files || files.length === 0) {
+        setStatus('Loading demo data...')
+        const formData = new FormData()
+        formData.append('context', JSON.stringify(context))
+        const res = await fetch('/api/analyse', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          setError(data.error || 'Demo analysis failed')
+          setAnalysisState('error')
+          return
+        }
+        setAnalysis(data)
+        setAnalysisState('complete')
         return
       }
-      setAnalysis(data)
+
+      // ── STEP 1: Local Parse (instant, no AI) ──
+      setStatus('Parsing your files locally...')
+      let allTrades: unknown[] = []
+      let broker = 'Unknown'
+      let market = 'NSE'
+      let tradeDate = ''
+      let currency = 'INR'
+      let kpis = {}
+      let timeAnalysis = {}
+      let localParseFailed = false
+
+      for (const file of files) {
+        const parseForm = new FormData()
+        parseForm.append('file', file)
+        try {
+          const parseRes = await fetch('/api/parse', { method: 'POST', body: parseForm })
+          if (parseRes.ok) {
+            const parsed = await parseRes.json()
+            if (parsed.trades && parsed.trades.length > 0) {
+              allTrades = [...allTrades, ...parsed.trades]
+              broker = parsed.broker || broker
+              market = parsed.market || market
+              tradeDate = parsed.trade_date || tradeDate
+              currency = parsed.currency || currency
+              kpis = parsed.kpis || kpis
+              timeAnalysis = parsed.time_analysis || timeAnalysis
+            }
+          }
+        } catch {
+          // Individual file parse failed, continue with others
+        }
+      }
+
+      // If local parse found no trades, fall back to AI extraction
+      if (allTrades.length === 0) {
+        localParseFailed = true
+        setStatus('Local parse found no trades, trying AI extraction...')
+        const formData = new FormData()
+        for (const file of files) formData.append('files', file)
+        formData.append('context', JSON.stringify(context))
+        const res = await fetch('/api/analyse', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          setError(data.error || 'Analysis failed')
+          setAnalysisState('error')
+          return
+        }
+        setAnalysis(data)
+        setAnalysisState('complete')
+        return
+      }
+
+      // ── STEP 2: AI Psychology Analysis (with pre-parsed trades) ──
+      setStatus('Trades parsed! Running AI psychology analysis...')
+      const analyseRes = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trades: allTrades,
+          kpis,
+          broker,
+          market,
+          trade_date: tradeDate,
+          currency,
+          total_trades_in_file: allTrades.length,
+          time_analysis: timeAnalysis,
+          context,
+        }),
+      })
+
+      const analyseData = await analyseRes.json()
+
+      // Even if AI fails, we still have local data — show results
+      if (analyseData._ai_failed || analyseData._ai_error) {
+        console.warn('AI coaching unavailable:', analyseData._ai_error)
+      }
+
+      setAnalysis(analyseData)
       setAnalysisState('complete')
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed')
       setAnalysisState('error')
@@ -71,7 +162,7 @@ export default function AnalyseButton() {
       </button>
       <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>
         {isAnalysing
-          ? `Analysing ${files.length || 'demo'} file(s)…`
+          ? <span ref={statusRef}>Analysing {files.length || 'demo'} file(s)…</span>
           : 'No login required · runs with demo data if no file'}
       </p>
       <div
