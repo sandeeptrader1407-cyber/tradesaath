@@ -65,7 +65,7 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
   const isLocked = (index: number): boolean => index >= freeLimit;
 
   return (
-    <div className="hidden md:flex flex-col h-screen bg-[var(--s1)] border-r border-[var(--border)] sticky top-24">
+    <div className="flex flex-col max-h-[80vh] bg-[var(--s1)] border-r border-[var(--border)] sticky top-24">
       {/* Header */}
       <div className="px-5 py-4 border-b border-[var(--border)]">
         <h2 className="text-sm font-bold text-[var(--text)] mb-3">

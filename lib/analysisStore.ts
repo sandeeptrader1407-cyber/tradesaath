@@ -69,6 +69,8 @@ export interface KPIs {
   net_pnl: number; total_trades: number; wins: number; losses: number
   win_rate: number; profit_factor: number
   best_trade_pnl: number; worst_trade_pnl: number
+  gross_profit: number; gross_loss: number
+  buy_value: number; sell_value: number
 }
 
 /* ─── Store ─── */
@@ -91,6 +93,14 @@ function computeKPIs(trades: Trade[]): KPIs {
   const losses = trades.filter(t => t.pnl <= 0)
   const grossWin = wins.reduce((s, t) => s + t.pnl, 0)
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0))
+  const buyValue = trades.reduce((s, t) => {
+    if (t.side?.toUpperCase() === 'BUY') return s + (t.entry_price * t.quantity)
+    return s + (t.exit_price * t.quantity)
+  }, 0)
+  const sellValue = trades.reduce((s, t) => {
+    if (t.side?.toUpperCase() === 'SELL') return s + (t.entry_price * t.quantity)
+    return s + (t.exit_price * t.quantity)
+  }, 0)
   return {
     net_pnl: trades.reduce((s, t) => s + t.pnl, 0),
     total_trades: trades.length,
@@ -100,6 +110,10 @@ function computeKPIs(trades: Trade[]): KPIs {
     profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : grossWin > 0 ? 999 : 0,
     best_trade_pnl: trades.length > 0 ? Math.max(...trades.map(t => t.pnl)) : 0,
     worst_trade_pnl: trades.length > 0 ? Math.min(...trades.map(t => t.pnl)) : 0,
+    gross_profit: grossWin,
+    gross_loss: grossLoss,
+    buy_value: buyValue,
+    sell_value: sellValue,
   }
 }
 
