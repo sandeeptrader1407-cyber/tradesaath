@@ -59,7 +59,7 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
   // Format P&L display
   const formatPnl = (pnl: number): string => {
     const sign = pnl >= 0 ? '+' : '';
-    return \`\${sign}₹\${Math.abs(Math.round(pnl)).toLocaleString('en-IN')}\`;
+    return `${sign}₹${Math.abs(Math.round(pnl)).toLocaleString('en-IN')}`;
   };
 
   const isLocked = (index: number): boolean => index >= freeLimit;
