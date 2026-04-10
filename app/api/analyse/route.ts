@@ -58,7 +58,7 @@ function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: bool
   if (lastBrace > 0 && lastBrace > lastComma) cleaned = cleaned.substring(0, lastBrace + 2);
   else if (lastComma > 0) cleaned = cleaned.substring(0, lastComma + 1);
   const openBraces = (cleaned.match(/{/g) || []).length - (cleaned.match(/}/g) || []).length;
-  const openBrackets = (cleaned.match(/[/g) || []).length - (cleaned.match(/]/g) || []).length;
+  const openBrackets = (cleaned.match(/\[/g) || []).length - (cleaned.match(/\]/g) || []).length;
   for (let i = 0; i < openBrackets; i++) cleaned += ']';
   for (let i = 0; i < openBraces; i++) cleaned += '}';
   try { return { ok: true, data: JSON.parse(cleaned), truncated: true }; } catch { return { ok: false }; }
