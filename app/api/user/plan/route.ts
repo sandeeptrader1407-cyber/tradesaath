@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 /**
  * GET /api/user/plan
  * Returns the current user's plan from Supabase.
- * If not authenticated, returns { plan: 'free' }.
+ * Checks user_plans table first (with expiration), falls back to users table.
  */
 export async function GET() {
   try {
@@ -15,18 +15,33 @@ export async function GET() {
       return NextResponse.json({ plan: 'free', authenticated: false })
     }
 
-    const { data, error } = await supabaseAdmin
+    // Check user_plans table first (set by payment flow)
+    const { data: planData } = await supabaseAdmin
+      .from('user_plans')
+      .select('plan, plan_expires_at')
+      .eq('user_id', clerkId)
+      .single()
+
+    if (planData) {
+      // Check expiration for subscription plans
+      if (planData.plan_expires_at && new Date(planData.plan_expires_at) < new Date()) {
+        return NextResponse.json({ plan: 'free', authenticated: true, expired: true })
+      }
+      return NextResponse.json({
+        plan: planData.plan || 'free',
+        authenticated: true,
+      })
+    }
+
+    // Fallback: check users table
+    const { data: userData } = await supabaseAdmin
       .from('users')
       .select('plan')
       .eq('clerk_id', clerkId)
       .single()
 
-    if (error || !data) {
-      return NextResponse.json({ plan: 'free', authenticated: true })
-    }
-
     return NextResponse.json({
-      plan: data.plan || 'free',
+      plan: userData?.plan || 'free',
       authenticated: true,
     })
   } catch {

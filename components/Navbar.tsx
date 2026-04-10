@@ -66,22 +66,15 @@ function NavLinks() {
     const isPro = userPlan === 'pro_monthly' || userPlan === 'pro_yearly'
     const isPaid = userPlan !== 'free'
 
-    // Build nav links based on plan
-    const links: { href: string; label: string }[] = [
-      { href: '/upload', label: '📤 Upload' },
-    ]
-    // Dashboard — Pro only
-    if (isPro) links.unshift({ href: '/dashboard', label: '📊 Dashboard' })
-    // Journal — Pro only (V12: Journal is a Pro feature)
-    if (isPro) links.push({ href: '/journal', label: '📓 Journal' })
-    // AI Coach — Pro only
-    if (isPro) links.push({ href: '/coach', label: '🎯 AI Coach' })
-
     return (
       <>
-        {links.map(l => (
-          <Link key={l.href} href={l.href} className={`nav-app-link${pathname === l.href ? ' nav-active' : ''}`}>{l.label}</Link>
-        ))}
+        <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>Dashboard</Link>
+        <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
+          Journal{!isPaid && ' \uD83D\uDD12'}
+        </Link>
+        <Link href={isPro ? '/coach' : '#'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50' : ''}`}>
+          AI Coach{!isPro && ' \uD83D\uDD12'}
+        </Link>
       </>
     )
   }
@@ -117,10 +110,13 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 
     return (
       <>
-        {isPro && <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">📊 Dashboard</Link>}
-        <Link href="/upload" onClick={closeMenu} className="nav-app-link">📤 Upload</Link>
-        {isPro && <Link href="/journal" onClick={closeMenu} className="nav-app-link">📓 Journal</Link>}
-        {isPro && <Link href="/coach" onClick={closeMenu} className="nav-app-link">🎯 AI Coach</Link>}
+        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">Dashboard</Link>
+        <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
+          Journal{!isPaid && ' \uD83D\uDD12'}
+        </Link>
+        <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>
+          AI Coach{!isPro && ' \uD83D\uDD12'}
+        </Link>
       </>
     )
   }
