@@ -51,9 +51,7 @@ async function callClaude(
 /* ─── JSON parser with truncation recovery ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: boolean } {
-  let cleaned = raw.replace(/```json
-?/g, '').replace(/```
-?/g, '').trim();
+  let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   try { return { ok: true, data: JSON.parse(cleaned) }; } catch { /* fall through */ }
   const lastBrace = cleaned.lastIndexOf('}]');
   const lastComma = cleaned.lastIndexOf('},');
