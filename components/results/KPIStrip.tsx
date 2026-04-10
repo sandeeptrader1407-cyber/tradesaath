@@ -9,9 +9,9 @@ export default function KPIStrip() {
 
   const fmt = (val: number) => {
     const sign = val >= 0 ? '+' : '';
-    return `${sign}\u20B9${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
+    return `${sign}₹${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
   };
-  const fmtAbs = (val: number) => `\u20B9${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
+  const fmtAbs = (val: number) => `₹${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
 
   const metrics = [
     { label: 'Net P&L', value: fmt(kpis.net_pnl), pos: kpis.net_pnl >= 0 },

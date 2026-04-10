@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-/* ─── Trading Context Types ─── */
+/* --- Trading Context Types --- */
 export interface TradingContext {
   experience: string
   capital: string
@@ -15,23 +15,23 @@ export interface TradingContext {
 
 export type AnalysisState = 'idle' | 'uploading' | 'analysing' | 'parsed' | 'ai_running' | 'complete' | 'error'
 
-/* ─── Market Detection ─── */
+/* --- Market Detection --- */
 function detectMarketFromFiles(files: File[]): string | null {
   const names = files.map(f => f.name.toLowerCase()).join(' ')
 
   if (/nse|nifty|banknifty|sensex|bse|zerodha|upstox|groww|angelone|dhan|fyers/.test(names))
-    return '🇮🇳 NSE / BSE detected'
+    return '\u{1F1EE}\u{1F1F3} NSE / BSE detected'
   if (/eurusd|gbpusd|forex|mt4|mt5|metatrader|fxcm|oanda/.test(names))
-    return '🌍 Forex detected'
+    return '\u{1F30D} Forex detected'
   if (/btc|eth|binance|coinbase|kucoin|crypto|wazirx|coindcx/.test(names))
-    return '₿ Crypto detected'
+    return '\u20BF Crypto detected'
   if (/spy|aapl|tsla|nyse|nasdaq|amtd|schwab|robinhood|ibkr/.test(names))
-    return '🇺🇸 US Market detected'
+    return '\u{1F1FA}\u{1F1F8} US Market detected'
 
   return null
 }
 
-/* ─── Store ─── */
+/* --- Store --- */
 interface UploadStore {
   /* state */
   files: File[]
