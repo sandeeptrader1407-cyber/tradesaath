@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAnalysisStore } from '@/lib/analysisStore'
 import { useUploadStore } from '@/lib/uploadStore'
+import { usePlanStore } from '@/lib/planStore'
 import AutoDetectBar from '@/components/upload/AutoDetectBar'
 import Dropzone from '@/components/upload/Dropzone'
 import FileChips from '@/components/upload/FileChips'
@@ -26,7 +27,8 @@ export default function UploadPage() {
   const analysisState = useUploadStore((s) => s.analysisState)
   const setAnalysisState = useUploadStore((s) => s.setAnalysisState)
   const [activeTrade, setActiveTrade] = useState(0)
-  const FREE_LIMIT = 1
+  const tradeLimit = usePlanStore((s) => s.tradeLimit)
+  const FREE_LIMIT = tradeLimit()
   const showResults = analysis !== null && analysisState === 'complete'
 
   const handleNewAnalysis = () => {
@@ -42,16 +44,10 @@ export default function UploadPage() {
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={handleNewAnalysis} className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text2)', border: '1px solid var(--border)' }}>
-                ← New Analysis
-              </button>
-              <span className="text-xs" style={{ color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace" }}>
-                Free tier · {trades.length} trades analysed
-              </span>
+              <button onClick={handleNewAnalysis} className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text2)', border: '1px solid var(--border)' }}>\u2190 New Analysis</button>
+              <span className="text-xs" style={{ color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace" }}>Free tier \u00B7 {trades.length} trades analysed</span>
             </div>
-            <button className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
-              ⬇ Report
-            </button>
+            <button className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>\u2B07 Report</button>
           </div>
           <KPIStrip />
           <SessionSummary />
@@ -59,12 +55,8 @@ export default function UploadPage() {
           <ViciousCycle />
           <TechnicalInsights />
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-[320px] shrink-0">
-              <TradeSidebar activeTrade={activeTrade} onSelectTrade={setActiveTrade} freeLimit={FREE_LIMIT} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <TradeDetail activeTrade={activeTrade} freeLimit={FREE_LIMIT} />
-            </div>
+            <div className="w-full md:w-[320px] shrink-0"><TradeSidebar activeTrade={activeTrade} onSelectTrade={setActiveTrade} freeLimit={FREE_LIMIT} /></div>
+            <div className="flex-1 min-w-0"><TradeDetail activeTrade={activeTrade} freeLimit={FREE_LIMIT} /></div>
           </div>
           {trades.length > FREE_LIMIT && <PaywallGate tradeCount={trades.length} />}
         </div>
@@ -87,9 +79,7 @@ export default function UploadPage() {
         <TradingContext />
         <AnalyseButton />
         {error && (
-          <div className="text-center text-sm px-4 py-3 rounded-lg" style={{ background: 'rgba(240,93,108,.1)', color: 'var(--red)', border: '1px solid rgba(240,93,108,.2)' }}>
-            {error}
-          </div>
+          <div className="text-center text-sm px-4 py-3 rounded-lg" style={{ background: 'rgba(240,93,108,.1)', color: 'var(--red)', border: '1px solid rgba(240,93,108,.2)' }}>{error}</div>
         )}
       </div>
     </main>
