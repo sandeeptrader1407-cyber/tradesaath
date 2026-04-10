@@ -271,37 +271,50 @@ export default function UploadPage() {
     }
   }, [result, uploadState])
 
-  // RESTORE: on mount, if we came back from sign-in redirect, restore pending analysis
+  // RESTORE + AUTO-PAY: after sign-in redirect, restore analysis AND trigger payment
+  const [autoPayTriggered, setAutoPayTriggered] = useState(false)
   useEffect(() => {
-    if (isSignedIn && !result && uploadState === 'idle') {
-      try {
-        const pending = localStorage.getItem('tradesaath_pending_analysis')
-        if (pending) {
-          const parsed = JSON.parse(pending)
-          if (parsed?.trades?.length) {
+    if (!isSignedIn || autoPayTriggered) return
+    try {
+      const pending = localStorage.getItem('tradesaath_pending_analysis')
+      const pendingPlan = localStorage.getItem('tradesaath_pending_plan')
+      if (pending) {
+        const parsed = JSON.parse(pending)
+        if (parsed?.trades?.length) {
+          // Restore results
+          if (!result && uploadState === 'idle') {
             setResult(parsed)
             setUploadState('results')
             setAiDone(true)
-            // Claim: save to Supabase now that user is signed in
-            fetch('/api/sessions', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                trades: parsed.trades,
-                analysis: parsed,
-                broker: parsed.broker,
-                market: parsed.market,
-                trade_date: parsed.trade_date,
-                plan_used: isPaid ? plan : 'free',
-              }),
-            }).then(() => {
-              localStorage.removeItem('tradesaath_pending_analysis')
-            }).catch(() => {})
+          }
+          // Claim: save to Supabase now that user is signed in
+          fetch('/api/sessions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trades: parsed.trades,
+              analysis: parsed,
+              broker: parsed.broker,
+              market: parsed.market,
+              trade_date: parsed.trade_date,
+              plan_used: isPaid ? plan : 'free',
+            }),
+          }).catch(() => {})
+          // Auto-trigger payment if user was redirected from paywall
+          if (pendingPlan && !isPaid) {
+            setAutoPayTriggered(true)
+            localStorage.removeItem('tradesaath_pending_plan')
+            // Small delay to let Clerk finish hydrating
+            setTimeout(() => {
+              handlePayAfterLogin(pendingPlan)
+            }, 800)
+          } else {
+            localStorage.removeItem('tradesaath_pending_analysis')
           }
         }
-      } catch { /* ignore */ }
-    }
+      }
+    } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn])
+  }, [isSignedIn, autoPayTriggered])
 
   function formatSize(bytes: number) {
     if (bytes < 1024) return bytes + ' B'
@@ -767,21 +780,29 @@ export default function UploadPage() {
   /* ─── Payment handler ─── */
   function handlePay(selectedPlan: string) {
     if (!isSignedIn) {
-      // Save current analysis so it survives the redirect
+      // Save current analysis AND selected plan so both survive sign-in redirect
       if (result) {
         try { localStorage.setItem('tradesaath_pending_analysis', JSON.stringify(result)) } catch { /* ignore */ }
       }
+      try { localStorage.setItem('tradesaath_pending_plan', selectedPlan) } catch { /* ignore */ }
       router.push('/sign-in?redirect_url=/upload')
       return
     }
+    triggerPayment(selectedPlan)
+  }
+
+  // Called directly or after sign-in redirect
+  function handlePayAfterLogin(selectedPlan: string) {
+    triggerPayment(selectedPlan)
+  }
+
+  function triggerPayment(selectedPlan: string) {
     pay({
       plan: selectedPlan,
       email: user?.primaryEmailAddress?.emailAddress,
       onSuccess: () => {
         setUnlocked(true)
-        setPaySuccess(`Payment successful! All ${result?.trades?.length || 0} trades unlocked.`)
-        setTimeout(() => setPaySuccess(null), 5000)
-        // Re-save session with actual plan_used so journal/dashboard reflect it
+        // Re-save session with actual plan_used
         if (result) {
           fetch('/api/sessions', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -794,8 +815,21 @@ export default function UploadPage() {
               plan_used: selectedPlan,
             }),
           }).catch(() => {})
-          // Clear pending since it's now saved
-          try { localStorage.removeItem('tradesaath_pending_analysis') } catch { /* ignore */ }
+        }
+        // Clear pending localStorage
+        try {
+          localStorage.removeItem('tradesaath_pending_analysis')
+          localStorage.removeItem('tradesaath_pending_plan')
+        } catch { /* ignore */ }
+
+        // REDIRECT based on plan (V12 flow: payment → dashboard for Pro, stay for Single)
+        const isPro = selectedPlan === 'pro_monthly' || selectedPlan === 'pro_yearly'
+        if (isPro) {
+          setPaySuccess('Payment successful! Redirecting to your Pro Dashboard...')
+          setTimeout(() => router.push('/dashboard'), 1500)
+        } else {
+          setPaySuccess(`Payment successful! All ${result?.trades?.length || 0} trades unlocked.`)
+          setTimeout(() => setPaySuccess(null), 5000)
         }
       },
       onError: (err) => {

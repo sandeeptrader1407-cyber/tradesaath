@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { useRazorpay } from '@/hooks/useRazorpay'
 import { useUserPlan } from '@/hooks/useUserPlan'
 
@@ -150,7 +152,10 @@ export default function ResultsPage() {
   const [sideFilter, setSideFilter] = useState<string>('all')
   const [unlocked, setUnlocked] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
+  const [paySuccess, setPaySuccess] = useState<string | null>(null)
   const [deepDive, setDeepDive] = useState(false)
+  const router = useRouter()
+  const { isSignedIn, user } = useUser()
   const [reflections, setReflections] = useState<Record<number, string>>({})
   const { pay, loading: payLoading, paid } = useRazorpay()
   const { isPaid, plan, loading: planLoading } = useUserPlan()
@@ -226,9 +231,19 @@ export default function ResultsPage() {
   const isLocked = expandedTrade > 0 && !unlocked
 
   function handlePay(selectedPlan: string) {
+    if (!isSignedIn) {
+      // Save data + selected plan, redirect to sign-in
+      if (data) {
+        try { localStorage.setItem('tradesaath_pending_analysis', JSON.stringify(data)) } catch { /* ignore */ }
+      }
+      try { localStorage.setItem('tradesaath_pending_plan', selectedPlan) } catch { /* ignore */ }
+      router.push('/sign-in?redirect_url=/upload')
+      return
+    }
     setPayError(null)
     pay({
       plan: selectedPlan,
+      email: user?.primaryEmailAddress?.emailAddress,
       onSuccess: () => {
         setUnlocked(true)
         // Re-save session with actual paid plan_used
@@ -245,6 +260,19 @@ export default function ResultsPage() {
             }),
           }).catch(() => {})
         }
+        try {
+          localStorage.removeItem('tradesaath_pending_analysis')
+          localStorage.removeItem('tradesaath_pending_plan')
+        } catch { /* ignore */ }
+        // V12 flow: Pro → dashboard, Single → stay
+        const isPro = selectedPlan === 'pro_monthly' || selectedPlan === 'pro_yearly'
+        if (isPro) {
+          setPaySuccess('Payment successful! Redirecting to your Pro Dashboard...')
+          setTimeout(() => router.push('/dashboard'), 1500)
+        } else {
+          setPaySuccess(`Payment successful! All ${data?.trades?.length || 0} trades unlocked.`)
+          setTimeout(() => setPaySuccess(null), 5000)
+        }
       },
       onError: (err: string) => setPayError(err),
     })
@@ -253,6 +281,17 @@ export default function ResultsPage() {
   return (
     <section style={{ paddingTop: 80, paddingBottom: 60 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
+
+        {/* Payment success banner */}
+        {paySuccess && (
+          <div style={{
+            padding: '12px 20px', marginBottom: 14, borderRadius: 'var(--radius-sm)',
+            background: 'rgba(54,211,153,.1)', border: '1px solid rgba(54,211,153,.3)',
+            color: 'var(--green)', fontSize: 13, fontWeight: 600, textAlign: 'center',
+          }}>
+            🎉 {paySuccess}
+          </div>
+        )}
 
         {/* Nav */}
         <div className="results-nav">
