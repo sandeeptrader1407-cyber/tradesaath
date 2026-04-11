@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAnalysisStore } from "@/lib/analysisStore"
 import { useUploadStore } from "@/lib/uploadStore"
 import { usePlanStore } from "@/lib/planStore"
@@ -43,6 +43,20 @@ export default function UploadPage() {
     setAnalysisState("idle")
     setActiveTrade(0)
   }
+
+  // On mount: clear stale state from previous completed/errored analysis
+  // so navigating to /upload always shows a fresh upload form.
+  // Do NOT reset if user is mid-analysis (uploading, analysing, parsed, ai_running).
+  const hasResetOnMount = useRef(false)
+  useEffect(() => {
+    if (hasResetOnMount.current) return
+    hasResetOnMount.current = true
+    const state = useUploadStore.getState().analysisState
+    if (state === 'complete' || state === 'error') {
+      resetAnalysis()
+      resetUpload()
+    }
+  }, [resetAnalysis, resetUpload])
 
   if (showResults) {
     const planLabel = (() => {
