@@ -45,6 +45,14 @@ export default function UploadPage() {
   }
 
   if (showResults) {
+    const planLabel = (() => {
+      const p = usePlanStore.getState().plan
+      if (p === 'pro_monthly') return 'Pro Monthly'
+      if (p === 'pro_yearly') return 'Pro Yearly'
+      if (p === 'single') return 'Single Report'
+      return 'Free tier'
+    })()
+
     return (
       <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
@@ -52,7 +60,7 @@ export default function UploadPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button onClick={handleNewAnalysis} className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--text2)", border: "1px solid var(--border)" }}>{"←"} New Analysis</button>
-              <span className="text-xs" style={{ color: "var(--muted)", fontFamily: "'JetBrains Mono', monospace" }}>Free tier {"·"} {trades.length} trades analysed</span>
+              <span className="text-xs" style={{ color: "var(--muted)", fontFamily: "'JetBrains Mono', monospace" }}>{planLabel} {"·"} {trades.length} trades analysed</span>
             </div>
             <button className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>{"⬇"} Report</button>
           </div>

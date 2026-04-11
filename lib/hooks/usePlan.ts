@@ -18,20 +18,8 @@ export function usePlan() {
   const [loading, setLoading] = useState(true)
   const [fetched, setFetched] = useState(false)
 
-  useEffect(() => {
-    if (!isLoaded) return
-    if (!user) {
-      setPlan('free')
-      setLoading(false)
-      return
-    }
-
-    // Only fetch once per session
-    if (fetched) {
-      setLoading(false)
-      return
-    }
-
+  const fetchPlan = useCallback(() => {
+    setLoading(true)
     fetch('/api/user/plan')
       .then((r) => r.json())
       .then((data) => {
@@ -44,7 +32,30 @@ export function usePlan() {
         setPlan('free')
         setLoading(false)
       })
-  }, [user, isLoaded, fetched, setPlan])
+  }, [setPlan])
+
+  useEffect(() => {
+    if (!isLoaded) return
+    if (!user) {
+      setPlan('free')
+      setLoading(false)
+      return
+    }
+
+    // Only fetch once per session (unless refreshPlan is called)
+    if (fetched) {
+      setLoading(false)
+      return
+    }
+
+    fetchPlan()
+  }, [user, isLoaded, fetched, setPlan, fetchPlan])
+
+  /** Force re-fetch from API (call after payment success) */
+  const refreshPlan = useCallback(() => {
+    setFetched(false)
+    fetchPlan()
+  }, [fetchPlan])
 
   return {
     plan,
@@ -53,5 +64,6 @@ export function usePlan() {
     isPaid: isPaid(),
     tradeLimit: tradeLimit(),
     loading,
+    refreshPlan,
   }
 }

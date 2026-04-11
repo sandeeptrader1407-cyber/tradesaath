@@ -88,7 +88,7 @@ export function useRazorpay() {
             const verifyRes = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response),
+              body: JSON.stringify({ ...response, plan }),
             })
             const verifyData = await verifyRes.json()
 
