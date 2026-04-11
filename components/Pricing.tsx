@@ -105,7 +105,7 @@ export default function Pricing() {
 
           {/* Pro */}
           <div className="plan-card" style={{ position: 'relative', border: '2px solid #3ee8c4', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#f0b429', color: '#071a15', fontSize: 10, fontWeight: 600, padding: '3px 12px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'monospace', whiteSpace: 'nowrap', zIndex: 1 }}>Most Popular</div>
+            <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#f0b429', color: '#071a15', fontSize: 10, fontWeight: 600, padding: '3px 12px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'monospace', whiteSpace: 'nowrap', zIndex: 1 }}>Most Popular</div>
             <div className="plan-name">Pro</div>
             {!yearly ? (
               <>
