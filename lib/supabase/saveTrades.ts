@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function saveTradeSession({
   userId,
+  anonId,
   trades,
   analysis,
   context,
@@ -9,7 +10,8 @@ export async function saveTradeSession({
   plan,
   paymentId,
 }: {
-  userId: string
+  userId?: string
+  anonId?: string
   trades: any[]
   analysis: any
   context: any
@@ -17,6 +19,11 @@ export async function saveTradeSession({
   plan?: string
   paymentId?: string
 }) {
+  if (!userId && !anonId) {
+    console.warn('saveTradeSession: no userId or anonId, skipping')
+    return null
+  }
+
   const supabase = getSupabaseAdmin()
 
   const netPnl = trades.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
@@ -34,7 +41,8 @@ export async function saveTradeSession({
   const { data, error } = await supabase
     .from('trade_sessions')
     .insert({
-      user_id: userId,
+      user_id: userId || null,
+      anon_id: anonId || null,
       session_key: crypto.randomUUID(),
       broker: metadata?.detected_broker || 'Unknown',
       broker_name: metadata?.detected_broker || 'Unknown',

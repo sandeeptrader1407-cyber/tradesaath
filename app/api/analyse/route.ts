@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession } from '@/lib/supabase/saveTrades';
 import { saveRawFile } from '@/lib/supabase/saveFile';
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
+import { getOrCreateAnonId } from '@/lib/anonId';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
@@ -220,12 +221,17 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
   };
 
   // Save session to Supabase (non-blocking — don't fail analysis if save fails)
+  // Saves for BOTH authenticated users (userId) and anonymous users (anonId)
   let savedSessionId: string | undefined;
   try {
     const { userId } = await auth();
-    if (userId) {
+    const anonId = userId ? undefined : await getOrCreateAnonId();
+    const owner = userId || anonId;
+
+    if (owner) {
       const saved = await saveTradeSession({
-        userId,
+        userId: userId || undefined,
+        anonId,
         trades,
         analysis: response.analysis,
         context,
@@ -238,7 +244,7 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
         plan: 'free',
       });
       savedSessionId = saved?.id;
-      console.log(`Session saved to Supabase for user ${userId}`);
+      console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
       // Save per-trade AI analysis (non-blocking)
       if (savedSessionId && response.analysis?.trade_analyses) {
@@ -246,7 +252,7 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
           const ai = (response.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
           return ai ? { ...t, ...ai } : t;
         });
-        saveTradeAnalysis(savedSessionId, mergedTrades).catch(err =>
+        saveTradeAnalysis(savedSessionId, mergedTrades, anonId).catch(err =>
           console.error('Background trade analysis save error:', err)
         );
       }
@@ -254,7 +260,8 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
       // Save raw files in background (non-blocking)
       for (const file of files) {
         saveRawFile({
-          userId,
+          userId: userId || undefined,
+          anonId,
           fileName: file.name,
           fileType: file.type || getMediaType(file.name),
           fileSize: file.size,
@@ -340,12 +347,17 @@ Analyse EVERY trade.`;
   });
 
   // Helper: save session to Supabase (non-blocking)
+  // Saves for BOTH authenticated users and anonymous users
   const saveSession = async (responseObj: ReturnType<typeof buildResponse>) => {
     try {
       const { userId } = await auth();
-      if (userId) {
+      const anonId = userId ? undefined : await getOrCreateAnonId();
+      const owner = userId || anonId;
+
+      if (owner) {
         const saved = await saveTradeSession({
-          userId,
+          userId: userId || undefined,
+          anonId,
           trades,
           analysis: responseObj.analysis,
           context: context || {},
@@ -357,7 +369,7 @@ Analyse EVERY trade.`;
           },
           plan: 'free',
         });
-        console.log(`Session saved to Supabase for user ${userId}`);
+        console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
         // Save per-trade AI analysis (non-blocking)
         if (saved?.id && responseObj.analysis?.trade_analyses) {
@@ -365,7 +377,7 @@ Analyse EVERY trade.`;
             const ai = (responseObj.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
             return ai ? { ...t, ...ai } : t;
           });
-          saveTradeAnalysis(saved.id, mergedTrades).catch(err =>
+          saveTradeAnalysis(saved.id, mergedTrades, anonId).catch(err =>
             console.error('Background trade analysis save error:', err)
           );
         }
@@ -395,6 +407,7 @@ Analyse EVERY trade.`;
   if (analysis.trade_tags) {
     for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
       const i = parseInt(idx);
+
       if (trades[i]) { trades[i].tag = tag as string; trades[i].label = (tag as string).replace(/_/g, ' '); }
     }
   }
