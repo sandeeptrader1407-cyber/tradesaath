@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
  * Save per-trade AI analysis to the trade_analysis table.
  * Non-blocking — wrapped in try/catch, never throws.
  */
-export async function saveTradeAnalysis(sessionId: string, trades: any[]) {
+export async function saveTradeAnalysis(sessionId: string, trades: any[], anonId?: string) {
   if (!sessionId || !trades?.length) return
 
   try {
@@ -13,6 +13,7 @@ export async function saveTradeAnalysis(sessionId: string, trades: any[]) {
     const rows = trades.map((t: any, i: number) => ({
       session_id: sessionId,
       trade_index: i,
+      anon_id: anonId || null,
       symbol: t.symbol || null,
       side: t.side || null,
       entry_price: t.entry_price ?? null,
