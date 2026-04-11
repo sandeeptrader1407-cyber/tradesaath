@@ -84,7 +84,7 @@ export default function UploadPage() {
           <div className="rounded-xl border overflow-hidden" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
               <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Per-Trade Analysis</h2>
-              <span className="text-[10px] px-3 py-1 rounded-full font-bold" style={{ background: "rgba(62,232,196,.12)", color: "var(--accent)" }}>Trade 1 FREE</span>
+              <span className="text-[10px] px-3 py-1 rounded-full font-bold" style={{ background: "rgba(62,232,196,.12)", color: "var(--accent)" }}>First 3 FREE</span>
             </div>
             <div className="flex flex-col md:flex-row">
               <div className="w-full md:w-[320px] shrink-0">
@@ -106,7 +106,7 @@ export default function UploadPage() {
     <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: "var(--bg)" }}>
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
         <div className="text-center mb-2">
-          <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Upload Your Trades</h1>
+          <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Analyse Your Trades<span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, backgroundColor: 'rgba(62,232,196,0.1)', color: '#3ee8c4', border: '1px solid rgba(62,232,196,0.2)', marginLeft: 8, fontFamily: 'monospace', letterSpacing: 1, verticalAlign: 'middle' }}>FREE</span></h1>
           <p className="mt-2 text-base" style={{ color: "var(--text2)" }}>Drop your broker files and get AI-powered psychological analysis in seconds</p>
         </div>
         <AutoDetectBar />

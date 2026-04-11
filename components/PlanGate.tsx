@@ -44,7 +44,7 @@ function UpgradePrompt({ plan }: { plan: string }) {
       </h2>
       <p className="text-sm mb-5" style={{ color: 'var(--text2)' }}>
         {plan === 'pro'
-          ? 'AI Coach requires a Pro subscription. Upgrade to access daily, weekly, and monthly improvement plans.'
+          ? 'Saathi requires a Pro subscription. Upgrade to access daily, weekly, and monthly improvement plans.'
           : 'This feature requires a paid plan. Unlock with a Single Report or Pro subscription.'}
       </p>
       <a

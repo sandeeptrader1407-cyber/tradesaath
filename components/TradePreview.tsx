@@ -66,10 +66,10 @@ export default function TradePreview({ result, onConfirm, onReject }: TradePrevi
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,.03)' }}>
-                {['#', 'Date', 'Symbol', 'Type', 'Qty', 'Price', 'P&L'].map(h => (
+                {['#', 'Date', 'Symbol', 'Type', 'Qty', 'Price', 'Gross P&L'].map(h => (
                   <th key={h} style={{
                     padding: '8px 10px',
-                    textAlign: h === '#' || h === 'Qty' || h === 'Price' || h === 'P&L' ? 'right' : 'left',
+                    textAlign: h === '#' || h === 'Qty' || h === 'Price' || h === 'Gross P&L' ? 'right' : 'left',
                     fontWeight: 700,
                     fontSize: 10,
                     color: 'var(--muted)',

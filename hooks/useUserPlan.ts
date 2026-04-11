@@ -19,7 +19,7 @@ export interface UserPlan {
 }
 
 const TRADE_LIMITS: Record<PlanId, number> = {
-  free: 1,
+  free: 3,
   single: 99,
   pro_monthly: 99,
   pro_yearly: 99,

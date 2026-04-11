@@ -68,12 +68,12 @@ function NavLinks() {
 
     return (
       <>
-        <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>Dashboard</Link>
+        <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>{'\uD83D\uDCCA'} Dashboard</Link>
         <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
-          Journal{!isPaid && ' \uD83D\uDD12'}
+          {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
         </Link>
         <Link href={isPro ? '/coach' : '#'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50' : ''}`}>
-          AI Coach{!isPro && ' \uD83D\uDD12'}
+          {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
         </Link>
       </>
     )
@@ -110,12 +110,12 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 
     return (
       <>
-        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">Dashboard</Link>
+        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCCA'} Dashboard</Link>
         <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
-          Journal{!isPaid && ' \uD83D\uDD12'}
+          {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
         </Link>
         <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>
-          AI Coach{!isPro && ' \uD83D\uDD12'}
+          {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
         </Link>
       </>
     )
@@ -135,7 +135,7 @@ function LogoLink() {
   // Per V12 spec: logo always goes to landing page (goHome behavior)
   return (
     <Link className="nav-logo" href="/">
-      <div className="nav-logo-dot"></div>TradeSaath
+      <div className="nav-logo-dot"></div>TradeSaath<span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#3ee8c4', marginLeft: 6, animation: 'pulse-dot 2s ease-in-out infinite', verticalAlign: 'middle' }} />
     </Link>
   )
 }
@@ -168,6 +168,7 @@ export default function Navbar() {
 
   return (
     <>
+      <style>{`@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }`}</style>
       <nav>
         <LogoLink />
         <div className="nav-links">

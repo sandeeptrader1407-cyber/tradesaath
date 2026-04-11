@@ -16,7 +16,7 @@ function parseMarkdownBold(text: string) {
   });
 }
 
-export default function TradeDetail({ activeTrade, freeLimit = 1 }: TradeDetailProps) {
+export default function TradeDetail({ activeTrade, freeLimit = 3 }: TradeDetailProps) {
   const { trades } = useAnalysisStore();
   const [expandedTradeIndex, setExpandedTradeIndex] = useState<number>(0);
   const [deepDiveOpen, setDeepDiveOpen] = useState<Record<number, boolean>>({});
@@ -186,7 +186,7 @@ export default function TradeDetail({ activeTrade, freeLimit = 1 }: TradeDetailP
                     <div className="text-sm font-jetbrains-mono font-bold text-[var(--text)]">{trade.quantity}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Net P&L</div>
+                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Gross P&L</div>
                     <div className={`text-sm font-jetbrains-mono font-bold ${trade.pnl >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
                       {formatPnl(trade.pnl)}
                     </div>
@@ -233,7 +233,7 @@ export default function TradeDetail({ activeTrade, freeLimit = 1 }: TradeDetailP
                 </div>
 
                 {trade.quick_summary && (
-                  <div className="pl-4 py-3 mb-4 border-l-4 border-[var(--accent)] bg-[var(--s2)] rounded-r-lg">
+                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #5b8def', backgroundColor: 'rgba(91,141,239,0.06)', padding: 12, borderRadius: 8 }}>
                     <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\u2713"} Quick Summary</h3>
                     <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.quick_summary)}</div>
                     {trade.cycle_stage && (
@@ -245,14 +245,14 @@ export default function TradeDetail({ activeTrade, freeLimit = 1 }: TradeDetailP
                 )}
 
                 {trade.psychology_coaching && (
-                  <div className="pl-4 py-3 mb-4 border-l-4 border-[var(--purple)]">
+                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #9d7af7', backgroundColor: 'rgba(157,122,247,0.06)', padding: 12, borderRadius: 8 }}>
                     <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83E\uDDE0"} Psychology Coaching</h3>
                     <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.psychology_coaching)}</div>
                   </div>
                 )}
 
                 {trade.counterfactual && (
-                  <div className="pl-4 py-3 mb-4 border-l-4 border-[var(--accent)]">
+                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #3ee8c4', backgroundColor: 'rgba(62,232,196,0.06)', padding: 12, borderRadius: 8 }}>
                     <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83D\uDD04"} What You Should Have Done</h3>
                     <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.counterfactual)}</div>
                   </div>
@@ -271,7 +271,7 @@ export default function TradeDetail({ activeTrade, freeLimit = 1 }: TradeDetailP
 
                 {isDeepDive && trade.technical_analysis && (
                   <div className="space-y-4 mt-4 pt-4 border-t border-[var(--border)]">
-                    <div className="pl-4 py-3 border-l-4 border-[#5b8def]">
+                    <div className="pl-4 py-3 rounded-lg" style={{ borderLeft: '3px solid #5b8def', backgroundColor: 'rgba(91,141,239,0.06)', padding: 12, borderRadius: 8 }}>
                       <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83D\uDCCA"} Technical Analysis</h3>
                       <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.technical_analysis)}</div>
                     </div>

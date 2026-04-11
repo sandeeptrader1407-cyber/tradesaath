@@ -98,11 +98,11 @@ export default function CoachPage() {
         <div className="wrap" style={{ maxWidth: 600 }}>
           <div className="card" style={{ textAlign: 'center', padding: 48 }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>AI Coach</h2>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Saathi</h2>
             <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 8 }}>
               {plan === 'single'
                 ? 'Your Single Report plan gives you full trade analysis. Upgrade to Pro for personalized AI coaching with daily, weekly, monthly, and quarterly improvement plans.'
-                : 'AI Coach is a Pro feature. Get personalized daily reviews, weekly patterns, monthly progress, and quarterly strategy insights.'}
+                : 'Saathi is a Pro feature. Get personalised daily reviews, weekly patterns, monthly progress, and quarterly strategy insights.'}
             </p>
             <div style={{
               padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block',
@@ -126,7 +126,7 @@ export default function CoachPage() {
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600, textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>AI Coach</h2>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Saathi</h2>
           <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 20 }}>
             Upload your first trading session to unlock personalized AI coaching — daily reviews, weekly patterns, monthly progress, and quarterly strategy insights.
           </p>
@@ -193,7 +193,7 @@ export default function CoachPage() {
       <div className="wrap" style={{ maxWidth: 800 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28 }}>AI Coach</h2>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28 }}>Saathi</h2>
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>Personalized psychology coaching based on your trading data</div>
           </div>
           <span className="badge badge-free" style={{ background: 'rgba(157,122,247,.1)', color: 'var(--purple)' }}>PRO</span>

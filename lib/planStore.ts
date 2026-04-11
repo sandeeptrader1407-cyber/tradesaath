@@ -24,7 +24,7 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
 
   tradeLimit: () => {
     const p = get().plan
-    if (p === 'free') return 1
+    if (p === 'free') return 3
     return 99 // single, pro_monthly, pro_yearly all get full access
   },
 }))

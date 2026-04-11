@@ -14,7 +14,7 @@ export default function KPIStrip() {
   const fmtAbs = (val: number) => `₹${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
 
   const metrics = [
-    { label: 'Net P&L', value: fmt(kpis.net_pnl), pos: kpis.net_pnl >= 0 },
+    { label: 'Gross P&L', value: fmt(kpis.net_pnl), pos: kpis.net_pnl >= 0 },
     { label: 'Trades', value: String(kpis.total_trades), pos: true },
     { label: 'Winners', value: String(kpis.wins), pos: true },
     { label: 'Losers', value: String(kpis.losses), pos: false },
@@ -28,6 +28,14 @@ export default function KPIStrip() {
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-base font-fraunces text-[var(--text)]">
+          📊 Session KPIs
+        </h2>
+        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
+          FREE
+        </span>
+      </div>
       {/* Main KPI row */}
       <div className="overflow-x-auto">
         <div className="flex flex-nowrap gap-3 pb-2">
@@ -41,6 +49,8 @@ export default function KPIStrip() {
           ))}
         </div>
       </div>
+
+      <div className="text-[10px] text-[var(--muted)] mt-[-4px]">Excludes brokerage, STT &amp; other charges</div>
 
       {/* Gross Profit / Gross Loss row */}
       <div className="grid grid-cols-2 gap-3">

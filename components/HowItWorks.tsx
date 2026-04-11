@@ -64,10 +64,10 @@ export default function HowItWorks() {
             </div>
             <div className="how-step-body">
               <div className="how-step-tag" style={{ color: '#a78bfa', background: 'rgba(139,92,246,.1)', borderColor: 'rgba(139,92,246,.25)' }}>Analyse Free</div>
-              <h3 className="how-step-title">Instant P&amp;L + Vicious Cycle + 1 deep trade</h3>
-              <p className="how-step-desc">Your session KPIs, the 10-stage Vicious Cycle breakdown, and one complete trade analysis with technical entry review, mindset coaching, and counterfactual scenario — all free, no login.</p>
+              <h3 className="how-step-title">Instant Gross P&amp;L + Vicious Cycle + 3 deep trades</h3>
+              <p className="how-step-desc">Your session KPIs, the 10-stage Vicious Cycle breakdown, and three complete trade analyses with technical entry review, mindset coaching, and counterfactual scenarios — all free, no login.</p>
               <div className="how-result-preview">
-                <div className="hrp-item hrp-green"><span>✓</span>Net P&amp;L calculated</div>
+                <div className="hrp-item hrp-green"><span>✓</span>Gross P&amp;L calculated</div>
                 <div className="hrp-item hrp-purple"><span>🔁</span>Cycle stage detected</div>
                 <div className="hrp-item hrp-blue"><span>📊</span>Price Action &middot; Structure</div>
                 <div className="hrp-item hrp-gold"><span>🧠</span>Mindset coaching</div>
@@ -114,6 +114,21 @@ export default function HowItWorks() {
             </div>
           </div>
 
+        </div>
+
+        {/* Social proof bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 32, flexWrap: 'wrap' }}>
+          {[
+            { icon: '🔒', text: 'Your data never stored' },
+            { icon: '⚡', text: 'Results in ~30 seconds' },
+            { icon: '🎯', text: '10-stage psychology framework' },
+            { icon: '🆓', text: 'First 3 trades free, no login' },
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)' }}>
+              <span>{item.icon}</span>
+              <span>{item.text}</span>
+            </div>
+          ))}
         </div>
       </div>
     </section>
