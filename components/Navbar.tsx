@@ -10,6 +10,7 @@ import {
   useUser,
 } from '@clerk/nextjs'
 import ClerkErrorBoundary from './ClerkErrorBoundary'
+import { usePlan } from '@/lib/hooks/usePlan'
 
 function ClerkAuthButtons() {
   const { isSignedIn, isLoaded } = useUser()
@@ -49,23 +50,11 @@ function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
 function NavLinks() {
   const { isSignedIn, isLoaded } = useUser()
   const pathname = usePathname()
-  const [userPlan, setUserPlan] = useState<string>('free')
-
-  useEffect(() => {
-    if (isSignedIn) {
-      fetch('/api/user/plan')
-        .then(r => r.json())
-        .then(d => setUserPlan(d.plan || 'free'))
-        .catch(() => {})
-    }
-  }, [isSignedIn])
+  const { isPro, isPaid } = usePlan()
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
-    const isPro = userPlan === 'pro_monthly' || userPlan === 'pro_yearly'
-    const isPaid = userPlan !== 'free'
-
     return (
       <>
         <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>{'\uD83D\uDCCA'} Dashboard</Link>
@@ -91,23 +80,11 @@ function NavLinks() {
 
 function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
   const { isSignedIn, isLoaded } = useUser()
-  const [userPlan, setUserPlan] = useState<string>('free')
-
-  useEffect(() => {
-    if (isSignedIn) {
-      fetch('/api/user/plan')
-        .then(r => r.json())
-        .then(d => setUserPlan(d.plan || 'free'))
-        .catch(() => {})
-    }
-  }, [isSignedIn])
+  const { isPro, isPaid } = usePlan()
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
-    const isPro = userPlan === 'pro_monthly' || userPlan === 'pro_yearly'
-    const isPaid = userPlan !== 'free'
-
     return (
       <>
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCCA'} Dashboard</Link>
