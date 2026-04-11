@@ -121,29 +121,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid tab' }, { status: 400 })
     }
 
-    // Fetch user's sessions
-    const { data: sessions } = await supabaseAdmin
-      .from('sessions')
-      .select('*')
-      .eq('clerk_id', clerkId)
+    // Fetch user's sessions from trade_sessions (where saveTradeSession writes)
+    const { data: rawSessions } = await supabaseAdmin
+      .from('trade_sessions')
+      .select('id, created_at, trade_count, net_pnl, win_rate, trades, analysis')
+      .eq('user_id', clerkId)
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (!sessions || sessions.length === 0) {
+    if (!rawSessions || rawSessions.length === 0) {
       return NextResponse.json({ error: 'No sessions found. Upload trades first.' }, { status: 404 })
     }
 
+    // Map fields for consistent access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessions = rawSessions.map((s: any) => ({
+      ...s,
+      total_pnl: s.net_pnl || 0,
+      dqs_score: s.analysis?.dqs?.score || s.analysis?.dqsScore || 0,
+    }))
+
     // Build data summary for Claude
-    const totalTrades = sessions.reduce((s, sess) => s + (sess.trade_count || 0), 0)
-    const totalPnl = sessions.reduce((s, sess) => s + (sess.total_pnl || 0), 0)
-    const avgWr = sessions.reduce((s, sess) => s + (sess.win_rate || 0), 0) / sessions.length
-    const avgDqs = sessions.reduce((s, sess) => s + (sess.dqs_score || 0), 0) / sessions.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalTrades = sessions.reduce((s: number, sess: any) => s + (sess.trade_count || 0), 0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalPnl = sessions.reduce((s: number, sess: any) => s + (sess.total_pnl || 0), 0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const avgWr = sessions.reduce((s: number, sess: any) => s + (sess.win_rate || 0), 0) / sessions.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const avgDqs = sessions.reduce((s: number, sess: any) => s + (sess.dqs_score || 0), 0) / sessions.length
 
     // Aggregate patterns
     const tags: Record<string, number> = {}
     const costs: Record<string, number> = {}
     for (const sess of sessions) {
-      const analysis = sess.analysis as { perTrade?: { tag: string }[]; patterns?: { name: string; costInRupees: number }[] } | null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const analysis = (sess as any).analysis as { perTrade?: { tag: string }[]; patterns?: { name: string; costInRupees: number }[] } | null
       if (analysis?.perTrade) {
         for (const pt of analysis.perTrade) {
           tags[pt.tag] = (tags[pt.tag] || 0) + 1
