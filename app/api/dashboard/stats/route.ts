@@ -1,12 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    // Fallback: migrate anon data if cookie still exists
+    const anonId = req.cookies.get('tradesaath_anon_id')?.value
+    if (anonId) {
+      try {
+        await migrateAnonToUser(anonId, userId)
+      } catch { /* non-blocking */ }
     }
 
     const { data: sessions } = await supabaseAdmin
@@ -135,7 +144,7 @@ export async function GET() {
       if (dd > maxDrawdown) maxDrawdown = dd
     }
 
-    return NextResponse.json({
+    const statsResponse = NextResponse.json({
       hasData: true,
       sessionCount: sessions.length,
       totalTrades: sessions.reduce((s, x) => s + (x.trade_count || 0), 0),
@@ -175,6 +184,19 @@ export async function GET() {
         avgLossAvgWin: avgWin > 0 ? (avgLoss / avgWin).toFixed(2) : '0',
       },
     })
+
+    // Clear anon cookie if it was migrated
+    if (anonId) {
+      statsResponse.cookies.set('tradesaath_anon_id', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+    }
+
+    return statsResponse
   } catch (err) {
     console.error('Dashboard stats error:', err)
     return NextResponse.json(
