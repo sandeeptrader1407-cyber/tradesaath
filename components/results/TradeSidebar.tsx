@@ -11,7 +11,7 @@ interface TradeSidebarProps {
   freeLimit?: number;
 }
 
-export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1 }: TradeSidebarProps) {
+export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3 }: TradeSidebarProps) {
   const { trades } = useAnalysisStore();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
@@ -75,6 +75,14 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
           </span>
         </h2>
 
+        {/* Running P&L */}
+        <div style={{ padding: '8px 12px', marginBottom: 8, borderRadius: 8, backgroundColor: 'rgba(62,232,196,0.06)', border: '1px solid rgba(62,232,196,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase', opacity: 0.6 }}>Running P&L</span>
+          <span style={{ fontSize: 16, fontWeight: 600, fontFamily: 'monospace', color: cumulativePnl >= 0 ? '#36d399' : '#f05d6c' }}>
+            {cumulativePnl >= 0 ? '+' : ''}{typeof cumulativePnl === 'number' ? cumulativePnl.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }) : '₹0'}
+          </span>
+        </div>
+
         {/* Filter tabs */}
         <div className="flex gap-2 flex-wrap">
           {(['all', 'buy', 'sell', 'wins', 'losses'] as FilterType[]).map((filter) => (
@@ -90,18 +98,6 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 1
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Running P&L ticker */}
-      <div className="px-5 py-3 bg-[var(--s2)] border-b border-[var(--border)]">
-        <div className="text-xs text-[var(--muted)] mb-1">Visible P&L</div>
-        <div
-          className={`font-jetbrains-mono font-bold text-lg ${
-            cumulativePnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'
-          }`}
-        >
-          {formatPnl(cumulativePnl)}
         </div>
       </div>
 

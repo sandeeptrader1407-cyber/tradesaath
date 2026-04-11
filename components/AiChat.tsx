@@ -73,7 +73,7 @@ export default function AiChat() {
           topPattern: patternEntries[0]?.[0] || null,
         })
 
-        const ctx = `Last ${recent.length} sessions: Net P&L ₹${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
+        const ctx = `Last ${recent.length} sessions: Gross P&L ₹${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
         setTradeContext(ctx)
       })
       .catch(() => { /* silently fail */ })
@@ -148,7 +148,7 @@ export default function AiChat() {
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>TradeSaath AI</div>
-                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online · Trading Psychology Coach</div>
+                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online · Your Trading Saathi</div>
               </div>
             </div>
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>
@@ -174,7 +174,7 @@ export default function AiChat() {
               }}>
                 <span><span style={{ color: 'var(--muted)' }}>SESSIONS</span> <strong style={{ color: 'var(--text)' }}>{sessionCount}</strong></span>
                 <span style={{ color: 'var(--border)' }}>·</span>
-                <span><span style={{ color: 'var(--muted)' }}>P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
+                <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
                 <span style={{ color: 'var(--border)' }}>·</span>
                 <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
                 <span style={{ color: 'var(--border)' }}>·</span>

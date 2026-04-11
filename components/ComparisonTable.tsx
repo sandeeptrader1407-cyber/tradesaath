@@ -1,7 +1,7 @@
 const rows = [
-  { feature: 'Session P&L & KPIs', free: <span className="vs-yes">✓ All trades</span>, single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓</span> },
+  { feature: 'Gross P&L & KPIs', free: <span className="vs-yes">✓ All trades</span>, single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓</span> },
   { feature: 'Vicious Cycle Detection', free: <span className="vs-yes">✓</span>, single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓</span> },
-  { feature: 'Per-Trade Psychology', free: '1 trade', single: <span className="vs-yes">✓ All trades</span>, pro: <span className="vs-yes">✓ All trades</span> },
+  { feature: 'Per-Trade Psychology', free: '3 trades', single: <span className="vs-yes">✓ All trades</span>, pro: <span className="vs-yes">✓ All trades</span> },
   { feature: 'Technical Analysis', free: 'Basic insights', single: <span className="vs-yes">✓ Deep</span>, pro: <span className="vs-yes">✓ Deep</span> },
   { feature: 'Counterfactual Scenarios', free: <span className="vs-no">✗</span>, single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓</span> },
   { feature: 'Trade Notes', free: <span className="vs-no">✗</span>, single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓</span> },
@@ -9,7 +9,7 @@ const rows = [
   { feature: 'Trading Journey Profiling', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
   { feature: 'Pattern Intelligence', free: <span className="vs-no">✗</span>, single: 'Basic', pro: <span className="vs-yes">✓ Advanced</span> },
   { feature: 'Pro Dashboard', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
-  { feature: 'AI Coach (Daily/Weekly/Monthly Plans)', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
+  { feature: 'Saathi (Daily/Weekly/Monthly Plans)', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
   { feature: 'Personal AI Chatbot', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
   { feature: 'TradeSaath Score Benchmark', free: 'Basic', single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓ + Rank</span> },
   { feature: 'Cross-User Pattern Insights', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓ AI-powered</span> },

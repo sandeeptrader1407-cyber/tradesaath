@@ -10,7 +10,7 @@ const steps = [
   },
   {
     icon: '🟠',
-    title: 'A Coach, Not a Scorecard',
+    title: 'A Saathi, Not a Scorecard',
     desc: 'We won\u2019t just show you red and green numbers. For every trade, you\u2019ll get honest, specific coaching \u2014 what worked, what didn\u2019t, and exactly what to do differently next time.',
   },
   {

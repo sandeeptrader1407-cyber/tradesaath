@@ -71,9 +71,9 @@ export default function Pricing() {
             <div className="plan-billed">Always free &middot; no account needed</div>
             <a href="/upload" className="btn btn-ghost plan-cta">Start Free &rarr;</a>
             <ul className="plan-feats">
-              <li>Session P&amp;L &amp; KPIs</li>
+              <li>Gross P&amp;L &amp; KPIs</li>
               <li>Vicious Cycle detection</li>
-              <li>1 trade full psychology</li>
+              <li>3 trades full psychology</li>
               <li>Free technical insights</li>
               <li className="no">Per-trade TA &amp; coaching</li>
               <li className="no">Journal &amp; history</li>
@@ -104,7 +104,8 @@ export default function Pricing() {
           </div>
 
           {/* Pro */}
-          <div className="plan-card featured">
+          <div className="plan-card featured" style={{ position: 'relative', border: '2px solid #3ee8c4' }}>
+            <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#f0b429', color: '#071a15', fontSize: 10, fontWeight: 600, padding: '3px 12px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'monospace', whiteSpace: 'nowrap', zIndex: 1 }}>Most Popular</div>
             <div className="plan-name">Pro</div>
             {!yearly ? (
               <>
@@ -134,7 +135,7 @@ export default function Pricing() {
               <li>Trading Journey profiling</li>
               <li>Pattern intelligence alerts</li>
               <li><strong style={{ color: 'var(--accent)' }}>📊 Pro Dashboard</strong></li>
-              <li><strong style={{ color: 'var(--accent)' }}>🗺 AI Coach (daily/weekly/monthly plans)</strong></li>
+              <li><strong style={{ color: 'var(--accent)' }}>🗺 Saathi (daily/weekly/monthly plans)</strong></li>
               <li><strong style={{ color: 'var(--accent)' }}>💬 Personal AI Chatbot</strong></li>
               <li>Priority support</li>
             </ul>
