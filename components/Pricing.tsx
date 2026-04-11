@@ -1,14 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useRazorpay } from '@/hooks/useRazorpay'
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const { pay, loading: payLoading, testMode } = useRazorpay()
+  const { isSignedIn } = useUser()
 
   function handleBuy(plan: string) {
+    if (!isSignedIn) {
+      window.location.href = '/sign-in'
+      return
+    }
     setPayError(null)
     pay({
       plan,
