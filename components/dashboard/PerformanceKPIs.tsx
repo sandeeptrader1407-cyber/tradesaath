@@ -17,7 +17,7 @@ export default function PerformanceKPIs({ month, score }: Props) {
   }
 
   const kpis = [
-    { label: "This Month P&L", value: fmt(month.pnl), pos: month.pnl >= 0 },
+    { label: "This Month Gross P&L", value: fmt(month.pnl), pos: month.pnl >= 0 },
     { label: "Win Rate", value: month.winRate + "%", pos: month.winRate >= 50 },
     { label: "Success Rate", value: month.successRate + "%", pos: month.successRate >= 50 },
     { label: "Risk:Reward", value: month.riskReward, pos: parseFloat(month.riskReward) >= 1 },
