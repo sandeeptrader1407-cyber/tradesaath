@@ -4,6 +4,7 @@ export const maxDuration = 90;
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession } from '@/lib/supabase/saveTrades';
+import { saveRawFile } from '@/lib/supabase/saveFile';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
@@ -218,10 +219,11 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
   };
 
   // Save session to Supabase (non-blocking — don't fail analysis if save fails)
+  let savedSessionId: string | undefined;
   try {
     const { userId } = await auth();
     if (userId) {
-      await saveTradeSession({
+      const saved = await saveTradeSession({
         userId,
         trades,
         analysis: response.analysis,
@@ -234,7 +236,22 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
         },
         plan: 'free',
       });
+      savedSessionId = saved?.id;
       console.log(`Session saved to Supabase for user ${userId}`);
+
+      // Save raw files in background (non-blocking)
+      for (const file of files) {
+        saveRawFile({
+          userId,
+          fileName: file.name,
+          fileType: file.type || getMediaType(file.name),
+          fileSize: file.size,
+          fileBuffer: Buffer.from(await file.arrayBuffer()),
+          sessionId: savedSessionId,
+          brokerDetected: extracted.detected_broker || 'Unknown',
+          tradesCount: trades.length,
+        }).catch(err => console.error('Background file save error:', err));
+      }
     }
   } catch (e) {
     console.error('Session save failed (non-blocking):', e);
