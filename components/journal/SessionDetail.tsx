@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+
 interface Trade {
   entry_time: string
   symbol: string
@@ -7,6 +9,12 @@ interface Trade {
   quantity: number
   pnl: number
   tag?: string
+  tag_label?: string
+  quick_summary?: string
+  psychology_coaching?: string
+  counterfactual?: string
+  technical_analysis?: string
+  cycle_stage?: string
 }
 
 interface Session {
@@ -24,6 +32,8 @@ interface Props {
 }
 
 export default function SessionDetail({ session }: Props) {
+  const [expandedTrade, setExpandedTrade] = useState<number | null>(null)
+
   if (!session) {
     return (
       <div className="flex items-center justify-center h-full py-20">
@@ -103,8 +113,12 @@ export default function SessionDetail({ session }: Props) {
                   }}
                 />
 
-                <div className="rounded-lg border p-3 ml-2" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
+                <div
+                  className="rounded-lg border ml-2 cursor-pointer transition-all"
+                  style={{ background: "var(--s1)", borderColor: expandedTrade === idx ? "var(--accent)" : "var(--border)" }}
+                  onClick={() => setExpandedTrade(expandedTrade === idx ? null : idx)}
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-2 p-3">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-jetbrains-mono" style={{ color: "var(--muted)" }}>
                         {trade.entry_time || `#${idx + 1}`}
@@ -124,14 +138,63 @@ export default function SessionDetail({ session }: Props) {
                     <div className="flex items-center gap-2">
                       {trade.tag && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: tagStyle.bg, color: tagStyle.color }}>
-                          {trade.tag}
+                          {trade.tag_label || trade.tag}
                         </span>
                       )}
                       <span className="text-xs font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>
                         {fmt(trade.pnl)}
                       </span>
+                      <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                        {expandedTrade === idx ? "\u25B2" : "\u25BC"}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Quick summary always visible if available */}
+                  {trade.quick_summary && expandedTrade !== idx && (
+                    <div className="px-3 pb-2">
+                      <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>
+                        {trade.quick_summary}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Expanded AI Analysis */}
+                  {expandedTrade === idx && (trade.psychology_coaching || trade.technical_analysis || trade.counterfactual) && (
+                    <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "var(--border)" }}>
+                      {trade.quick_summary && (
+                        <div className="pt-3">
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--accent)" }}>Summary</p>
+                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.quick_summary}</p>
+                        </div>
+                      )}
+                      {trade.psychology_coaching && (
+                        <div>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--gold)" }}>🧠 Psychology Coaching</p>
+                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.psychology_coaching}</p>
+                        </div>
+                      )}
+                      {trade.technical_analysis && (
+                        <div>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--blue, #60a5fa)" }}>📊 Technical Analysis</p>
+                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.technical_analysis}</p>
+                        </div>
+                      )}
+                      {trade.counterfactual && (
+                        <div>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--green)" }}>💡 What If</p>
+                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.counterfactual}</p>
+                        </div>
+                      )}
+                      {trade.cycle_stage && (
+                        <div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--s3)", color: "var(--text2)" }}>
+                            Cycle: {trade.cycle_stage}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )
