@@ -316,8 +316,8 @@ function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
 
     // FIFO matching: match buy qty with sell qty in chronological order
     // Track remaining qty for each order
-    const buyQ = buys.map(b => ({ ...b, remaining: b.qty || 0 }));
-    const sellQ = sells.map(s => ({ ...s, remaining: s.qty || 0 }));
+    const buyQ: (AnyRow & { remaining: number })[] = buys.map(b => ({ ...b, remaining: b.qty || 0 }));
+    const sellQ: (AnyRow & { remaining: number })[] = sells.map(s => ({ ...s, remaining: s.qty || 0 }));
 
     let bi = 0, si = 0;
     while (bi < buyQ.length && si < sellQ.length) {
