@@ -12,6 +12,9 @@ import SummaryCards from "@/components/dashboard/SummaryCards"
 import BehavioralInsights from "@/components/dashboard/BehavioralInsights"
 import GoalTracking from "@/components/dashboard/GoalTracking"
 import RecentActivity from "@/components/dashboard/RecentActivity"
+import PerformanceHeatmap from "@/components/dashboard/PerformanceHeatmap"
+import MistakeCostCalculator from "@/components/dashboard/MistakeCostCalculator"
+import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
 import { ChatWrapper } from "@/components/chat/ChatWrapper"
 
 interface DashStats {
@@ -171,6 +174,13 @@ export default function DashboardPage() {
             <BehavioralInsights sessionCount={stats.sessionCount} />
             <GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} />
             <RecentActivity recentTrades={[]} recentSessions={[]} />
+
+            {/* Pro Analytics Section */}
+            <PerformanceHeatmap trades={[]} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <MistakeCostCalculator />
+              <DecisionQualityScore />
+            </div>
           </>
         )}
       </div>
