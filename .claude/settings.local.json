@@ -84,7 +84,9 @@
       "Bash(rm -rf app/api/parse)",
       "Bash(rm -rf lib/parsers)",
       "Bash(rm -rf components/PreviewTable.tsx components/ColumnMapper.tsx)",
-      "Bash(grep -E \"\\\\.tsx?$\")"
+      "Bash(grep -E \"\\\\.tsx?$\")",
+      "Bash(del /f \"C:\\\\Users\\\\SK\\\\Desktop\\\\tradesaath\\\\.git\\\\index.lock\")",
+      "Bash(rm -f \"C:/Users/SK/Desktop/tradesaath/.git/index.lock\")"
     ]
   }
 }
