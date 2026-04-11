@@ -4,23 +4,37 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) {
+    const { userId } = await auth()
+    if (!userId) {
       return NextResponse.json({ sessions: [] })
     }
 
+    // Query trade_sessions (the table saveTradeSession writes to)
     const { data, error } = await supabaseAdmin
-      .from('sessions')
-      .select('*')
-      .eq('clerk_id', clerkId)
+      .from('trade_sessions')
+      .select('id, created_at, trade_count, net_pnl, win_rate, trades, analysis')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
+      .limit(50)
 
     if (error) {
       console.error('Sessions fetch error:', error)
       return NextResponse.json({ sessions: [] })
     }
 
-    return NextResponse.json({ sessions: data || [] })
+    // Map fields to match the coach page's Session interface
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = (data || []).map((s: any) => ({
+      id: s.id,
+      created_at: s.created_at,
+      total_pnl: s.net_pnl || 0,
+      trade_count: s.trade_count || 0,
+      win_rate: s.win_rate || 0,
+      dqs_score: s.analysis?.dqs?.score || s.analysis?.dqsScore || 0,
+      analysis: s.analysis || null,
+    }))
+
+    return NextResponse.json({ sessions: mapped })
   } catch (err) {
     console.error('Sessions API error:', err)
     return NextResponse.json({ sessions: [] })
