@@ -10,6 +10,8 @@ import PerformanceKPIs from "@/components/dashboard/PerformanceKPIs"
 import DashboardEquityCurve from "@/components/dashboard/DashboardEquityCurve"
 import SummaryCards from "@/components/dashboard/SummaryCards"
 import BehavioralInsights from "@/components/dashboard/BehavioralInsights"
+import GoalTracking from "@/components/dashboard/GoalTracking"
+import RecentActivity from "@/components/dashboard/RecentActivity"
 import { ChatWrapper } from "@/components/chat/ChatWrapper"
 
 interface DashStats {
@@ -167,6 +169,8 @@ export default function DashboardPage() {
             <DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} />
             <SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} />
             <BehavioralInsights sessionCount={stats.sessionCount} />
+            <GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} />
+            <RecentActivity recentTrades={[]} recentSessions={[]} />
           </>
         )}
       </div>
