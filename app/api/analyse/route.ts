@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession } from '@/lib/supabase/saveTrades';
 import { saveRawFile } from '@/lib/supabase/saveFile';
+import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
@@ -239,6 +240,17 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
       savedSessionId = saved?.id;
       console.log(`Session saved to Supabase for user ${userId}`);
 
+      // Save per-trade AI analysis (non-blocking)
+      if (savedSessionId && response.analysis?.trade_analyses) {
+        const mergedTrades = trades.map((t: any, i: number) => {
+          const ai = (response.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
+          return ai ? { ...t, ...ai } : t;
+        });
+        saveTradeAnalysis(savedSessionId, mergedTrades).catch(err =>
+          console.error('Background trade analysis save error:', err)
+        );
+      }
+
       // Save raw files in background (non-blocking)
       for (const file of files) {
         saveRawFile({
@@ -332,7 +344,7 @@ Analyse EVERY trade.`;
     try {
       const { userId } = await auth();
       if (userId) {
-        await saveTradeSession({
+        const saved = await saveTradeSession({
           userId,
           trades,
           analysis: responseObj.analysis,
@@ -346,6 +358,17 @@ Analyse EVERY trade.`;
           plan: 'free',
         });
         console.log(`Session saved to Supabase for user ${userId}`);
+
+        // Save per-trade AI analysis (non-blocking)
+        if (saved?.id && responseObj.analysis?.trade_analyses) {
+          const mergedTrades = trades.map((t: any, i: number) => {
+            const ai = (responseObj.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
+            return ai ? { ...t, ...ai } : t;
+          });
+          saveTradeAnalysis(saved.id, mergedTrades).catch(err =>
+            console.error('Background trade analysis save error:', err)
+          );
+        }
       }
     } catch (e) {
       console.error('Session save failed (non-blocking):', e);

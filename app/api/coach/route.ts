@@ -151,20 +151,62 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const avgDqs = sessions.reduce((s: number, sess: any) => s + (sess.dqs_score || 0), 0) / sessions.length
 
-    // Aggregate patterns
+    // Aggregate patterns from analysis.trade_analyses and legacy fields
     const tags: Record<string, number> = {}
     const costs: Record<string, number> = {}
+    const cycleStages: Record<string, number> = {}
     for (const sess of sessions) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const analysis = (sess as any).analysis as { perTrade?: { tag: string }[]; patterns?: { name: string; costInRupees: number }[] } | null
+      const analysis = (sess as any).analysis as any
+      // New format: trade_analyses array
+      if (analysis?.trade_analyses) {
+        for (const ta of analysis.trade_analyses) {
+          if (ta.tag) tags[ta.tag] = (tags[ta.tag] || 0) + 1
+          if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
+        }
+      }
+      // Legacy format: perTrade
       if (analysis?.perTrade) {
         for (const pt of analysis.perTrade) {
           tags[pt.tag] = (tags[pt.tag] || 0) + 1
         }
       }
+      if (analysis?.mistake_patterns) {
+        for (const p of analysis.mistake_patterns) {
+          costs[p.name] = (costs[p.name] || 0) + (p.cost || 0)
+        }
+      }
       if (analysis?.patterns) {
         for (const p of analysis.patterns) {
           costs[p.name] = (costs[p.name] || 0) + (p.costInRupees || 0)
+        }
+      }
+    }
+
+    // Fetch per-trade analysis for recent sessions (richer coaching context)
+    const recentSessionIds = sessions.slice(0, 5).map((s: any) => s.id)
+    let tradeInsightsSummary = ''
+    if (recentSessionIds.length > 0) {
+      const { data: tradeAnalyses } = await supabaseAdmin
+        .from('trade_analysis')
+        .select('session_id, tag, psychology_coaching, cycle_stage, pnl')
+        .in('session_id', recentSessionIds)
+        .order('trade_index', { ascending: true })
+
+      if (tradeAnalyses && tradeAnalyses.length > 0) {
+        // Aggregate from trade_analysis table
+        for (const ta of tradeAnalyses) {
+          if (ta.tag) tags[ta.tag] = (tags[ta.tag] || 0) + 1
+          if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
+        }
+        // Pick top psychology coaching insights (biggest losses)
+        const worstTrades = tradeAnalyses
+          .filter((t: any) => t.psychology_coaching && t.pnl < 0)
+          .sort((a: any, b: any) => (a.pnl || 0) - (b.pnl || 0))
+          .slice(0, 3)
+        if (worstTrades.length > 0) {
+          tradeInsightsSummary = '\n\nKEY PSYCHOLOGY INSIGHTS FROM RECENT LOSING TRADES:\n' +
+            worstTrades.map((t: any) => `- [₹${t.pnl}] ${t.psychology_coaching}`).join('\n')
         }
       }
     }
@@ -175,9 +217,10 @@ export async function POST(req: NextRequest) {
 - Net P&L: ₹${totalPnl.toLocaleString('en-IN')}
 - Average Win Rate: ${Math.round(avgWr)}%
 - Average DQS: ${Math.round(avgDqs)}/100
-- Trade patterns: ${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}x`).join(', ')}
-- Mistake costs: ${Object.entries(costs).sort((a, b) => a[1] - b[1]).map(([n, c]) => `${n}: ₹${c.toLocaleString('en-IN')}`).join(', ')}
-- Last session: ${new Date(sessions[0].created_at).toLocaleDateString('en-IN')} — P&L ₹${(sessions[0].total_pnl || 0).toLocaleString('en-IN')}, WR ${sessions[0].win_rate || 0}%, DQS ${sessions[0].dqs_score || 0}`
+- Trade patterns: ${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}x`).join(', ') || 'No patterns yet'}
+- Cycle stages: ${Object.entries(cycleStages).sort((a, b) => b[1] - a[1]).map(([s, c]) => `${s}: ${c}x`).join(', ') || 'No cycle data yet'}
+- Mistake costs: ${Object.entries(costs).sort((a, b) => a[1] - b[1]).map(([n, c]) => `${n}: ₹${c.toLocaleString('en-IN')}`).join(', ') || 'No mistake data yet'}
+- Last session: ${new Date(sessions[0].created_at).toLocaleDateString('en-IN')} — P&L ₹${(sessions[0].total_pnl || 0).toLocaleString('en-IN')}, WR ${sessions[0].win_rate || 0}%, DQS ${sessions[0].dqs_score || 0}${tradeInsightsSummary}`
 
     const client = getClient()
     const message = await client.messages.create({
