@@ -310,14 +310,43 @@ Analyse EVERY trade.`;
     _parsed_locally: true,
   });
 
+  // Helper: save session to Supabase (non-blocking)
+  const saveSession = async (responseObj: ReturnType<typeof buildResponse>) => {
+    try {
+      const { userId } = await auth();
+      if (userId) {
+        await saveTradeSession({
+          userId,
+          trades,
+          analysis: responseObj.analysis,
+          context: context || {},
+          metadata: {
+            detected_market: market || 'Unknown',
+            detected_currency: currency || 'INR',
+            detected_broker: broker || 'Unknown',
+            trade_date: trade_date || '',
+          },
+          plan: 'free',
+        });
+        console.log(`Session saved to Supabase for user ${userId}`);
+      }
+    } catch (e) {
+      console.error('Session save failed (non-blocking):', e);
+    }
+  };
+
   if (!aiResult.ok) {
     console.warn('AI failed:', aiResult.error);
-    return NextResponse.json(buildResponse(undefined, aiResult.error));
+    const resp = buildResponse(undefined, aiResult.error);
+    await saveSession(resp);
+    return NextResponse.json(resp);
   }
 
   const aiParsed = safeParseJSON(aiResult.data);
   if (!aiParsed.ok || !aiParsed.data) {
-    return NextResponse.json(buildResponse(undefined, 'Failed to parse AI response'));
+    const resp = buildResponse(undefined, 'Failed to parse AI response');
+    await saveSession(resp);
+    return NextResponse.json(resp);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -339,6 +368,9 @@ Analyse EVERY trade.`;
     trades[0] = { ...trades[0], ...analysis.first_trade_detail };
   }
 
+  const finalResponse = buildResponse(analysis);
+  await saveSession(finalResponse);
+
   console.log(`Analysis complete: ${Date.now() - startTime}ms`);
-  return NextResponse.json(buildResponse(analysis));
+  return NextResponse.json(finalResponse);
 }
