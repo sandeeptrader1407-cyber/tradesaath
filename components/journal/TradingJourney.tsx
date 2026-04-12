@@ -50,28 +50,28 @@ const JOURNEY_STEPS = [
   {
     key: "step2DarkDays",
     title: "The Dark Days",
-    icon: "\u26C8\uFE0F",
+    icon: "\u26c8\ufe0f",
     prompt: "What was your worst period? What happened?",
     placeholder: "e.g. I blew my first 2L account in 3 months. Revenge traded every day, couldn\u2019t sleep, hid losses from family...",
   },
   {
     key: "step3Shift",
     title: "The Shift",
-    icon: "\u26A1",
+    icon: "\u26a1",
     prompt: "What moment changed your approach?",
     placeholder: "e.g. One day I looked at my journal and saw 47 revenge trades in a month. That number shocked me. I decided to...",
   },
   {
     key: "step4Today",
     title: "Today",
-    icon: "\uD83D\uDCCD",
+    icon: "\ud83d\udccd",
     prompt: "Where are you now? What\u2019s your current reality?",
     placeholder: "e.g. I\u2019m profitable 3 out of 4 weeks now. Still struggle with position sizing after wins. Working on...",
   },
   {
     key: "step5Truth",
     title: "Your Truth",
-    icon: "\uD83D\uDCA1",
+    icon: "\ud83d\udca1",
     prompt: "What one thing do you know now that you wish you knew then?",
     placeholder: "e.g. That trading is 90% psychology. No strategy works if you can\u2019t follow it. The market doesn\u2019t care about your feelings.",
   },
@@ -84,9 +84,11 @@ export default function TradingJourney() {
     step1Beginning: "", step2DarkDays: "", step3Shift: "", step4Today: "", step5Truth: "",
   })
   const [saving, setSaving] = useState(false)
-  const [_saved, setSaved] = useState(false)
   const [activeStep, setActiveStep] = useState(0)
   const [showProfile, setShowProfile] = useState(false)
+  const [generatedStory, setGeneratedStory] = useState("")
+  const [storyLoading, setStoryLoading] = useState(false)
+  const [storyError, setStoryError] = useState("")
 
   useEffect(() => {
     fetch("/api/user/journey")
@@ -106,12 +108,40 @@ export default function TradingJourney() {
             step4Today: d.journey.step_4_today || "",
             step5Truth: d.journey.step_5_truth || "",
           })
-          const hasStory = d.journey.step_1_beginning || d.journey.step_2_dark_days
-          if (hasStory || d.journey.experience) setSaved(true)
+          if (d.journey.generated_story) {
+            setGeneratedStory(d.journey.generated_story)
+          }
         }
       })
       .catch(() => {})
   }, [])
+
+  const generateStory = async (currentData: JourneyData) => {
+    setStoryLoading(true)
+    setStoryError("")
+    try {
+      const res = await fetch("/api/user/journey/story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step1Beginning: currentData.step1Beginning,
+          step2DarkDays: currentData.step2DarkDays,
+          step3Shift: currentData.step3Shift,
+          step4Today: currentData.step4Today,
+          step5Truth: currentData.step5Truth,
+        }),
+      })
+      const result = await res.json()
+      if (result.story) {
+        setGeneratedStory(result.story)
+      } else {
+        setStoryError(result.error || "Story generation failed")
+      }
+    } catch {
+      setStoryError("Could not generate story. Try again.")
+    }
+    setStoryLoading(false)
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -121,7 +151,13 @@ export default function TradingJourney() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       })
-      setSaved(true)
+      // If all 5 steps have content, generate the story
+      const allFilled = data.step1Beginning && data.step2DarkDays && data.step3Shift && data.step4Today && data.step5Truth
+      if (allFilled) {
+        setSaving(false)
+        await generateStory(data)
+        return
+      }
     } catch { /* silent */ }
     setSaving(false)
   }
@@ -141,7 +177,7 @@ export default function TradingJourney() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      {/* ── 5-Step Narrative Journey ── */}
+      {/* 5-Step Narrative Journey */}
       <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
         <div className="mb-5">
           <h3 className="text-lg font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
@@ -210,7 +246,7 @@ export default function TradingJourney() {
               cursor: activeStep === 0 ? "default" : "pointer",
             }}
           >
-            \u2190 Previous
+            {"\u2190 Previous"}
           </button>
           <span className="text-[10px]" style={{ color: "var(--muted)" }}>{filledSteps}/5 steps written</span>
           {activeStep < JOURNEY_STEPS.length - 1 ? (
@@ -219,22 +255,64 @@ export default function TradingJourney() {
               className="text-xs px-4 py-2 rounded-lg font-semibold"
               style={{ background: "var(--accent)", color: "#071a15" }}
             >
-              Next \u2192
+              {"Next \u2192"}
             </button>
           ) : (
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || storyLoading}
               className="text-xs px-4 py-2 rounded-lg font-semibold"
-              style={{ background: saving ? "var(--s3)" : "var(--accent)", color: saving ? "var(--muted)" : "#071a15" }}
+              style={{ background: (saving || storyLoading) ? "var(--s3)" : "var(--accent)", color: (saving || storyLoading) ? "var(--muted)" : "#071a15" }}
             >
-              {saving ? "Saving..." : "Save Story \u2713"}
+              {saving ? "Saving..." : storyLoading ? "Crafting story..." : "Save Story \u2713"}
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Trading Profile (collapsible) ── */}
+      {/* Generated Story */}
+      {storyLoading && (
+        <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)", textAlign: "center" }}>
+          <div className="text-2xl mb-3">{"\u270d\ufe0f"}</div>
+          <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Crafting your trading story...</div>
+          <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>Weaving your narrative with your real trading data</div>
+        </div>
+      )}
+
+      {storyError && !storyLoading && (
+        <div className="rounded-xl border p-4" style={{ background: "rgba(240,93,108,.05)", borderColor: "rgba(240,93,108,.2)" }}>
+          <div className="text-xs" style={{ color: "var(--red)" }}>{storyError}</div>
+        </div>
+      )}
+
+      {generatedStory && !storyLoading && (
+        <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
+                {"\ud83c\udfac"} Your Trading Journey
+              </h3>
+              <p className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>Generated from your story + real trade data</p>
+            </div>
+            <button
+              onClick={() => generateStory(data)}
+              disabled={storyLoading}
+              className="text-[10px] px-3 py-1.5 rounded-lg font-semibold"
+              style={{ background: "var(--s2)", border: "1px solid var(--border)", color: "var(--text2)" }}
+            >
+              {"\u21bb"} Regenerate
+            </button>
+          </div>
+          <div
+            className="text-[13px] leading-[1.9] whitespace-pre-line"
+            style={{ fontFamily: "'Fraunces', serif", color: "var(--text2)" }}
+          >
+            {generatedStory}
+          </div>
+        </div>
+      )}
+
+      {/* Trading Profile (collapsible) */}
       <div className="rounded-xl border" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
         <button
           onClick={() => setShowProfile(!showProfile)}
@@ -246,7 +324,7 @@ export default function TradingJourney() {
               {data.experience || data.instruments ? "\u2713 Filled" : "Set up your profile"}
             </span>
           </div>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>{showProfile ? "\u25B2" : "\u25BC"}</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{showProfile ? "\u25b2" : "\u25bc"}</span>
         </button>
 
         {showProfile && (

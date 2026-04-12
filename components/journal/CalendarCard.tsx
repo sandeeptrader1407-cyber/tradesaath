@@ -59,7 +59,7 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
           const pnl = entry?.pnl ?? 0
           const sessionCount = entry?.count ?? 0
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
-          const hasData = pnl !== undefined
+          const hasData = entry !== undefined
 
           return (
             <div
