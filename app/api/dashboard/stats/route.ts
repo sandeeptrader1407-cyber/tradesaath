@@ -227,18 +227,17 @@ export async function GET(req: NextRequest) {
         totalMistakeCost = mistakeTrades.reduce((s, m) => s + m.cost, 0)
 
         // Heatmap data: trades with entry_time for time-of-day analysis
-        // Build session id → trade_date map for day-of-week
+        // Build session id -> trade_date map for day-of-week
         const sessionDateMap: Record<string, string> = {}
         for (const s of sessions) {
           sessionDateMap[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
         }
 
-        tradesByTimeDay = allTA
+        const taWithTime = allTA
           .filter((t: any) => t.entry_time)
           .map((t: any) => {
             const timeStr = t.entry_time as string
             const dateStr = sessionDateMap[t.session_id] || ''
-            // If entry_time is HH:MM format, combine with session date to make parseable datetime
             let fullTime = timeStr
             if (/^\d{1,2}:\d{2}$/.test(timeStr) && dateStr) {
               fullTime = `${dateStr}T${timeStr.padStart(5, '0')}:00`
@@ -248,7 +247,34 @@ export async function GET(req: NextRequest) {
               pnl: Number(t.pnl || 0),
             }
           })
+
+        // If trade-level entry_time data is insufficient, generate from session created_at
+        if (taWithTime.length >= 5) {
+          tradesByTimeDay = taWithTime
+        } else {
+          // Fallback: use session created_at as time proxy for each trade
+          const sessionCreatedMap: Record<string, string> = {}
+          for (const s of sessions) {
+            sessionCreatedMap[s.id] = s.created_at || ''
+          }
+          tradesByTimeDay = allTA.map((t: any) => {
+            const createdAt = sessionCreatedMap[t.session_id] || ''
+            const sessionDate = sessionDateMap[t.session_id] || ''
+            return {
+              entry_time: createdAt || (sessionDate ? `${sessionDate}T10:00:00` : ''),
+              pnl: Number(t.pnl || 0),
+            }
+          }).filter((t: { entry_time: string }) => t.entry_time)
+        }
       }
+    }
+
+    // Last-resort heatmap: if no trade_analysis data, use sessions themselves
+    if (tradesByTimeDay.length < 5 && sessions.length >= 5) {
+      tradesByTimeDay = sessions.map((s: any) => ({
+        entry_time: s.created_at || (s.trade_date ? `${s.trade_date}T10:00:00` : ''),
+        pnl: Number(s.net_pnl || 0),
+      })).filter((t: { entry_time: string }) => t.entry_time)
     }
 
     // DQS from session analysis
