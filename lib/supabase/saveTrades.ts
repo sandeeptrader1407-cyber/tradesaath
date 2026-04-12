@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase dynamic row shapes, trade objects from multiple parsers */
 export async function saveTradeSession({
   userId,
   anonId,
@@ -77,6 +78,8 @@ export async function saveTradeSession({
 
   return data
 }
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function updateSessionAnalysis(sessionId: string, analysis: unknown) {
   try {

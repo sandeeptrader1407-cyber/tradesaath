@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
       const analysis = sess.analysis as Record<string, unknown> | undefined
       // New format: trade_analyses array
       if (analysis?.trade_analyses) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const ta of analysis.trade_analyses as any[]) {
           if (ta.tag) tags[ta.tag] = (tags[ta.tag] || 0) + 1
           if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
@@ -206,16 +207,19 @@ export async function POST(req: NextRequest) {
       }
       // Legacy format: perTrade
       if (analysis?.perTrade) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const pt of analysis.perTrade as any[]) {
           tags[pt.tag] = (tags[pt.tag] || 0) + 1
         }
       }
       if (analysis?.mistake_patterns) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const p of analysis.mistake_patterns as any[]) {
           costs[p.name] = (costs[p.name] || 0) + (p.cost || 0)
         }
       }
       if (analysis?.patterns) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const p of analysis.patterns as any[]) {
           costs[p.name] = (costs[p.name] || 0) + (p.costInRupees || 0)
         }
@@ -223,6 +227,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch per-trade analysis for recent sessions (richer coaching context)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase dynamic rows
     const recentSessionIds = sessions.slice(0, 5).map((s: any) => s.id)
     let tradeInsightsSummary = ''
     if (recentSessionIds.length > 0) {
@@ -239,14 +244,17 @@ export async function POST(req: NextRequest) {
           if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
         }
         // Pick top psychology coaching insights (biggest losses)
+        /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row type */
         const worstTrades = tradeAnalyses
           .filter((t: any) => t.psychology_coaching && t.pnl < 0)
           .sort((a: any, b: any) => (a.pnl || 0) - (b.pnl || 0))
           .slice(0, 3)
         if (worstTrades.length > 0) {
           tradeInsightsSummary = '\n\nKEY PSYCHOLOGY INSIGHTS FROM RECENT LOSING TRADES:\n' +
-            worstTrades.map((t: any) => `- [₹${t.pnl}] ${t.psychology_coaching}`).join('\n')
+            worstTrades
+            .map((t: any) => `- [₹${t.pnl}] ${t.psychology_coaching}`).join('\n')
         }
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
     }
 

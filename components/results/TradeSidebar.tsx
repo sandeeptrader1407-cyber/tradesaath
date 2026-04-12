@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useAnalysisStore, Trade } from '@/lib/analysisStore';
+import { useAnalysisStore } from '@/lib/analysisStore';
 
 type FilterType = 'all' | 'buy' | 'sell' | 'wins' | 'losses';
 

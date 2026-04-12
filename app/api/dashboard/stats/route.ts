@@ -155,6 +155,7 @@ export async function GET(req: NextRequest) {
     }))
 
     // Fetch trade_analysis for recent trades, mistakes, heatmap, and DQS
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase dynamic rows
     const sessionIds = sessions.map((s: any) => s.id)
     let recentTrades: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string }[] = []
     let mistakeTrades: { type: string; icon: string; count: number; cost: number }[] = []
@@ -173,6 +174,7 @@ export async function GET(req: NextRequest) {
         .limit(20)
 
       if (recentTA && recentTA.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
         recentTrades = recentTA.slice(0, 5).map((t: any) => ({
           time: t.entry_time || '',
           symbol: t.symbol || 'Unknown',
@@ -233,6 +235,7 @@ export async function GET(req: NextRequest) {
           sessionDateMap[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
         }
 
+        /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row type */
         const taWithTime = allTA
           .filter((t: any) => t.entry_time)
           .map((t: any) => {
@@ -247,6 +250,7 @@ export async function GET(req: NextRequest) {
               pnl: Number(t.pnl || 0),
             }
           })
+        /* eslint-enable @typescript-eslint/no-explicit-any */
 
         // If trade-level entry_time data is insufficient, distribute across trading hours
         if (taWithTime.length >= 5) {
@@ -260,6 +264,7 @@ export async function GET(req: NextRequest) {
             '13:30', '14:00', '14:15', '14:30', '14:45', '15:00', '15:15',
           ]
           let slotIdx = 0
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
           tradesByTimeDay = allTA.map((t: any) => {
             const sessionDate = sessionDateMap[t.session_id] || ''
             if (!sessionDate) return null
@@ -277,6 +282,7 @@ export async function GET(req: NextRequest) {
     // Last-resort heatmap: if no trade_analysis data, use sessions themselves
     if (tradesByTimeDay.length < 5 && sessions.length >= 5) {
       const fallbackSlots = ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '14:00', '14:30', '15:00']
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
       tradesByTimeDay = sessions.map((s: any, i: number) => {
         const dateStr = s.trade_date || s.created_at?.split('T')[0] || ''
         if (!dateStr) return null
@@ -293,6 +299,7 @@ export async function GET(req: NextRequest) {
     let dqsCount = 0
     const factorTotals: Record<string, { total: number; count: number }> = {}
     for (const sess of sessions.slice(0, 10)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic analysis JSON
       const analysis = (sess as any).analysis
       if (analysis?.dqs?.score) {
         dqsTotal += analysis.dqs.score
