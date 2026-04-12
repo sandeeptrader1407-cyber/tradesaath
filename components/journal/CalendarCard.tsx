@@ -23,12 +23,12 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const today = new Date()
 
-  // Build date->pnl map
-  const dateMap = new Map<string, number>()
+  // Build date->pnl+count map
+  const dateMap = new Map<string, { pnl: number; count: number }>()
   for (const s of sessions) {
     if (s.trade_date) {
-      const existing = dateMap.get(s.trade_date) || 0
-      dateMap.set(s.trade_date, existing + Number(s.net_pnl || 0))
+      const existing = dateMap.get(s.trade_date) || { pnl: 0, count: 0 }
+      dateMap.set(s.trade_date, { pnl: existing.pnl + Number(s.net_pnl || 0), count: existing.count + 1 })
     }
   }
 
@@ -55,7 +55,9 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
         {cells.map((day, i) => {
           if (day === null) return <div key={`e${i}`} />
           const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-          const pnl = dateMap.get(dateStr)
+          const entry = dateMap.get(dateStr)
+          const pnl = entry?.pnl ?? 0
+          const sessionCount = entry?.count ?? 0
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
           const hasData = pnl !== undefined
 
@@ -72,10 +74,15 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
             >
               {day}
               {hasData && (
-                <div
-                  className="absolute bottom-0.5 w-1 h-1 rounded-full"
-                  style={{ background: pnl >= 0 ? "var(--green)" : "var(--red)" }}
-                />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-0.5">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: pnl >= 0 ? "var(--green)" : "var(--red)" }}
+                  />
+                  {sessionCount > 1 && (
+                    <span className="text-[7px] font-bold leading-none" style={{ color: "var(--muted)" }}>{sessionCount}</span>
+                  )}
+                </div>
               )}
             </div>
           )

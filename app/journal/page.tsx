@@ -123,8 +123,12 @@ function JournalContent() {
   const activeSession = sessions.find((s) => s.id === activeId) || null
 
   const handleDateSelect = (date: string) => {
-    const match = sessions.find((s) => s.trade_date === date)
-    if (match) setActiveId(match.id)
+    // If already viewing a session from this date, cycle to next one
+    const matches = sessions.filter((s) => s.trade_date === date)
+    if (matches.length === 0) return
+    const currentIdx = matches.findIndex((s) => s.id === activeId)
+    const next = currentIdx >= 0 && currentIdx < matches.length - 1 ? matches[currentIdx + 1] : matches[0]
+    setActiveId(next.id)
   }
 
   const trendConfig: Record<string, { label: string; color: string; icon: string }> = {

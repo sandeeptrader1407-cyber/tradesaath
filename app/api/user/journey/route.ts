@@ -39,6 +39,11 @@ export async function POST(request: Request) {
           goal: body.goal,
           perfect_day: body.perfectDay,
           one_change: body.oneChange,
+          step_1_beginning: body.step1Beginning || null,
+          step_2_dark_days: body.step2DarkDays || null,
+          step_3_shift: body.step3Shift || null,
+          step_4_today: body.step4Today || null,
+          step_5_truth: body.step5Truth || null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' }
