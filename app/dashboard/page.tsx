@@ -38,6 +38,16 @@ interface DashStats {
   equityCurve: { pnl: number; date: string }[]
   streaks: { current: number; bestWin: number; worstLoss: number }
   risk: { maxDrawdown: number; avgLossAvgWin: string }
+  // New fields for dashboard components
+  recentTrades?: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string }[]
+  recentSessions?: { date?: string; trades?: number; pnl?: number; winRate?: number }[]
+  mistakeTrades?: { type: string; icon: string; count: number; cost: number }[]
+  totalMistakeCost?: number
+  counterfactualPnl?: number
+  actualMonthPnl?: number
+  tradesByTimeDay?: { entry_time: string; pnl: number }[]
+  dqsScore?: number
+  dqsFactors?: { name: string; score: number }[]
 }
 
 function getGreeting(): string {
@@ -82,14 +92,14 @@ export default function DashboardPage() {
     )
   }
 
-  const score = stats?.hasData ? 45 : 0
-  const factors = stats?.hasData ? [
+  const score = stats?.dqsScore || (stats?.hasData ? 45 : 0)
+  const factors = stats?.dqsFactors?.length ? stats.dqsFactors.map(f => ({ name: f.name, value: f.score })) : (stats?.hasData ? [
     { name: "Entry Quality", value: 52 },
     { name: "Exit Timing", value: 38 },
     { name: "Position Sizing", value: 61 },
     { name: "Rule Following", value: 44 },
     { name: "Emotional Control", value: 30 },
-  ] : []
+  ] : [])
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
@@ -162,7 +172,7 @@ export default function DashboardPage() {
                 <div className="text-xl mb-1">📓</div>
                 <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>Open Journal</div>
               </button>
-              <button onClick={() => router.push("/journal?tab=journey")} className="rounded-xl border p-4 text-center transition-all hover:border-[var(--accent)]" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+              <button onClick={() => router.push("/journey")} className="rounded-xl border p-4 text-center transition-all hover:border-[var(--accent)]" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
                 <div className="text-xl mb-1">🗺</div>
                 <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>Trading Journey</div>
               </button>
@@ -173,13 +183,21 @@ export default function DashboardPage() {
             <SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} />
             <BehavioralInsights sessionCount={stats.sessionCount} />
             <GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} />
-            <RecentActivity recentTrades={[]} recentSessions={[]} />
+            <RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} />
 
             {/* Pro Analytics Section */}
-            <PerformanceHeatmap trades={[]} />
+            <PerformanceHeatmap trades={stats.tradesByTimeDay || []} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <MistakeCostCalculator />
-              <DecisionQualityScore />
+              <MistakeCostCalculator
+                totalCost={stats.totalMistakeCost || 0}
+                counterfactualPnl={stats.counterfactualPnl || 0}
+                actualPnl={stats.actualMonthPnl || 0}
+                mistakes={stats.mistakeTrades || []}
+              />
+              <DecisionQualityScore
+                score={stats.dqsScore || 0}
+                factors={stats.dqsFactors || []}
+              />
             </div>
           </>
         )}
