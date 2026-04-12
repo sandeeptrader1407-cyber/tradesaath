@@ -4,6 +4,8 @@ import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
+export const maxDuration = 60
+
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
