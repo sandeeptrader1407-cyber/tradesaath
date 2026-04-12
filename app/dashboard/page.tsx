@@ -110,7 +110,7 @@ export default function DashboardPage() {
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
         }}>
           <span className="text-sm" style={{ color: isPaid ? "var(--accent)" : "var(--text2)" }}>
-            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan — Upgrade for full features"}
+            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan \u2014 Upgrade for full features"}
           </span>
           {!isPaid && (
             <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
@@ -119,22 +119,13 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
-              {getGreeting()}, Trader
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
-              {getMonthYear()} · {stats?.sessionCount || 0} sessions · {stats?.totalTrades || 0} trades analysed
-            </p>
-          </div>
-          <button
-            onClick={() => router.push("/upload")}
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{ background: "var(--accent)", color: "#071a15", boxShadow: "0 0 20px rgba(62,232,196,.15)" }}
-          >
-            📂 New Analysis
-          </button>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
+            {getGreeting()}, Trader
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
+            {getMonthYear()} · {stats?.sessionCount || 0} sessions · {stats?.totalTrades || 0} trades analysed
+          </p>
         </div>
 
         {!stats?.hasData && !loading && (
