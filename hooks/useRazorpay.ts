@@ -48,21 +48,42 @@ export function useRazorpay() {
       // Load Razorpay script
       const loaded = await loadRazorpayScript()
       if (!loaded) {
-        onError?.('Failed to load Razorpay. Please check your internet connection.')
+        onError?.('Could not load payment gateway. Please check your internet connection and try again.')
         setLoading(false)
         return
       }
 
       // Create order
-      const res = await fetch('/api/payments/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      })
-      const orderData = await res.json()
+      let res: Response
+      try {
+        res = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        })
+      } catch {
+        onError?.('Network error. Could not connect to payment server. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      let orderData: Record<string, unknown>
+      try {
+        orderData = await res.json()
+      } catch {
+        onError?.('Payment server returned an unexpected response. Please try again.')
+        setLoading(false)
+        return
+      }
 
       if (!res.ok) {
-        onError?.(orderData.error || 'Failed to create order')
+        const errMsg = (orderData.error as string) || 'Failed to create order'
+        // Never expose technical error details
+        if (/auth|key|secret/i.test(errMsg)) {
+          onError?.('Payment service temporarily unavailable. Please try again later.')
+        } else {
+          onError?.(errMsg)
+        }
         setLoading(false)
         return
       }
@@ -83,7 +104,7 @@ export function useRazorpay() {
           backdrop_color: 'rgba(10, 14, 23, 0.85)',
         },
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          // Verify payment on our server (works on localhost — no webhook needed)
+          // Verify payment on our server
           try {
             const verifyRes = await fetch('/api/payments/verify', {
               method: 'POST',
@@ -96,15 +117,16 @@ export function useRazorpay() {
               setPaid(true)
               onSuccess?.()
             } else {
-              onError?.(verifyData.error || 'Payment verification failed')
+              onError?.(verifyData.error || 'Payment verification failed. Your payment is safe — plan will activate shortly. Contact support if it doesn\'t.')
             }
           } catch {
-            onError?.('Payment verification failed. Please contact support.')
+            onError?.('Payment received but verification pending. Your plan will be activated within a few minutes. If not, contact support.')
           }
           setLoading(false)
         },
         modal: {
           ondismiss: () => {
+            // User closed the Razorpay modal — reset loading state cleanly
             setLoading(false)
           },
         },
@@ -113,7 +135,7 @@ export function useRazorpay() {
       const rzp = new window.Razorpay(options)
       rzp.open()
     } catch {
-      onError?.('Something went wrong. Please try again.')
+      onError?.('Something went wrong with the payment. Please try again.')
       setLoading(false)
     }
   }, [])

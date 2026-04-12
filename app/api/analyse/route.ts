@@ -11,7 +11,7 @@ import { getOrCreateAnonId } from '@/lib/anonId';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
 
-/* \u2500\u2500\u2500 Call Claude API \u2500\u2500\u2500 */
+/* ─── Call Claude API ─── */
 async function callClaude(
   apiKey: string, systemPrompt: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,7 +50,7 @@ async function callClaude(
   }
 }
 
-/* \u2500\u2500\u2500 JSON parser with truncation recovery \u2500\u2500\u2500 */
+/* ─── JSON parser with truncation recovery ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: boolean } {
   let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -66,7 +66,7 @@ function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: bool
   try { return { ok: true, data: JSON.parse(cleaned), truncated: true }; } catch { return { ok: false }; }
 }
 
-/* \u2500\u2500\u2500 Media type helpers \u2500\u2500\u2500 */
+/* ─── Media type helpers ─── */
 function getMediaType(filename: string): string {
   const ext = filename.toLowerCase().split('.').pop() || '';
   const map: Record<string, string> = {
@@ -77,10 +77,11 @@ function getMediaType(filename: string): string {
   return map[ext] || 'application/octet-stream';
 }
 
-/* \u2500\u2500\u2500 System prompts \u2500\u2500\u2500 */
+/* ─── System prompts ─── */
 function buildExtractPrompt(brokerHint?: string): string {
   const brokerLine = brokerHint && brokerHint !== 'Unknown'
-    ? `\nIMPORTANT: This file is from "${brokerHint}". Parse using that broker's specific format and column naming conventions.`
+    ? `
+IMPORTANT: This file is from "${brokerHint}". Parse using that broker's specific format and column naming conventions.`
     : ''
   return `You are a trade extraction engine. Extract ALL trades from this broker statement/file.${brokerLine}
 For each trade return EXACTLY this JSON:
@@ -91,7 +92,7 @@ Rules: P&L for BUY=(exit-entry)*qty, SELL=(entry-exit)*qty. If only one leg, set
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildAnalysePrompt(context: any): string {
   const ctxLines = context ? Object.entries(context).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'No additional context.';
-  return `You are TradeSaath \u2014 a brutally honest yet deeply empathetic AI trading psychology coach. You talk like a senior trader mentoring a junior: direct, specific, no sugarcoating, but always rooting for them. Think of yourself as the trader's inner voice that tells the truth they already know but avoid.
+  return `You are TradeSaath --- a brutally honest yet deeply empathetic AI trading psychology coach. You talk like a senior trader mentoring a junior: direct, specific, no sugarcoating, but always rooting for them. Think of yourself as the trader's inner voice that tells the truth they already know but avoid.
 
 === RESPONSE JSON STRUCTURE ===
 Return this exact JSON (no markdown, no backticks):
@@ -112,25 +113,25 @@ Return this exact JSON (no markdown, no backticks):
 
 **session_summary** (3-4 paragraphs, use "you" language, bold **key phrases**):
 - Para 1: Paint the session story as a narrative arc. "You started disciplined at 9:18 with Trade #1..." Reference exact trade numbers, times, P&L amounts.
-- Para 2: Identify THE turning point \u2014 the single trade where discipline broke. "Everything changed at Trade #4 \u2014 that \u20b91,200 loss triggered a cascade..." Quantify the damage from that point forward.
-- Para 3: Name the SINGLE most costly behavioral pattern with its exact cost: "Your revenge trading after 11:00 AM cost you \u20b94,500 \u2014 that's 3x your best win today."
-- Para 4: End with one specific, printable rule for tomorrow. Not generic. "Tomorrow's rule: After any loss > \u20b9500, close the terminal for 10 minutes. No exceptions."
+- Para 2: Identify THE turning point --- the single trade where discipline broke. "Everything changed at Trade #4 --- that Rs 1,200 loss triggered a cascade..." Quantify the damage from that point forward.
+- Para 3: Name the SINGLE most costly behavioral pattern with its exact cost: "Your revenge trading after 11:00 AM cost you Rs 4,500 --- that's 3x your best win today."
+- Para 4: End with one specific, printable rule for tomorrow. Not generic. "Tomorrow's rule: After any loss > Rs 500, close the terminal for 10 minutes. No exceptions."
 
 **momentum_indicators** (4 items, scores 0-100):
 [{"name":"Rule Following","score":N,"description":"..."}, {"name":"Staying Calm","score":N,"description":"..."}, {"name":"Entry Timing","score":N,"description":"..."}, {"name":"Exit Discipline","score":N,"description":"..."}]
 - Descriptions must reference actual trades: "You broke your own sizing rule on trades #5 and #7, doubling position after losses"
 
 **vicious_cycle** (all 10 stages, count how many trades fall in each):
-[{"stage":"Disciplined Win","count":N,"icon":"\u2713","description":"..."},{"stage":"Overconfidence","count":N,"icon":"\u26a1","description":"..."},{"stage":"Larger Position","count":N,"icon":"\ud83d\udcc8","description":"..."},{"stage":"Market Goes Against","count":N,"icon":"\u2198","description":"..."},{"stage":"Hope & Hold","count":N,"icon":"\ud83d\ude4f","description":"..."},{"stage":"Averaging Down","count":N,"icon":"\ud83d\udcc9","description":"..."},{"stage":"Panic Exit","count":N,"icon":"\ud83d\udca8","description":"..."},{"stage":"Revenge Trade","count":N,"icon":"\u2694","description":"..."},{"stage":"Decision Fatigue","count":N,"icon":"\ud83d\ude35","description":"..."},{"stage":"FOMO Re-entry","count":N,"icon":"\ud83d\udd04","description":"..."}]
-- For each stage with count > 0, the description MUST name the specific trades and show the chain: "Trades #6\u2192#7: After the \u20b9800 loss on #6, you re-entered within 2 minutes on the same symbol \u2014 classic revenge. This cost an additional \u20b91,100."
-- Show the CHAIN REACTION: how one stage triggered the next. "The panic exit on #5 (\u20b9-900) led to revenge trade #6 (\u20b9-1,100), then decision fatigue on #7-#9 (\u20b9-2,300 combined). Total cycle cost: \u20b94,300."
+[{"stage":"Disciplined Win","count":N,"icon":"(check)","description":"..."},{"stage":"Overconfidence","count":N,"icon":"(lightning)","description":"..."},{"stage":"Larger Position","count":N,"icon":"(chart)","description":"..."},{"stage":"Market Goes Against","count":N,"icon":"(down)","description":"..."},{"stage":"Hope & Hold","count":N,"icon":"(pray)","description":"..."},{"stage":"Averaging Down","count":N,"icon":"(decline)","description":"..."},{"stage":"Panic Exit","count":N,"icon":"(fear)","description":"..."},{"stage":"Revenge Trade","count":N,"icon":"(sword)","description":"..."},{"stage":"Decision Fatigue","count":N,"icon":"(dizzy)","description":"..."},{"stage":"FOMO Re-entry","count":N,"icon":"(cycle)","description":"..."}]
+- For each stage with count > 0, the description MUST name the specific trades and show the chain: "Trades #6→#7: After the Rs 800 loss on #6, you re-entered within 2 minutes on the same symbol --- classic revenge. This cost an additional Rs 1,100."
+- Show the CHAIN REACTION: how one stage triggered the next. "The panic exit on #5 (Rs -900) led to revenge trade #6 (Rs -1,100), then decision fatigue on #7-#9 (Rs -2,300 combined). Total cycle cost: Rs 4,300."
 
 **technical_insights** (4 items, scores 0-100):
 [{"name":"Trend Alignment","score":N,"description":"..."}, {"name":"Entry Structure","score":N,"description":"..."}, {"name":"Exit Quality","score":N,"description":"..."}, {"name":"Entry Timing","score":N,"description":"..."}]
 - Trend Alignment: Were entries with or against the prevailing trend? "3 of 5 losing trades were counter-trend shorts during an uptrend morning."
-- Entry Structure: Did entries respect key levels or chase momentum? "Trade #3 entered long at the day high \u2014 chasing, not structure-based."
-- Exit Quality: Did exits capture the move or leave money/hold too long? "You exited Trade #1 at \u20b9245 \u2014 it ran to \u20b9258. That's \u20b91,300 left on the table."
-- Entry Timing: Were entries at good times or during choppy/low-volume periods? "Trades after 2:00 PM had 0% win rate \u2014 afternoon trading destroyed your P&L."
+- Entry Structure: Did entries respect key levels or chase momentum? "Trade #3 entered long at the day high --- chasing, not structure-based."
+- Exit Quality: Did exits capture the move or leave money/hold too long? "You exited Trade #1 at Rs 245 --- it ran to Rs 258. That's Rs 1,300 left on the table."
+- Entry Timing: Were entries at good times or during choppy/low-volume periods? "Trades after 2:00 PM had 0% win rate --- afternoon trading destroyed your P&L."
 
 **dqs** (Decision Quality Score, 0-100):
 {"score":N,"factors":[{"name":"Entry Timing","score":N,"color":"green|blue|gold|red"}, {"name":"Risk Management","score":N,"color":"..."}, {"name":"Position Sizing","score":N,"color":"..."}, {"name":"Emotional Control","score":N,"color":"..."}, {"name":"Exit Discipline","score":N,"color":"..."}]}
@@ -139,75 +140,72 @@ Return this exact JSON (no markdown, no backticks):
 **financial_impact**:
 {"total_lost_to_mistakes":N,"potential_pnl_without_mistakes":N,"message":"..."}
 - Calculate what P&L would have been if mistake trades (revenge, FOMO, panic, averaging) were skipped entirely.
-- message: "You lost \u20b93,200 to emotional trades. Without them, your session P&L would be +\u20b91,800 instead of -\u20b91,400. Discipline alone is worth \u20b93,200 to you."
+- message: "You lost Rs 3,200 to emotional trades. Without them, your session P&L would be +Rs 1,800 instead of -Rs 1,400. Discipline alone is worth Rs 3,200 to you."
 
 **mistake_patterns** (array of patterns found):
 [{"name":"...","icon":"emoji","count":N,"cost":N,"frequency":"X of Y trades"}]
 - Possible names: "Revenge Trading", "FOMO Entry", "Averaging Down", "Panic Exit", "Overtrading", "Position Sizing Violation", "Chasing Momentum", "Hope & Hold"
-- cost: exact \u20b9 lost to this pattern in this session
+- cost: exact Rs lost to this pattern in this session
 
 **rules_for_next_session** (exactly 3 rules):
 - Each rule must be specific and measurable, not generic. BAD: "Manage risk better." GOOD: "Maximum 2 trades before 10:30 AM. If both lose, stop trading for the day."
-- At least one rule must be an IF-THEN rule: "IF you take a loss > \u20b9500, THEN set a 10-minute phone timer before the next trade."
+- At least one rule must be an IF-THEN rule: "IF you take a loss > Rs 500, THEN set a 10-minute phone timer before the next trade."
 - Rules should directly address the mistakes found in THIS session.
 
 **cross_user_insight** (one anonymized community insight):
 "From 847 traders: Those who set a hard 3-trade loss limit per day reduced weekly drawdowns by 34%."
 
-**trade_analyses** (one entry PER trade \u2014 analyse EVERY trade):
+**trade_analyses** (one entry PER trade --- analyse EVERY trade):
 [{"trade_index":0,"tag":"win|fomo|rvg|avg|pnc|vs","tag_label":"...","quick_summary":"...","technical_analysis":"...","psychology_coaching":"...","counterfactual":"...","cycle_stage":"win|overconf|large|vs|hope|avg|pnc|rvg|fatigue|fomo"}]
 
 For EACH trade's fields:
 - tag: win (clean win), fomo (FOMO entry), rvg (revenge trade), avg (averaging down), pnc (panic exit), vs (vicious cycle trade)
 - tag_label: Human-readable label, e.g. "Clean Win", "Revenge Trade", "FOMO Entry"
-- quick_summary: 1 line. "Disciplined BUY at support, exited at target. +\u20b9800." or "Revenge SHORT 3 min after previous loss. Chased entry. -\u20b91,100."
-- technical_analysis: Comment on entry/exit timing vs market structure. "Entry was 15 points above VWAP after a 3-candle rally \u2014 chasing, not waiting for pullback. Exit hit stop at the exact low before a 40-point bounce \u2014 stop was too tight for the volatility."
+- quick_summary: 1 line. "Disciplined BUY at support, exited at target. +Rs 800." or "Revenge SHORT 3 min after previous loss. Chased entry. -Rs 1,100."
+- technical_analysis: Comment on entry/exit timing vs market structure. "Entry was 15 points above VWAP after a 3-candle rally --- chasing, not waiting for pullback. Exit hit stop at the exact low before a 40-point bounce --- stop was too tight for the volatility."
 - psychology_coaching: Name the COGNITIVE BIAS, not just the emotion. Use "I know..." empathetic language.
-  * "I know that loss stung \u2014 and the urge to make it back immediately is your **loss aversion bias** talking. Your brain values the pain of losing \u20b9800 twice as much as the joy of gaining \u20b9800. That's why you jumped back in 2 minutes later without a setup. The fix: feel the loss, name it as loss aversion, and wait 10 minutes."
+  * "I know that loss stung --- and the urge to make it back immediately is your **loss aversion bias** talking. Your brain values the pain of losing Rs 800 twice as much as the joy of gaining Rs 800. That's why you jumped back in 2 minutes later without a setup. The fix: feel the loss, name it as loss aversion, and wait 10 minutes."
   * Reference SPECIFIC cognitive biases: loss aversion, sunk cost fallacy, recency bias, confirmation bias, anchoring, overconfidence bias, gambler's fallacy, disposition effect, FOMO (social proof), endowment effect.
-  * Connect to patterns: "This is the 3rd revenge trade this session. The first one cost \u20b9600, this one \u20b91,100. Each revenge trade gets bigger \u2014 that's the sunk cost fallacy compounding."
-- counterfactual: Be specific with amounts and alternatives. "If you had waited for the 5-min candle close at 10:45, your entry at \u20b9245 instead of \u20b9252 would have saved \u20b9700 on this position. Better yet \u2014 skipping this revenge trade entirely saves \u20b91,100 and keeps your risk:reward intact."
+  * Connect to patterns: "This is the 3rd revenge trade this session. The first one cost Rs 600, this one Rs 1,100. Each revenge trade gets bigger --- that's the sunk cost fallacy compounding."
+- counterfactual: Be specific with amounts and alternatives. "If you had waited for the 5-min candle close at 10:45, your entry at Rs 245 instead of Rs 252 would have saved Rs 700 on this position. Better yet --- skipping this revenge trade entirely saves Rs 1,100 and keeps your risk:reward intact."
 - cycle_stage: Map to the vicious cycle stage this trade belongs to.
 
 === THE 10-STAGE VICIOUS CYCLE ===
-1. Disciplined Win (win) \u2014 Following the plan, proper sizing, clean entry/exit
-2. Overconfidence (overconf) \u2014 After wins, feeling invincible, "I can read the market"
-3. Larger Position (large) \u2014 Increasing size because "I'm on a roll"
-4. Market Goes Against (vs) \u2014 The inflated position moves against you
-5. Hope & Hold (hope) \u2014 Refusing to exit, moving stop loss, "it'll come back"
-6. Averaging Down (avg) \u2014 Adding to a losing position to lower average
-7. Panic Exit (pnc) \u2014 Exiting at the worst possible moment after maximum pain
-8. Revenge Trade (rvg) \u2014 Immediate re-entry to "win back" losses, no setup
-9. Decision Fatigue (fatigue) \u2014 Too many trades, brain is fried, random entries
-10. FOMO Re-entry (fomo) \u2014 Seeing a move you missed, jumping in late
+1. Disciplined Win (win) --- Following the plan, proper sizing, clean entry/exit
+2. Overconfidence (overconf) --- After wins, feeling invincible, "I can read the market"
+3. Larger Position (large) --- Increasing size because "I'm on a roll"
+4. Market Goes Against (vs) --- The inflated position moves against you
+5. Hope & Hold (hope) --- Refusing to exit, moving stop loss, "it'll come back"
+6. Averaging Down (avg) --- Adding to a losing position to lower average
+7. Panic Exit (pnc) --- Exiting at the worst possible moment after maximum pain
+8. Revenge Trade (rvg) --- Immediate re-entry to "win back" losses, no setup
+9. Decision Fatigue (fatigue) --- Too many trades, brain is fried, random entries
+10. FOMO Re-entry (fomo) --- Seeing a move you missed, jumping in late
 
 DETECTION RULES:
-- After 2+ consecutive wins \u2192 next trade is Overconfidence risk
-- Position size increase after wins \u2192 Larger Position
-- Loss + re-entry within 5 minutes on same/correlated symbol \u2192 Revenge Trade
-- 2+ consecutive losses without stopping \u2192 Hope/Averaging/Panic zone
-- Trades after 2:00 PM following morning losses \u2192 highest revenge risk
-- >15 trades in session \u2192 Decision Fatigue (cognitive capacity depleted)
-- Entry near day high after a rally \u2192 FOMO
-- Adding to a losing position \u2192 Averaging Down
-- Exit at the session low after holding through drawdown \u2192 Panic Exit
+- After 2+ consecutive wins => next trade is Overconfidence risk
+- Position size increase after wins => Larger Position
+- Loss + re-entry within 5 minutes on same/correlated symbol => Revenge Trade
+- 2+ consecutive losses without stopping => Hope/Averaging/Panic zone
+- Trades after 2:00 PM following morning losses => highest revenge risk
+- >15 trades in session => Decision Fatigue (cognitive capacity depleted)
+- Entry near day high after a rally => FOMO
+- Adding to a losing position => Averaging Down
+- Exit at the session low after holding through drawdown => Panic Exit
 - Show the CHAIN: how each stage led to the next, and quantify the TOTAL COST of the cycle
 
 Context about the trader:
 ${ctxLines}
 
 === CRITICAL RULES ===
-- Analyse EVERY trade \u2014 trade_analyses array must have one entry per trade
+- Analyse EVERY trade --- trade_analyses array must have one entry per trade
 - Tags must be one of: win, fomo, rvg, avg, pnc, vs
 - Psychology coaching must name specific cognitive biases, use "I know..." empathetic language
-- Counterfactuals must include specific \u20b9 amounts and what the RIGHT action would have been
+- Counterfactuals must include specific Rs amounts and what the RIGHT action would have been
 - Reference exact trade numbers, times, and amounts everywhere
-- Return ONLY valid JSON \u2014 no markdown, no backticks, no extra text`;
+- Return ONLY valid JSON --- no markdown, no backticks, no extra text`;
 }
 
-/* \u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d
-   MAIN HANDLER
-\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d\u273d */
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
@@ -220,18 +218,16 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Analysis failed';
     console.error('Analysis error:', msg);
-    return NextResponse.json({ error: 'Analysis failed. Please try again.', details: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Analysis failed. Please try again.', code: 'INTERNAL' }, { status: 500 });
   }
 }
 
-/* \u2500\u2500\u2500 FORMDATA HANDLER \u2014 Two-Call Approach \u2500\u2500\u2500 */
 async function handleFormData(req: NextRequest, apiKey: string, startTime: number) {
   const formData = await req.formData();
   const files = formData.getAll('files') as File[];
   const contextRaw = formData.get('context') as string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let context: any = {};
-  if (contextRaw) { try { context = JSON.parse(contextRaw); } catch { /* ignore */ } }
+  if (contextRaw) { try { context = JSON.parse(contextRaw); } catch { } }
 
   if (!files || files.length === 0) {
     return NextResponse.json({ error: 'No files uploaded. Please upload at least one broker statement.' }, { status: 400 });
@@ -245,7 +241,6 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   console.log(`=== ANALYSE: ${files.length} file(s) via FormData ===`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userContent: any[] = [];
   for (const file of files) {
     const mediaType = getMediaType(file.name);
@@ -258,31 +253,33 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       userContent.push({ type: 'document', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } });
     }
   }
-  // Build extract prompt with broker hint if available
   const brokerHint = context?.detected_broker || context?.broker || '';
   userContent.push({ type: 'text', text: brokerHint ? `Extract all trades from these files. Broker: ${brokerHint}` : 'Extract all trades from these files.' });
 
-  /* CALL 1: Extract */
   console.log(`Call 1: Extracting trades... (broker hint: ${brokerHint || 'none'})`);
   const c1Start = Date.now();
   const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 4096, 55000);
   console.log(`Call 1 took ${Date.now() - c1Start}ms`);
 
   if (!extractResult.ok) {
-    return NextResponse.json({ error: 'Trade extraction failed. Please try again.', details: extractResult.error }, { status: 502 });
+    const userMsg = extractResult.code === 'TIMEOUT'
+      ? 'Analysis is taking longer than expected. Please try again or upload a smaller file.'
+      : extractResult.code === 'RATE_LIMIT' || extractResult.code === 'OVERLOADED'
+        ? 'Our AI is experiencing high demand. Please try again in a few minutes.'
+        : 'Trade extraction failed. Please try again.';
+    console.error('Extract failed:', extractResult.error, extractResult.code);
+    return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
   }
   const extractParsed = safeParseJSON(extractResult.data);
   if (!extractParsed.ok || !extractParsed.data) {
     return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const extracted = extractParsed.data as any;
   const trades = extracted.trades || [];
   if (trades.length === 0) {
     return NextResponse.json({ error: 'No trades found in the uploaded file(s).' }, { status: 422 });
   }
 
-  /* CALL 2: Analyse */
   console.log(`Call 2: Analysing ${trades.length} trades...`);
   const c2Start = Date.now();
   const elapsed = Date.now() - startTime;
@@ -291,14 +288,11 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   const analyseResult = await callClaude(
     apiKey, buildAnalysePrompt(context),
-    [{ type: 'text', text: `Extracted trades:
-${JSON.stringify(trades, null, 2)}
-Total: ${trades.length}, Net P&L: ${netPnl}` }],
+    [{ type: 'text', text: `Extracted trades:\n${JSON.stringify(trades, null, 2)}\nTotal: ${trades.length}, Net P&L: ${netPnl}` }],
     8192, c2Timeout,
   );
   console.log(`Call 2 took ${Date.now() - c2Start}ms`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let analysis: any = null;
   if (analyseResult.ok) {
     const ap = safeParseJSON(analyseResult.data);
@@ -307,7 +301,7 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
 
   const response = {
     success: true, trades,
-    analysis: analysis || { session_summary: 'AI analysis unavailable \u2014 showing extracted trades.', momentum_indicators: [], vicious_cycle: [], technical_insights: [], trade_analyses: [] },
+    analysis: analysis || { session_summary: 'AI analysis unavailable --- showing extracted trades.', momentum_indicators: [], vicious_cycle: [], technical_insights: [], trade_analyses: [] },
     metadata: {
       detected_market: extracted.detected_market || 'Unknown', detected_currency: extracted.detected_currency || 'INR',
       detected_broker: extracted.detected_broker || 'Unknown', trade_date: extracted.trade_date || '',
@@ -316,8 +310,6 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
     },
   };
 
-  // Save session to Supabase (non-blocking \u2014 don't fail analysis if save fails)
-  // Saves for BOTH authenticated users (userId) and anonymous users (anonId)
   let savedSessionId: string | undefined;
   try {
     const { userId } = await auth();
@@ -342,7 +334,6 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
       savedSessionId = saved?.id;
       console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
-      // Save per-trade AI analysis (non-blocking)
       if (savedSessionId && response.analysis?.trade_analyses) {
         const mergedTrades = trades.map((t: any, i: number) => {
           const ai = (response.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
@@ -353,7 +344,6 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
         );
       }
 
-      // Save raw files in background (non-blocking)
       for (const file of files) {
         saveRawFile({
           userId: userId || undefined,
@@ -376,9 +366,7 @@ Total: ${trades.length}, Net P&L: ${netPnl}` }],
   return NextResponse.json(response);
 }
 
-/* \u2500\u2500\u2500 JSON HANDLER \u2014 Legacy pre-parsed trades \u2500\u2500\u2500 */
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
@@ -424,7 +412,7 @@ Analyse EVERY trade.`;
       cross_user_insight: aiAnalysis.cross_user_insight || null,
       trade_analyses: aiAnalysis.trade_analyses || [],
     } : {
-      session_summary: `${trades.length} trades from ${broker || 'Unknown'}. AI coaching unavailable \u2014 showing your locally parsed results.`,
+      session_summary: `${trades.length} trades from ${broker || 'Unknown'}. AI coaching unavailable --- showing your locally parsed results.`,
       momentum_indicators: [], vicious_cycle: [], technical_insights: [],
       trade_analyses: [],
     },
@@ -442,8 +430,6 @@ Analyse EVERY trade.`;
     _parsed_locally: true,
   });
 
-  // Helper: save session to Supabase (non-blocking)
-  // Saves for BOTH authenticated users and anonymous users
   const saveSession = async (responseObj: ReturnType<typeof buildResponse>) => {
     try {
       const { userId } = await auth();
@@ -467,7 +453,6 @@ Analyse EVERY trade.`;
         });
         console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
-        // Save per-trade AI analysis (non-blocking)
         if (saved?.id && responseObj.analysis?.trade_analyses) {
           const mergedTrades = trades.map((t: any, i: number) => {
             const ai = (responseObj.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
@@ -497,7 +482,6 @@ Analyse EVERY trade.`;
     return NextResponse.json(resp);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analysis = aiParsed.data as any;
 
   if (analysis.trade_tags) {

@@ -2,9 +2,12 @@
 
 import { useRef, useState, useCallback } from 'react'
 import { useUploadStore } from '@/lib/uploadStore'
+import { showToast } from '@/components/ui/Toast'
 
 const ACCEPT = '.pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg'
 const MAX_FILES = 40
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'csv', 'xlsx', 'xls', 'png', 'jpg', 'jpeg'])
 const TYPE_TAGS = ['PDF', 'CSV', 'XLSX', 'XLS', 'PNG', 'JPG', 'JPEG']
 
 export default function Dropzone() {
@@ -15,11 +18,60 @@ export default function Dropzone() {
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
-      if (!fileList) return
+      if (!fileList || fileList.length === 0) return
+
       const arr = Array.from(fileList)
-      addFiles(arr)
+      const valid: File[] = []
+      const rejected: string[] = []
+      const tooLarge: string[] = []
+
+      for (const file of arr) {
+        const ext = file.name.split('.').pop()?.toLowerCase() || ''
+
+        if (!ALLOWED_EXTENSIONS.has(ext)) {
+          rejected.push(file.name)
+          continue
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+          tooLarge.push(file.name)
+          continue
+        }
+
+        if (file.size === 0) {
+          rejected.push(file.name)
+          continue
+        }
+
+        valid.push(file)
+      }
+
+      // Show errors for rejected files
+      if (rejected.length > 0) {
+        const names = rejected.length <= 2 ? rejected.join(', ') : `${rejected.length} files`
+        showToast.error(`Unsupported format: ${names}. Please upload PDF, CSV, Excel, or image files.`)
+      }
+
+      if (tooLarge.length > 0) {
+        const names = tooLarge.length <= 2 ? tooLarge.join(', ') : `${tooLarge.length} files`
+        showToast.error(`File too large: ${names}. Maximum size is 10MB per file.`)
+      }
+
+      // Check total file limit
+      const remaining = MAX_FILES - filesCount
+      if (valid.length > remaining) {
+        showToast.warning(`Only ${remaining} more file(s) can be added. Maximum is ${MAX_FILES} files.`)
+        valid.splice(remaining)
+      }
+
+      if (valid.length > 0) {
+        addFiles(valid)
+        if (rejected.length === 0 && tooLarge.length === 0) {
+          showToast.success(`${valid.length} file${valid.length > 1 ? 's' : ''} added successfully.`)
+        }
+      }
     },
-    [addFiles],
+    [addFiles, filesCount],
   )
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -58,14 +110,14 @@ export default function Dropzone() {
           cursor: atLimit ? 'not-allowed' : 'pointer',
         }}
       >
-        <span className="text-4xl">📂</span>
+        <span className="text-4xl">{String.fromCodePoint(0x1F4C2)}</span>
 
         <div className="text-center">
           <p className="text-base font-medium" style={{ color: 'var(--text)' }}>
             Drop files here or click to browse
           </p>
           <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-            PDF, CSV, Excel, screenshots — up to 40 files · any broker worldwide
+            PDF, CSV, Excel, screenshots — up to 40 files · 10MB each · any broker worldwide
           </p>
         </div>
 
@@ -94,7 +146,11 @@ export default function Dropzone() {
         accept={ACCEPT}
         multiple
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          handleFiles(e.target.files)
+          // Reset input so re-uploading same file triggers onChange
+          if (inputRef.current) inputRef.current.value = ''
+        }}
       />
     </div>
   )
