@@ -158,7 +158,7 @@ export default function SessionDetail({ session }: Props) {
                   )}
 
                   {/* Expanded AI Analysis */}
-                  {expandedTrade === idx && (trade.psychology_coaching || trade.technical_analysis || trade.counterfactual) && (
+                  {expandedTrade === idx && (trade.quick_summary || trade.psychology_coaching || trade.technical_analysis || trade.counterfactual || trade.cycle_stage) && (
                     <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "var(--border)" }}>
                       {trade.quick_summary && (
                         <div className="pt-3">
