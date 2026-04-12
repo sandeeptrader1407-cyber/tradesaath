@@ -84,7 +84,7 @@ export default function TradingJourney() {
     step1Beginning: "", step2DarkDays: "", step3Shift: "", step4Today: "", step5Truth: "",
   })
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [_saved, setSaved] = useState(false)
   const [activeStep, setActiveStep] = useState(0)
   const [showProfile, setShowProfile] = useState(false)
 
