@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession } from '@/lib/supabase/saveTrades';
 import { saveRawFile } from '@/lib/supabase/saveFile';
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
+import { bustDashboardCache } from '@/lib/dashboardCache';
 import { getOrCreateAnonId } from '@/lib/anonId';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
@@ -460,6 +461,8 @@ Analyse EVERY trade.`;
           plan: 'free',
         });
         console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
+        // Bust dashboard cache so next load gets fresh data
+        if (userId) bustDashboardCache(userId);
 
         if (saved?.id && responseObj.analysis?.trade_analyses) {
           /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/AI shapes */

@@ -118,7 +118,7 @@ function LogoLink() {
   // Per V12 spec: logo always goes to landing page (goHome behavior)
   return (
     <Link className="nav-logo" href="/">
-      TradeSaath<span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#3ee8c4', marginLeft: 6, animation: 'pulse-dot 2s ease-in-out infinite', verticalAlign: 'middle' }} />
+      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#3ee8c4', marginRight: 8, animation: 'pulse-dot 2s ease-in-out infinite', verticalAlign: 'middle' }} />TradeSaath
     </Link>
   )
 }

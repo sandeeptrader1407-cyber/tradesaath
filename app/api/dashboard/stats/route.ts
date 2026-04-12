@@ -3,11 +3,23 @@ import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
+import { statsCache } from '@/lib/dashboardCache'
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    // Check cache (skip if ?refresh=true)
+    const refresh = req.nextUrl.searchParams.get('refresh') === 'true'
+    const cacheKey = `stats:${userId}`
+    if (!refresh) {
+      const cached = statsCache.get(cacheKey)
+      if (cached && Date.now() < cached.expiresAt) {
+        return NextResponse.json(cached.data)
+      }
     }
 
     // Fallback: migrate anon data if cookie still exists
@@ -323,7 +335,7 @@ export async function GET(req: NextRequest) {
     const actualMonthPnl = monthPnl
     const counterfactualPnl = actualMonthPnl + totalMistakeCost
 
-    const statsResponse = NextResponse.json({
+    const responseData = {
       hasData: true,
       sessionCount: sessions.length,
       totalTrades: sessions.reduce((s, x) => s + (x.trade_count || 0), 0),
@@ -372,7 +384,12 @@ export async function GET(req: NextRequest) {
       tradesByTimeDay,
       dqsScore,
       dqsFactors,
-    })
+    }
+
+    // Cache the response for 60 seconds
+    statsCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + 60_000 })
+
+    const statsResponse = NextResponse.json(responseData)
 
     // Clear anon cookie if it was migrated
     if (anonId) {
