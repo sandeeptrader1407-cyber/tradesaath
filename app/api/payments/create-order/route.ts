@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
 import { supabaseAdmin } from '@/lib/supabase'
 import { auth } from '@clerk/nextjs/server'
+import { PLANS, type PlanId } from '@/lib/config/pricing'
 
 const keyId = process.env.RAZORPAY_KEY_ID!
 const keySecret = process.env.RAZORPAY_KEY_SECRET!
@@ -29,23 +30,18 @@ export async function POST(req: NextRequest) {
 
     const { plan } = await req.json()
 
-    // Determine amount based on plan
-    const plans: Record<string, { amount: number; description: string }> = {
-      single: { amount: 9900, description: 'TradeSaath Single Report' },
-      pro_monthly: { amount: 79900, description: 'TradeSaath Pro — Monthly' },
-      pro_yearly: { amount: 49900, description: 'TradeSaath Pro — Yearly (per month)' },
-    }
-
-    const selectedPlan = plans[plan || 'single']
-    if (!selectedPlan) {
+    // Determine amount based on plan (from shared config)
+    const planId = (plan || 'single') as string
+    if (!(planId in PLANS) || planId === 'free') {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
+    const selectedPlan = PLANS[planId as Exclude<PlanId, 'free'>]
 
-    console.log(`[Razorpay] Creating ${isTestMode ? 'TEST' : 'LIVE'} order: ${plan} — ₹${selectedPlan.amount / 100}`)
+    console.log(`[Razorpay] Creating ${isTestMode ? 'TEST' : 'LIVE'} order: ${plan} — ₹${selectedPlan.price / 100}`)
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: selectedPlan.amount,
+      amount: selectedPlan.price,
       currency: 'INR',
       receipt: `ts_${Date.now()}`,
       notes: { plan, description: selectedPlan.description },
@@ -69,7 +65,7 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from('payments').insert({
         razorpay_order_id: order.id,
         plan,
-        amount: selectedPlan.amount,
+        amount: selectedPlan.price,
         currency: 'INR',
         status: 'pending',
         clerk_id: clerkId,
@@ -82,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderId: order.id,
-      amount: selectedPlan.amount,
+      amount: selectedPlan.price,
       currency: 'INR',
       keyId,
       plan,
