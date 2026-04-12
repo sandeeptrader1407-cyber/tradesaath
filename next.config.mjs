@@ -8,8 +8,8 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Types verified with tsc --noEmit locally
-    ignoreBuildErrors: true,
+    // Strict TS builds enabled — zero errors as of 2026-04-12
+    ignoreBuildErrors: false,
   },
 };
 
