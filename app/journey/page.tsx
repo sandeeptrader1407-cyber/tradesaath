@@ -2,7 +2,6 @@
 
 import { PlanGate } from "@/components/PlanGate"
 import TradingJourney from "@/components/journal/TradingJourney"
-import { ChatWrapper } from "@/components/chat/ChatWrapper"
 
 function JourneyContent() {
   return (
@@ -18,7 +17,6 @@ function JourneyContent() {
         </div>
         <TradingJourney />
       </div>
-      <ChatWrapper />
     </main>
   )
 }

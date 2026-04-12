@@ -18,7 +18,6 @@ import TradeSidebar from "@/components/results/TradeSidebar"
 import TradeDetail from "@/components/results/TradeDetail"
 import PaywallGate from "@/components/results/PaywallGate"
 import EquityCurve from "@/components/results/EquityCurve"
-import { ChatWrapper } from "@/components/chat/ChatWrapper"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
@@ -148,7 +147,6 @@ export default function UploadPage() {
           <div className="text-center text-sm px-4 py-3 rounded-lg" style={{ background: "rgba(240,93,108,.1)", color: "var(--red)", border: "1px solid rgba(240,93,108,.2)" }}>{error}</div>
         )}
       </div>
-      <ChatWrapper />
     </main>
   )
 }
