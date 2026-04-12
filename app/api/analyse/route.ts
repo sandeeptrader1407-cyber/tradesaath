@@ -380,7 +380,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { trades, kpis, broker, market, trade_date, currency, total_trades_in_file: _total_trades_in_file, time_analysis, context } = body;
+  const { trades, kpis, broker, market, trade_date, currency, time_analysis, context } = body;
 
   if (!trades || !Array.isArray(trades) || trades.length === 0) {
     return NextResponse.json({ error: 'No trades provided. Please upload a broker statement.' }, { status: 400 });

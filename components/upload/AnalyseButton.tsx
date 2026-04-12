@@ -79,7 +79,7 @@ export default function AnalyseButton() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        const _msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
+        friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
         console.warn("AI analysis HTTP error:", res.status, data)
         showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
         setAnalysisState("complete")
@@ -165,7 +165,7 @@ export default function AnalyseButton() {
         let res: Response
         try {
           res = await fetch("/api/analyse", { method: "POST", body: formData })
-        } catch (_networkErr) {
+        } catch {
           const msg = "Network error. Please check your internet connection and try again."
           showToast.error(msg)
           setError(msg)
