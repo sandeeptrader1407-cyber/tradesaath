@@ -73,7 +73,7 @@ export default function AiChat() {
           topPattern: patternEntries[0]?.[0] || null,
         })
 
-        const ctx = `Last ${recent.length} sessions: Gross P&L ₹${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
+        const ctx = `Last ${recent.length} sessions: Gross P&L \u20B9${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
         setTradeContext(ctx)
       })
       .catch(() => { /* silently fail */ })
@@ -126,7 +126,7 @@ export default function AiChat() {
           transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
         }}
       >
-        {open ? '✕' : '💬'}
+        {open ? '\u2715' : '\uD83D\uDCAC'}
       </button>
 
       {/* Chat Panel */}
@@ -148,10 +148,10 @@ export default function AiChat() {
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>TradeSaath AI</div>
-                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online · Your Trading Saathi</div>
+                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online \u00B7 Your Trading Saathi</div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>\u2715</button>
           </div>
 
           {/* Coaching Memory Bar — shows what the AI remembers about you */}
@@ -173,11 +173,11 @@ export default function AiChat() {
                 fontFamily: "'JetBrains Mono', monospace", color: 'var(--text2)',
               }}>
                 <span><span style={{ color: 'var(--muted)' }}>SESSIONS</span> <strong style={{ color: 'var(--text)' }}>{sessionCount}</strong></span>
-                <span style={{ color: 'var(--border)' }}>·</span>
+                <span style={{ color: 'var(--border)' }}>\u00B7</span>
                 <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
-                <span style={{ color: 'var(--border)' }}>·</span>
+                <span style={{ color: 'var(--border)' }}>\u00B7</span>
                 <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
-                <span style={{ color: 'var(--border)' }}>·</span>
+                <span style={{ color: 'var(--border)' }}>\u00B7</span>
                 <span><span style={{ color: 'var(--muted)' }}>PATTERNS</span> <strong style={{ color: 'var(--text)' }}>{patternCount}</strong></span>
               </div>
               {memoryStats.topPattern && (
@@ -195,7 +195,7 @@ export default function AiChat() {
           }}>
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>{'\uD83C\uDFAF'}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Ask me anything about your trading</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 16 }}>I analyse your patterns and give specific, actionable coaching</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
