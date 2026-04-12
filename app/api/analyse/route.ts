@@ -205,7 +205,7 @@ ${ctxLines}
 
 
 /* ─── Group trades by date and save each day as a separate session ─── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade/analysis shapes
+/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/analysis shapes throughout */
 async function saveSessionsByDay({
   trades, analysis, context, metadata, plan, userId, anonId, files,
 }: {
@@ -333,6 +333,7 @@ async function saveSessionsByDay({
   if (userId) bustDashboardCache(userId)
   return firstSessionId
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function POST(req: NextRequest) {
   // Rate limit: 5 per IP per 15 min (Claude API cost protection)
