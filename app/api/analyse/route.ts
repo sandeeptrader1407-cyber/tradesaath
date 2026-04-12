@@ -9,14 +9,12 @@ import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 import { getOrCreateAnonId } from '@/lib/anonId';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
+type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
 
 /* ─── Call Claude API ─── */
 async function callClaude(
   apiKey: string, systemPrompt: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  userContent: any[], maxTokens: number, timeoutMs = 55000,
+  userContent: unknown[], maxTokens: number, timeoutMs = 55000,
 ): Promise<AIResult> {
   try {
     const controller = new AbortController();
@@ -33,7 +31,7 @@ async function callClaude(
     clearTimeout(timeout);
     if (response.status === 529) return { ok: false, error: 'Claude busy (529)', code: 'OVERLOADED' };
     if (response.status === 429) return { ok: false, error: 'Claude rate limit (429)', code: 'RATE_LIMIT' };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Claude API response shape varies
     let data: any;
     try { data = await response.json(); } catch { return { ok: false, error: `Claude HTTP ${response.status}`, code: 'PARSE' }; }
     if (!response.ok || data.error) {
@@ -41,8 +39,7 @@ async function callClaude(
       console.error('Claude API error:', JSON.stringify(data.error || data));
       return { ok: false, error: `Claude: ${errMsg}`, code: data.error?.type || `HTTP_${response.status}` };
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const text = data.content?.find((c: any) => c.type === 'text')?.text || '';
+    const text = (data.content as Array<{ type: string; text?: string }> | undefined)?.find((c) => c.type === 'text')?.text || '';
     return { ok: true, data: text };
   } catch (err: unknown) {
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
@@ -52,8 +49,7 @@ async function callClaude(
 }
 
 /* ─── JSON parser with truncation recovery ─── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function safeParseJSON(raw: string): { ok: boolean; data?: any; truncated?: boolean } {
+function safeParseJSON(raw: string): { ok: boolean; data?: unknown; truncated?: boolean } {
   let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   try { return { ok: true, data: JSON.parse(cleaned) }; } catch { /* fall through */ }
   const lastBrace = cleaned.lastIndexOf('}]');
@@ -90,8 +86,7 @@ For each trade return EXACTLY this JSON:
 Rules: P&L for BUY=(exit-entry)*qty, SELL=(entry-exit)*qty. If only one leg, set missing to null. Parse ALL trades. 24h times. Return ONLY valid JSON.`
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildAnalysePrompt(context: any): string {
+function buildAnalysePrompt(context: Record<string, string | number | null | undefined>): string {
   const ctxLines = context ? Object.entries(context).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'No additional context.';
   return `You are TradeSaath --- a brutally honest yet deeply empathetic AI trading psychology coach. You talk like a senior trader mentoring a junior: direct, specific, no sugarcoating, but always rooting for them. Think of yourself as the trader's inner voice that tells the truth they already know but avoid.
 
@@ -276,7 +271,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.error('Extract failed:', extractResult.error, extractResult.code);
     return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
   }
-  const extractParsed = safeParseJSON(extractResult.data);
+  const extractParsed = safeParseJSON(extractResult.data as string);
   if (!extractParsed.ok || !extractParsed.data) {
     return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
   }
@@ -301,7 +296,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   let analysis: any = null;
   if (analyseResult.ok) {
-    const ap = safeParseJSON(analyseResult.data);
+    const ap = safeParseJSON(analyseResult.data as string);
     if (ap.ok && ap.data) analysis = ap.data;
   }
 
@@ -481,7 +476,7 @@ Analyse EVERY trade.`;
     return NextResponse.json(resp);
   }
 
-  const aiParsed = safeParseJSON(aiResult.data);
+  const aiParsed = safeParseJSON(aiResult.data as string);
   if (!aiParsed.ok || !aiParsed.data) {
     const resp = buildResponse(undefined, 'Failed to parse AI response');
     await saveSession(resp);

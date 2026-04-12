@@ -34,7 +34,7 @@ const TAB_CONFIG: { key: CoachTab; label: string; icon: string }[] = [
   { key: 'monthly_goals', label: 'Monthly Goals', icon: '🎯' },
 ]
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape varies
 interface AiPlan { title: string; subtitle: string; sections: any[] }
 
 export default function CoachPage() {
@@ -88,6 +88,7 @@ export default function CoachPage() {
         setAiLoading(false)
       })
       .catch(() => setAiLoading(false))
+  // Intentional: omit aiCache to prevent infinite re-fetches
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, sessions.length, loading])
 

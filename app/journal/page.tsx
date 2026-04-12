@@ -55,12 +55,12 @@ function JournalContent() {
     const midpoint = Math.floor(sessions.length / 2)
 
     sessions.forEach((sess, idx) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const analysis = sess.analysis as any
+      // Dynamic analysis JSON — shape varies by session
+      const analysis = sess.analysis as Record<string, unknown> | null
       if (!analysis) return
 
       // Count from trade_analyses (new format)
-      const tradeAnalyses = analysis.trade_analyses || []
+      const tradeAnalyses = (analysis.trade_analyses || []) as any[]
       const seenTags = new Set<string>()
       for (const ta of tradeAnalyses) {
         if (ta.tag && ta.tag !== 'win') {
@@ -76,7 +76,7 @@ function JournalContent() {
 
       // Count from mistake_patterns (legacy)
       if (analysis.mistake_patterns) {
-        for (const mp of analysis.mistake_patterns) {
+        for (const mp of (analysis.mistake_patterns as any[])) {
           const tag = (mp.name || '').toLowerCase().replace(/\s+/g, '_')
           if (!tag) continue
           if (!tagCounts[tag]) tagCounts[tag] = { count: 0, sessions: 0, cost: 0, recentCount: 0, olderCount: 0 }

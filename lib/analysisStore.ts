@@ -81,7 +81,7 @@ interface AnalysisStore {
   kpis: KPIs | null
   isLoading: boolean
   error: string | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API response shape
   setAnalysis: (data: any) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void

@@ -56,7 +56,6 @@ export default function AiChat() {
 
         // Collect patterns across sessions
         const patterns: Record<string, number> = {}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const sess of recent) {
           const analysis = sess.analysis as { perTrade?: { tag: string }[] } | null
           if (analysis?.perTrade) {

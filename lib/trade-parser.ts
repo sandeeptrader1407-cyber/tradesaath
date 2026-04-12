@@ -5,6 +5,7 @@
  * Falls back gracefully if parsing fails
  */
 
+// Generic row type — fields vary by broker format
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow = Record<string, any>;
 import { detectBrokerFromText } from '@/lib/config/brokers';
@@ -462,6 +463,7 @@ function calculateTimeAnalysis(trades: ParsedTrade[]) {
 
 /* ─── Parse CSV/TSV text ─── */
 function parseCSVText(text: string): AnyRow[] {
+  // papaparse is CommonJS-only in server context
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Papa = require('papaparse');
 
@@ -510,8 +512,7 @@ function parseCSVText(text: string): AnyRow[] {
   const statusIdx = headers.findIndex((h: string) => /^status$/i.test(h.trim()));
 
   const trades: AnyRow[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const row of result.data as any[]) {
+  for (const row of result.data as Record<string, string>[]) {
     // Filter out rejected/cancelled orders
     if (statusIdx >= 0) {
       const status = (row[headers[statusIdx]] || '').toString().trim().toLowerCase();
@@ -530,6 +531,7 @@ function parseCSVText(text: string): AnyRow[] {
 
 /* ─── Parse Excel buffer ─── */
 function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[] } {
+  // xlsx is CommonJS-only — dynamic import not supported
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const XLSX = require('xlsx');
   const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -543,8 +545,7 @@ function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[] } {
     allText += csv + '\n';
 
     // Also try as array for more structured parsing
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as (string | number | null)[][];
     if (jsonData.length < 2) continue;
 
     // Find header row — look for row with known column names (skip metadata rows)
