@@ -7,6 +7,7 @@
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow = Record<string, any>;
+import { detectBrokerFromText } from '@/lib/config/brokers';
 
 export interface ParsedTrade {
   index: number;
@@ -78,29 +79,8 @@ const COL = {
   optType: /^(option.?type|opt.?type|ce.?pe|call.?put|instrument.?type)/i,
 };
 
-/* ─── Broker detection ─── */
-function detectBroker(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('zerodha') || t.includes('kite')) return 'Zerodha';
-  if (t.includes('fyers')) return 'Fyers';
-  if (t.includes('angel') || t.includes('smartapi')) return 'Angel One';
-  if (t.includes('groww')) return 'Groww';
-  if (t.includes('upstox') || t.includes('rksv')) return 'Upstox';
-  if (t.includes('icici') || t.includes('icicidirect')) return 'ICICI Direct';
-  if (t.includes('hdfc') || t.includes('hdfcsec')) return 'HDFC Securities';
-  if (t.includes('kotak')) return 'Kotak Securities';
-  if (t.includes('5paisa') || t.includes('5 paisa')) return '5Paisa';
-  if (t.includes('dhan')) return 'Dhan';
-  if (t.includes('paytm') || t.includes('paytmmoney')) return 'Paytm Money';
-  if (t.includes('motilal')) return 'Motilal Oswal';
-  if (t.includes('sharekhan')) return 'Sharekhan';
-  if (t.includes('finvasia') || t.includes('shoonya')) return 'Finvasia';
-  if (t.includes('flattrade')) return 'Flattrade';
-  if (t.includes('interactive') || t.includes('ibkr')) return 'Interactive Brokers';
-  if (t.includes('td ameritrade') || t.includes('thinkorswim')) return 'TD Ameritrade';
-  if (t.includes('robinhood')) return 'Robinhood';
-  return 'Unknown';
-}
+/* ─── Broker detection (from shared registry) ─── */
+const detectBroker = detectBrokerFromText;
 
 /* ─── Market detection ─── */
 function detectMarket(text: string): string {
