@@ -371,7 +371,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   }
 
   console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl}`);
-  return NextResponse.json(response);
+  return NextResponse.json({ ...response, sessionId: savedSessionId || null });
 }
 
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {

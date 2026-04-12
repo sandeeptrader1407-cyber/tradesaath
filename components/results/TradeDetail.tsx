@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useAnalysisStore } from "@/lib/analysisStore";
 
 interface TradeDetailProps {
@@ -17,10 +17,23 @@ function parseMarkdownBold(text: string) {
 }
 
 export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }: TradeDetailProps) {
-  const { trades } = useAnalysisStore();
+  const { trades, sessionId } = useAnalysisStore();
   const [expandedTradeIndex, setExpandedTradeIndex] = useState<number>(0);
   const [deepDiveOpen, setDeepDiveOpen] = useState<Record<number, boolean>>({});
   const [tradeNotes, setTradeNotes] = useState<Record<number, string>>({});
+  const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const saveNote = useCallback((tradeIndex: number, notes: string) => {
+    if (!sessionId) return;
+    if (saveTimers.current[tradeIndex]) clearTimeout(saveTimers.current[tradeIndex]);
+    saveTimers.current[tradeIndex] = setTimeout(() => {
+      fetch('/api/trade-notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, tradeIndex, notes }),
+      }).catch(() => { /* silent */ });
+    }, 1000);
+  }, [sessionId]);
 
   const isLocked = (index: number): boolean => index >= freeLimit;
 
@@ -314,7 +327,7 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                     disabled={locked}
                     placeholder="Your notes for this trade..."
                     value={tradeNotes[idx] || ""}
-                    onChange={(e) => setTradeNotes({ ...tradeNotes, [idx]: e.target.value })}
+                    onChange={(e) => { setTradeNotes({ ...tradeNotes, [idx]: e.target.value }); saveNote(idx, e.target.value); }}
                     className="w-full text-sm bg-[var(--s2)] border border-[var(--border)] rounded-lg p-3 text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--border2)] resize-none"
                     rows={3}
                   ></textarea>

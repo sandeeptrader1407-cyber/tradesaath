@@ -79,6 +79,7 @@ interface AnalysisStore {
   analysis: Analysis | null
   metadata: Metadata | null
   kpis: KPIs | null
+  sessionId: string | null
   isLoading: boolean
   error: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API response shape
@@ -120,7 +121,7 @@ function computeKPIs(trades: Trade[]): KPIs {
 export const useAnalysisStore = create<AnalysisStore>()(
   persist(
     (set) => ({
-      trades: [], analysis: null, metadata: null, kpis: null,
+      trades: [], analysis: null, metadata: null, kpis: null, sessionId: null,
       isLoading: false, error: null,
 
       setAnalysis: (data) => {
@@ -137,6 +138,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
           analysis: data.analysis || null,
           metadata: data.metadata || null,
           kpis: computeKPIs(trades),
+          sessionId: data.sessionId || null,
           isLoading: false,
           error: null,
         })
@@ -144,7 +146,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error, isLoading: false }),
-      reset: () => set({ trades: [], analysis: null, metadata: null, kpis: null, isLoading: false, error: null }),
+      reset: () => set({ trades: [], analysis: null, metadata: null, kpis: null, sessionId: null, isLoading: false, error: null }),
     }),
     {
       name: 'tradesaath-analysis',
@@ -154,6 +156,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
         analysis: state.analysis,
         metadata: state.metadata,
         kpis: state.kpis,
+        sessionId: state.sessionId,
       }),
     }
   )

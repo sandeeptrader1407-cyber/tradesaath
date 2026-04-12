@@ -64,7 +64,7 @@ function getMonthYear(): string {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { isSignedIn, isLoaded } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
   const { isPro, isPaid } = usePlan()
   const [stats, setStats] = useState<DashStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -131,13 +131,22 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
-            {getGreeting()}, Trader
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
-            {getMonthYear()} · {stats?.sessionCount || 0} sessions · {stats?.totalTrades || 0} trades analysed
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
+              {getGreeting()}, {user?.firstName || "Trader"}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
+              {getMonthYear()} · {stats?.sessionCount || 0} sessions · {stats?.totalTrades || 0} trades analysed
+            </p>
+          </div>
+          <button
+            onClick={() => router.push("/upload")}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shrink-0"
+            style={{ background: "var(--accent)", color: "#071a15" }}
+          >
+            📤 New Analysis
+          </button>
         </div>
 
         {!stats?.hasData && !loading && (
