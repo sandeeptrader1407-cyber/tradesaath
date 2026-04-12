@@ -3,6 +3,27 @@
 import { useCallback, useRef, useEffect } from "react"
 import { useUploadStore } from "@/lib/uploadStore"
 import { useAnalysisStore } from "@/lib/analysisStore"
+import { showToast } from "@/components/ui/Toast"
+
+/* ─── User-friendly error messages ─── */
+function friendlyError(raw: string, code?: string): string {
+  if (code === 'TIMEOUT' || /timed?\s*out|timeout/i.test(raw))
+    return "Analysis is taking longer than expected. This can happen with large files. Please try again or upload a smaller file."
+  if (code === 'RATE_LIMIT' || /rate.?limit|429/i.test(raw))
+    return "Our AI is experiencing high demand. Please try again in a few minutes."
+  if (code === 'OVERLOADED' || /overload|529|busy/i.test(raw))
+    return "Our AI is experiencing high demand. Please try again in a few minutes."
+  if (/api.?key|auth|401|403/i.test(raw))
+    return "Analysis service temporarily unavailable. Please try again later."
+  if (/network|fetch|ERR_/i.test(raw))
+    return "Network error. Please check your internet connection and try again."
+  if (/no trades found|0 trades/i.test(raw))
+    return "No trades found in this file. Please check the file format or try a different file."
+  if (/parse|extract|format/i.test(raw))
+    return "Could not read trades from this file. Please check the file format or try a different file."
+  // Generic fallback — never expose internal details
+  return "Analysis failed. Please try again."
+}
 
 export default function AnalyseButton() {
   const files = useUploadStore((s) => s.files)
@@ -55,15 +76,26 @@ export default function AnalyseButton() {
           context,
         }),
       })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
+        console.warn("AI analysis HTTP error:", res.status, data)
+        showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
+        setAnalysisState("complete")
+        return
+      }
+
       const data = await res.json()
       if (data._ai_failed || data._ai_error) {
         console.warn("AI coaching unavailable:", data._ai_error)
+        showToast.info("AI coaching is processing. Showing your parsed trades for now.")
       }
       setAnalysis(data)
       setAnalysisState("complete")
     } catch (err) {
       console.warn("AI analysis failed:", err)
-      // Keep parsed results visible, just mark complete
+      showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
       setAnalysisState("complete")
     }
   }
@@ -75,6 +107,7 @@ export default function AnalyseButton() {
 
     try {
       if (!files || files.length === 0) {
+        showToast.error("Please upload at least one broker statement to analyse.")
         setError("Please upload at least one broker statement to analyse.")
         setAnalysisState("error")
         return
@@ -87,6 +120,7 @@ export default function AnalyseButton() {
       let market = "NSE"
       let tradeDate = ""
       let currency = "INR"
+      const failedFiles: string[] = []
 
       for (const file of files) {
         const parseForm = new FormData()
@@ -101,11 +135,21 @@ export default function AnalyseButton() {
               market = parsed.market || market
               tradeDate = parsed.trade_date || tradeDate
               currency = parsed.currency || currency
+            } else {
+              failedFiles.push(file.name)
             }
+          } else {
+            failedFiles.push(file.name)
           }
         } catch {
-          // continue
+          failedFiles.push(file.name)
         }
+      }
+
+      // Show partial success / failure messages
+      if (failedFiles.length > 0 && allTrades.length > 0) {
+        const names = failedFiles.length <= 2 ? failedFiles.join(', ') : `${failedFiles.length} files`
+        showToast.warning(`Could not extract trades from: ${names}. Continuing with ${allTrades.length} trades from other files.`)
       }
 
       // Update store with detected broker for UI display
@@ -117,15 +161,30 @@ export default function AnalyseButton() {
         const formData = new FormData()
         for (const file of files) formData.append("files", file)
         formData.append("context", JSON.stringify({ ...context, detected_broker: broker !== "Unknown" ? broker : undefined }))
-        const res = await fetch("/api/analyse", { method: "POST", body: formData })
-        const data = await res.json()
+
+        let res: Response
+        try {
+          res = await fetch("/api/analyse", { method: "POST", body: formData })
+        } catch (networkErr) {
+          const msg = "Network error. Please check your internet connection and try again."
+          showToast.error(msg)
+          setError(msg)
+          setAnalysisState("error")
+          return
+        }
+
+        const data = await res.json().catch(() => ({ error: "Failed to read response" }))
+
         if (!res.ok || data.error) {
-          setError(data.error || "Analysis failed")
+          const msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
+          showToast.error(msg)
+          setError(msg)
           setAnalysisState("error")
           return
         }
         setAnalysis(data)
         setAnalysisState("complete")
+        showToast.success(`Analysis complete! ${data.trades?.length || 0} trades found.`)
         return
       }
 
@@ -145,12 +204,16 @@ export default function AnalyseButton() {
         },
       })
       setAnalysisState("parsed")
+      showToast.success(`${allTrades.length} trades parsed! Running AI analysis...`)
 
       // Step 3: Auto-trigger AI analysis in background
       runAIAnalysis(allTrades, broker, market, tradeDate, currency)
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed")
+      const raw = err instanceof Error ? err.message : "Analysis failed"
+      const msg = friendlyError(raw)
+      showToast.error(msg)
+      setError(msg)
       setAnalysisState("error")
     }
   }, [files, context, isAnalysing, setAnalysisState, setAnalysis, setLoading, setError])
@@ -170,12 +233,12 @@ export default function AnalyseButton() {
           boxShadow: isAnalysing ? "none" : "0 0 20px rgba(62,232,196,.2)",
         }}
       >
-        {isAnalysing ? "\u231f Analysing\u2026" : "\ud83d\udd0d Run Free Analysis"}
+        {isAnalysing ? "⟳ Analysing…" : "🔍 Run Free Analysis"}
       </button>
       <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         {isAnalysing
-          ? <span ref={statusRef}>Analysing {files.length} file(s)\u2026</span>
-          : "No login required \u00b7 upload your broker statement to start"}
+          ? <span ref={statusRef}>Analysing {files.length} file(s){String.fromCodePoint(0x2026)}</span>
+          : "No login required · upload your broker statement to start"}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"

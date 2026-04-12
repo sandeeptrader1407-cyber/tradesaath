@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
 import { useRazorpay } from '@/hooks/useRazorpay'
 import { usePlanStore } from '@/lib/planStore'
 import { useUser } from '@clerk/nextjs'
+import { showToast } from '@/components/ui/Toast'
+import { useState } from 'react'
 
 export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
   const [selectedIdx, setSelectedIdx] = useState(0)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const { pay, loading, paid } = useRazorpay()
   const setPlan = usePlanStore((s) => s.setPlan)
   const isPaid = usePlanStore((s) => s.isPaid)
@@ -28,23 +28,25 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
       email: user?.primaryEmailAddress?.emailAddress,
       onSuccess: () => {
         setPlan(plan.key as any)
-        setToast({ type: 'success', msg: 'Payment successful! All trades unlocked.' })
-        setTimeout(() => setToast(null), 4000)
+        showToast.success('Payment successful! All trades unlocked.')
       },
       onError: (err) => {
-        setToast({ type: 'error', msg: err || 'Payment failed. Please try again.' })
-        setTimeout(() => setToast(null), 4000)
+        // Map technical errors to user-friendly messages
+        let msg = err || 'Payment failed. Please try again.'
+        if (/verif/i.test(msg)) {
+          msg = 'Payment received but verification pending. Your plan will be activated within a few minutes. If not, contact support.'
+        } else if (/network|fetch|internet/i.test(msg)) {
+          msg = 'Network error. Your payment was not processed. Please try again.'
+        } else if (/load.*razorpay/i.test(msg)) {
+          msg = 'Could not load payment gateway. Please check your internet connection and try again.'
+        }
+        showToast.error(msg)
       },
     })
   }
 
   return (
     <div className="rounded-xl p-8 border" style={{ background: 'linear-gradient(135deg, rgba(157,122,247,.08) 0%, var(--bg) 100%)', borderColor: 'var(--border)' }}>
-      {toast && (
-        <div className="mb-6 text-center text-sm px-4 py-3 rounded-lg" style={{ background: toast.type === 'success' ? 'rgba(54,211,153,.1)' : 'rgba(240,93,108,.1)', color: toast.type === 'success' ? 'var(--green)' : 'var(--red)', border: '1px solid ' + (toast.type === 'success' ? 'rgba(54,211,153,.2)' : 'rgba(240,93,108,.2)') }}>
-          {toast.type === 'success' ? '\u2705' : '\u274C'} {toast.msg}
-        </div>
-      )}
       <div className="text-center mb-8">
         <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ fontFamily: "'Fraunces', serif", color: 'var(--text)' }}>Unlock {tradeCount - 1} More Trades</h2>
         <p className="text-sm md:text-base" style={{ color: 'var(--text2)' }}>Full psychology coaching, technical analysis, counterfactuals, and notes for every trade.</p>
@@ -55,7 +57,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
             {plan.badge && <div className="mb-3"><span className="inline-block px-2 py-1 rounded text-xs font-semibold" style={{ background: 'rgba(54,211,153,.15)', color: 'var(--green)' }}>{plan.badge}</span></div>}
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text)' }}>{plan.name}</h3>
             <div className="mb-3">
-              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>₹{plan.price}</span>
+              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>{String.fromCodePoint(0x20B9)}{plan.price}</span>
               <span className="text-xs ml-1" style={{ color: 'var(--text2)' }}>{plan.period}</span>
             </div>
             <p className="text-xs" style={{ color: 'var(--text2)' }}>{plan.desc}</p>
@@ -64,7 +66,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
       </div>
       <div className="flex justify-center">
         <button onClick={handleUnlock} disabled={loading} className="font-semibold rounded-xl px-8 py-3 transition-all" style={{ background: loading ? 'var(--s3)' : 'var(--accent)', color: loading ? 'var(--muted)' : '#0a0e17', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-          {loading ? '\u23F3 Processing...' : 'Unlock Full Report \u2192'}
+          {loading ? String.fromCodePoint(0x23F3) + ' Processing...' : 'Unlock Full Report ' + String.fromCodePoint(0x2192)}
         </button>
       </div>
     </div>

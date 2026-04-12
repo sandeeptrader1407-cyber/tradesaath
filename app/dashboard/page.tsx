@@ -16,6 +16,8 @@ import PerformanceHeatmap from "@/components/dashboard/PerformanceHeatmap"
 import MistakeCostCalculator from "@/components/dashboard/MistakeCostCalculator"
 import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
 import { ChatWrapper } from "@/components/chat/ChatWrapper"
+import Toaster from "@/components/ui/Toast"
+import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
 interface DashStats {
   hasData: boolean
@@ -77,9 +79,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isSignedIn) return
     fetch("/api/dashboard/stats")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((d) => { setStats(d); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch((err) => {
+        console.error("Dashboard stats fetch failed:", err)
+        setLoading(false)
+        // Import dynamically to avoid circular deps
+        import("@/components/ui/Toast").then(({ showToast }) => {
+          showToast.error("Could not load dashboard data. Please refresh the page.")
+        })
+      })
   }, [isSignedIn])
 
   if (!isLoaded || !isSignedIn) {
@@ -103,6 +115,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
+      <Toaster />
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
 
         <div className="rounded-xl border px-5 py-3 flex items-center justify-between" style={{
@@ -151,29 +164,29 @@ export default function DashboardPage() {
 
         {stats?.hasData && !loading && (
           <>
-            <TradeSaathScore score={score} factors={factors} />
-            <PreMarketCheckin />
+            <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
+            <ErrorBoundary name="PreMarketCheckin"><PreMarketCheckin /></ErrorBoundary>
 
-            <PerformanceKPIs month={stats.month} score={score} />
-            <DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} />
-            <SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} />
-            <BehavioralInsights sessionCount={stats.sessionCount} />
-            <GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} />
-            <RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} />
+            <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} /></ErrorBoundary>
+            <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
+            <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
+            <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
+            <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
+            <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>
 
             {/* Pro Analytics Section */}
-            <PerformanceHeatmap trades={stats.tradesByTimeDay || []} />
+            <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} /></ErrorBoundary>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <MistakeCostCalculator
+              <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
                 totalCost={stats.totalMistakeCost || 0}
                 counterfactualPnl={stats.counterfactualPnl || 0}
                 actualPnl={stats.actualMonthPnl || 0}
                 mistakes={stats.mistakeTrades || []}
-              />
-              <DecisionQualityScore
+              /></ErrorBoundary>
+              <ErrorBoundary name="DQS"><DecisionQualityScore
                 score={stats.dqsScore || 0}
                 factors={stats.dqsFactors || []}
-              />
+              /></ErrorBoundary>
             </div>
           </>
         )}
