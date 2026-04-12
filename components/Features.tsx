@@ -11,6 +11,7 @@ const features = [
   { icon: '📈', bg: 'rgba(91,141,239,.1)', title: 'TradeSaath Score', desc: 'Your trading discipline credit score. Compare against 800+ Indian traders. See where you rank — and what top traders do differently.', border: 'rgba(91,141,239,.25)' },
   { icon: '🔮', bg: 'rgba(240,180,41,.1)', title: 'Predictive Warnings', desc: 'AI predicts your next mistake before it happens. "82% chance next trade is revenge. Avg cost: ₹1,050." Based on YOUR historical patterns.' },
   { icon: '🔗', bg: 'rgba(62,232,196,.1)', title: 'Broker Integration', desc: 'Auto-import trades from Zerodha, Angel One, Upstox, Dhan. No manual uploads. Coming in Phase 2.', soonBadge: true },
+  { icon: '👥', bg: 'rgba(244,63,94,.1)', title: 'Accountability Partners', desc: 'Pair up with trading partners, share challenges, track scores together.', border: 'rgba(244,63,94,.25)', badge: 'PRO' },
 ]
 
 import ComparisonTable from './ComparisonTable'

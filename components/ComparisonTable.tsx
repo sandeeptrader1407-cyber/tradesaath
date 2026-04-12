@@ -14,6 +14,8 @@ const rows = [
   { feature: 'TradeSaath Score Benchmark', free: 'Basic', single: <span className="vs-yes">✓</span>, pro: <span className="vs-yes">✓ + Rank</span> },
   { feature: 'Cross-User Pattern Insights', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓ AI-powered</span> },
   { feature: 'Certified Discipline Badge', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓ Shareable</span> },
+  { feature: 'Accountability Partners', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
+  { feature: 'Broker Import', free: <span className="vs-no">✗</span>, single: <span className="vs-no">✗</span>, pro: <span className="vs-yes">✓</span> },
 ]
 
 export default function ComparisonTable() {
