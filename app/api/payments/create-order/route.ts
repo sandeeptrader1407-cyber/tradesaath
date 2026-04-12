@@ -3,6 +3,7 @@ import Razorpay from 'razorpay'
 import { supabaseAdmin } from '@/lib/supabase'
 import { auth } from '@clerk/nextjs/server'
 import { PLANS, type PlanId } from '@/lib/config/pricing'
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 const keyId = process.env.RAZORPAY_KEY_ID!
 const keySecret = process.env.RAZORPAY_KEY_SECRET!
@@ -27,6 +28,10 @@ export async function POST(req: NextRequest) {
     if (!clerkId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
+
+    // Rate limit: 5 per user per hour (prevent payment spam)
+    const rl = rateLimit(`payment:${clerkId}`, 5, 60 * 60 * 1000)
+    if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const { plan } = await req.json()
 
