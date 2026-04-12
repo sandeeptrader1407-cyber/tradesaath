@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -61,6 +61,9 @@ function NavLinks() {
         <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
           {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
         </Link>
+        <Link href={isPaid ? '/journey' : '#'} className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
+          {'\uD83D\uDDFA\uFE0F'} Journey{!isPaid && ' \uD83D\uDD12'}
+        </Link>
         <Link href={isPro ? '/coach' : '#'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50' : ''}`}>
           {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
         </Link>
@@ -90,6 +93,9 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCCA'} Dashboard</Link>
         <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
           {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
+        </Link>
+        <Link href={isPaid ? '/journey' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
+          {'\uD83D\uDDFA\uFE0F'} Journey{!isPaid && ' \uD83D\uDD12'}
         </Link>
         <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>
           {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
