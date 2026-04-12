@@ -15,7 +15,6 @@ import RecentActivity from "@/components/dashboard/RecentActivity"
 import PerformanceHeatmap from "@/components/dashboard/PerformanceHeatmap"
 import MistakeCostCalculator from "@/components/dashboard/MistakeCostCalculator"
 import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
-import { ChatWrapper } from "@/components/chat/ChatWrapper"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
@@ -191,7 +190,6 @@ export default function DashboardPage() {
           </>
         )}
       </div>
-      <ChatWrapper />
     </main>
   )
 }
