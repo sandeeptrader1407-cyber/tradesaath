@@ -35,86 +35,112 @@ Each action item MUST have exactly one tag:
 Return ONLY valid JSON. No markdown, no backticks, no extra text.`
 
 const PLAN_TEMPLATES: Record<string, string> = {
-  daily: `Generate a DAILY coaching plan with these sections:
-1. "psychological" — 3 action items for today's mindset (based on recent patterns)
-2. "technical" — 3 action items for trading execution today
-3. "rules" — 3 hard rules for today (print-worthy, with exact thresholds from data)
+  tomorrow: `Generate a TOMORROW'S PLAN — the trader's pre-market preparation sheet. This should be print-worthy and specific.
+
+Sections:
+1. "psychology" — 3 items: STOP/DO/PRACTICE for tomorrow's mindset. Reference their recent patterns. Use IF-THEN rules: "IF you feel the urge to revenge trade, THEN close terminal for 10 min."
+2. "technical" — 3 items: specific technical execution rules for tomorrow based on their recent entries/exits. Reference exact price levels, time windows, or position sizing rules.
+3. "rules" — 3 hard rules to print and stick on the monitor. Each rule must have a TRIGGER (what situation), ACTION (what to do), and COST OF BREAKING (₹ amount from their data).
 
 JSON format:
 {
-  "title": "Daily Plan — [Today's date]",
-  "subtitle": "Based on your last [N] sessions",
+  "title": "Tomorrow's Plan",
+  "subtitle": "Based on your last [N] sessions · Print this and keep it next to your screen",
   "sections": [
     {
-      "title": "Psychological Goals — Today",
-      "subtitle": "Based on your last N sessions",
+      "title": "Psychology Prep",
+      "subtitle": "Your mental game plan for tomorrow",
       "icon": "brain",
-      "items": [{ "tag": "STOP|DO|PRACTICE", "text": "Specific action referencing data" }]
+      "items": [{ "tag": "STOP|DO|PRACTICE", "text": "IF-THEN rule referencing their data" }]
     },
-    { "title": "Technical Goals — Today", "subtitle": "Strategy refinement", "icon": "chart", "items": [...] },
-    { "title": "Today's Rules (Print This)", "subtitle": "3 rules. No exceptions.", "icon": "rules", "items": [...] }
+    { "title": "Technical Rules", "subtitle": "Entry, exit, and sizing discipline", "icon": "chart", "items": [{ "tag": "STOP|DO|PRACTICE", "text": "..." }] },
+    { "title": "Tomorrow's 3 Rules (Print This)", "subtitle": "Stick this on your monitor. No exceptions.", "icon": "rules", "items": [{ "tag": "DO", "text": "TRIGGER: [situation] → ACTION: [what to do] → COST OF BREAKING: ₹[amount]" }] }
   ]
 }`,
 
-  weekly: `Generate a WEEKLY coaching plan with these sections:
-1. "focus" — 4 key focus areas for this week with data-driven thresholds
-2. "tradingPlan" — Entry rules, Size rules, Exit rules, Mental rules
-3. "scenarios" — Best case, Likely case, Worst case with ₹ estimates
-4. "review" — Friday review checklist (5 items)
+  thisweek: `Generate a THIS WEEK focus plan. Identify the ONE worst pattern to fix this week and build the entire plan around it.
+
+Sections:
+1. "focus" — The single biggest pattern to fix this week, with its total cost and a specific improvement plan. Include 3-4 action items.
+2. "scenarios" — Best/Likely/Worst case P&L scenarios for the week based on their historical data. Be specific with ₹ amounts.
+3. "checklist" — 5-item weekly goals checklist. Each item should be measurable: "Keep revenge trades to 0 this week (last week: 4)"
 
 JSON format:
 {
-  "title": "Weekly Focus — [Date range]",
+  "title": "This Week's Focus",
   "subtitle": "Based on your last [N] sessions · [X] total trades",
   "sections": [
-    { "title": "Weekly Focus Areas", "icon": "chart", "items": [{ "tag": "DO|STOP|PRACTICE", "text": "..." }] },
-    { "title": "Your Trading Plan This Week", "icon": "plan", "content": "Formatted text with ENTRY RULES, SIZE RULES, EXIT RULES, MENTAL RULES" },
+    { "title": "This Week: Fix [Pattern Name]", "subtitle": "This pattern has cost you ₹[X] — time to break it", "icon": "target", "items": [{ "tag": "STOP|DO|PRACTICE", "text": "..." }] },
     { "title": "Scenario Planning", "icon": "crystal", "scenarios": [
-      { "type": "best", "text": "..." },
-      { "type": "likely", "text": "..." },
-      { "type": "worst", "text": "..." }
+      { "type": "best", "text": "If you follow ALL rules: estimated P&L +₹X based on your clean trades" },
+      { "type": "likely", "text": "If you slip 1-2 times: estimated P&L ₹X" },
+      { "type": "worst", "text": "If old patterns take over: estimated P&L -₹X" }
     ]},
-    { "title": "Friday Review Checklist", "icon": "review", "items": [{ "tag": "DO", "text": "..." }] }
+    { "title": "Weekly Goals Checklist", "subtitle": "Review Friday evening", "icon": "review", "items": [{ "tag": "DO", "text": "Measurable goal with last week comparison" }] }
   ]
 }`,
 
-  monthly: `Generate a MONTHLY coaching plan with:
-1. "targets" — 5 measurable monthly targets with current → goal values
-2. "zones" — Performance zones (RED/YELLOW/GREEN criteria)
-3. "milestones" — Week 1-4 milestone checkpoints
+  learning_path: `Generate a LEARNING PATH assessment. Evaluate where this trader is in their psychology journey and what they need to learn next.
+
+The 4 stages of trading psychology mastery:
+1. AWARENESS — Trader doesn't yet recognize their patterns. They blame the market, not themselves.
+2. UNDERSTANDING — Trader can name their patterns after the fact but can't stop them in real-time.
+3. PRACTICE — Trader catches patterns as they happen and sometimes stops them. Has rules but breaks them under pressure.
+4. MASTERY — Trader has internalized the rules. Patterns still arise but are managed automatically. Consistent execution.
+
+Sections:
+1. "stage" — Which stage this trader is in, with evidence from their data. Include a progress indicator (items with tag DO showing what they've achieved and PRACTICE showing what's next).
+2. "skills" — 3 specific psychology/technical skills to develop next, based on their worst patterns. Each skill should have a name, current level, target level, and specific exercises.
+3. "concepts" — 3 trading psychology concepts most relevant to their patterns. For each: name, why it's relevant to THEM specifically, and one practical exercise.
 
 JSON format:
 {
-  "title": "Monthly Targets — [Month Year]",
-  "subtitle": "Measurable goals based on your current performance",
+  "title": "Your Learning Path",
+  "subtitle": "Psychology Stage: [STAGE] · Based on [N] sessions",
   "sections": [
-    { "title": "Monthly Targets", "icon": "target", "items": [{ "tag": "DO", "text": "Win rate: X% → Y% — explanation" }] },
+    { "title": "Psychology Stage: [AWARENESS|UNDERSTANDING|PRACTICE|MASTERY]", "subtitle": "Evidence from your trading data", "icon": "brain", "items": [{ "tag": "DO|PRACTICE", "text": "..." }] },
+    { "title": "Skills to Develop", "subtitle": "Based on your top 3 pattern weaknesses", "icon": "chart", "items": [{ "tag": "PRACTICE", "text": "[Skill]: Current [X] → Target [Y]. Exercise: [specific exercise]" }] },
+    { "title": "Concepts to Study", "subtitle": "Psychology concepts matched to YOUR patterns", "icon": "book", "items": [{ "tag": "PRACTICE", "text": "[Concept Name]: Relevant because [link to their data]. Exercise: [specific exercise]" }] }
+  ]
+}`,
+
+  patterns: `Generate a MY PATTERNS analysis. List every detected behavioral pattern from their trading data with frequency, cost, trend, and comparison to other traders.
+
+Sections:
+1. "detected" — All detected patterns, each as an action item. For each pattern include: name, frequency (X out of Y sessions), total cost in ₹, and whether it's IMPROVING or WORSENING compared to their earlier sessions. Tag: STOP for worsening patterns, DO for improving ones, PRACTICE for new/neutral.
+2. "chains" — Show how their patterns connect (chain reactions). "Pattern A triggers Pattern B, which leads to Pattern C." Include the combined cost.
+3. "comparison" — How their patterns compare to other traders: "X% of traders with your FOMO frequency who implemented [rule] saw Y% improvement in Z weeks."
+
+JSON format:
+{
+  "title": "Your Trading Patterns",
+  "subtitle": "Detected across [N] sessions · [X] total trades",
+  "sections": [
+    { "title": "Detected Patterns", "subtitle": "Sorted by cost — most expensive first", "icon": "patterns", "items": [{ "tag": "STOP|DO|PRACTICE", "text": "[Pattern]: [X] times in [Y] sessions · Cost: ₹[Z] · Trend: [IMPROVING/WORSENING]" }] },
+    { "title": "Pattern Chains", "subtitle": "How one mistake triggers the next", "icon": "chain", "items": [{ "tag": "STOP", "text": "[Pattern A] → [Pattern B] → [Pattern C] · Combined cost: ₹[X]" }] },
+    { "title": "How You Compare", "subtitle": "Anonymous insights from the TradeSaath community", "icon": "community", "items": [{ "tag": "DO", "text": "X% of traders with similar patterns improved by doing [specific action]" }] }
+  ]
+}`,
+
+  monthly_goals: `Generate MONTHLY GOALS with measurable targets and performance zones.
+
+Sections:
+1. "goals" — 5 specific, measurable monthly goals. Each goal: current value → target value with explanation. Tag DO for achievable goals, PRACTICE for stretch goals.
+2. "zones" — 3 performance zones (RED/YELLOW/GREEN) with specific criteria from their data. Include which zone they're currently in.
+3. "progress" — 4 weekly milestones (Week 1-4) to track progress toward monthly goals. Each milestone should be a checkpoint with specific metrics.
+
+JSON format:
+{
+  "title": "Monthly Goals",
+  "subtitle": "Measurable targets based on your current performance",
+  "sections": [
+    { "title": "Monthly Targets", "subtitle": "5 goals you can measure every day", "icon": "target", "items": [{ "tag": "DO|PRACTICE", "text": "[Metric]: [Current] → [Target] — [Why this matters and how to get there]" }] },
     { "title": "Performance Zones", "icon": "zones", "zones": [
-      { "name": "RED ZONE", "color": "red", "criteria": "WR < 35%, RR < 0.8x, ..." },
+      { "name": "RED ZONE", "color": "red", "criteria": "Specific criteria from their data" },
       { "name": "YELLOW ZONE", "color": "gold", "criteria": "..." },
       { "name": "GREEN ZONE", "color": "green", "criteria": "..." }
     ], "current": "RED|YELLOW|GREEN" },
-    { "title": "Monthly Milestones", "icon": "milestones", "items": [{ "tag": "DO", "text": "Week 1: ..." }] }
-  ]
-}`,
-
-  quarterly: `Generate a QUARTERLY coaching plan with:
-1. "transformation" — 3 major quarterly transformation goals
-2. "monthlyBreakdown" — Month 1, 2, 3 focus areas
-3. "longTermVision" — Where they'll be if they follow the plan
-
-JSON format:
-{
-  "title": "Quarterly Plan — [Quarter]",
-  "subtitle": "Your 90-day transformation roadmap",
-  "sections": [
-    { "title": "90-Day Transformation Goals", "icon": "rocket", "items": [{ "tag": "DO", "text": "..." }] },
-    { "title": "Monthly Breakdown", "icon": "calendar", "items": [
-      { "tag": "DO", "text": "Month 1: ..." },
-      { "tag": "DO", "text": "Month 2: ..." },
-      { "tag": "DO", "text": "Month 3: ..." }
-    ]},
-    { "title": "Long-Term Vision", "icon": "vision", "content": "If you follow this plan..." }
+    { "title": "Weekly Milestones", "subtitle": "Check in every Friday", "icon": "milestones", "items": [{ "tag": "DO", "text": "Week [N]: [Specific checkpoint with metrics]" }] }
   ]
 }`
 }
