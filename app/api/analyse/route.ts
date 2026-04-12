@@ -83,8 +83,8 @@ IMPORTANT: This file is from "${brokerHint}". Parse using that broker's specific
     : ''
   return `You are a trade extraction engine. Extract ALL trades from this broker statement/file.${brokerLine}
 For each trade return EXACTLY this JSON:
-{"trades":[{"symbol":"...","side":"BUY"|"SELL","entry_price":N,"exit_price":N,"quantity":N,"entry_time":"HH:MM","exit_time":"HH:MM","pnl":N}],"detected_market":"NSE"|"NYSE"|"Forex"|"Crypto"|"Unknown","detected_currency":"INR"|"USD"|"EUR","detected_broker":"Zerodha"|"Angel One"|"Unknown","trade_date":"YYYY-MM-DD"}
-Rules: P&L for BUY=(exit-entry)*qty, SELL=(entry-exit)*qty. If only one leg, set missing to null. Parse ALL trades. 24h times. Return ONLY valid JSON.`
+{"trades":[{"symbol":"...","side":"BUY"|"SELL","entry_price":N,"exit_price":N,"quantity":N,"entry_time":"HH:MM","exit_time":"HH:MM","pnl":N,"trade_date":"YYYY-MM-DD"}],"detected_market":"NSE"|"NYSE"|"Forex"|"Crypto"|"Unknown","detected_currency":"INR"|"USD"|"EUR","detected_broker":"Zerodha"|"Angel One"|"Unknown","trade_date":"YYYY-MM-DD"}
+Rules: P&L for BUY=(exit-entry)*qty, SELL=(entry-exit)*qty. If only one leg, set missing to null. Parse ALL trades. 24h times. IMPORTANT: include trade_date on EACH trade if the file contains trades from multiple days. Return ONLY valid JSON.`
 }
 
 function buildAnalysePrompt(context: Record<string, string | number | null | undefined>): string {
@@ -201,6 +201,137 @@ ${ctxLines}
 - Counterfactuals must include specific Rs amounts and what the RIGHT action would have been
 - Reference exact trade numbers, times, and amounts everywhere
 - Return ONLY valid JSON --- no markdown, no backticks, no extra text`;
+}
+
+
+/* ─── Group trades by date and save each day as a separate session ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade/analysis shapes
+async function saveSessionsByDay({
+  trades, analysis, context, metadata, plan, userId, anonId, files,
+}: {
+  trades: any[]; analysis: any; context: any; metadata: any; plan: string
+  userId?: string; anonId?: string; files?: File[]
+}): Promise<string | undefined> {
+  if (!userId && !anonId) return undefined
+
+  // --- 1. Determine per-trade date ---
+  // Each trade may have entry_time like "09:15" (time-only) or "2024-03-20 09:15"
+  // The extraction prompt returns a session-level trade_date like "2024-03-20"
+  // For multi-day files, Claude may return an array of dates or a comma-separated list,
+  // but individual trades might have a trade_date field set by Claude.
+  const sessionDate = metadata?.trade_date || ''
+  const tradeDateMap: Map<string, { trade: any; originalIndex: number }[]> = new Map()
+
+  for (let i = 0; i < trades.length; i++) {
+    const t = trades[i]
+    // Try to get date from the trade itself
+    let dateKey = ''
+    if (t.trade_date && /^\d{4}-\d{2}-\d{2}/.test(t.trade_date)) {
+      dateKey = t.trade_date.substring(0, 10)
+    } else if (t.entry_time && /^\d{4}-\d{2}-\d{2}/.test(t.entry_time)) {
+      dateKey = t.entry_time.substring(0, 10)
+    } else if (t.date && /^\d{4}-\d{2}-\d{2}/.test(t.date)) {
+      dateKey = t.date.substring(0, 10)
+    }
+    // Fall back to session-level date
+    if (!dateKey) dateKey = sessionDate || 'unknown'
+    if (!tradeDateMap.has(dateKey)) tradeDateMap.set(dateKey, [])
+    tradeDateMap.get(dateKey)!.push({ trade: t, originalIndex: i })
+  }
+
+  // --- 2. If only one date group, use current behavior (single session) ---
+  const dateGroups = Array.from(tradeDateMap.entries()).sort(([a], [b]) => a.localeCompare(b))
+  if (dateGroups.length <= 1) {
+    // Single day — save as one session (original behavior)
+    const saved = await saveTradeSession({
+      userId, anonId, trades, analysis, context, metadata, plan,
+    })
+    const sid = saved?.id
+    if (sid && analysis?.trade_analyses) {
+      const merged = trades.map((t: any, i: number) => {
+        const ai = (analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i)
+        return ai ? { ...t, ...ai } : t
+      })
+      saveTradeAnalysis(sid, merged, anonId).catch(err =>
+        console.error('Background trade analysis save error:', err)
+      )
+    }
+    if (sid && files) {
+      for (const file of files) {
+        saveRawFile({
+          userId, anonId,
+          fileName: file.name, fileType: file.type || getMediaType(file.name),
+          fileSize: file.size, fileBuffer: Buffer.from(await file.arrayBuffer()),
+          sessionId: sid, brokerDetected: metadata?.detected_broker || 'Unknown',
+          tradesCount: trades.length,
+        }).catch(err => console.error('Background file save error:', err))
+      }
+    }
+    if (userId) bustDashboardCache(userId)
+    return sid
+  }
+
+  // --- 3. Multi-day: save each date group as its own session ---
+  console.log(`Multi-day upload detected: ${dateGroups.length} trading days`)
+  let firstSessionId: string | undefined
+  const tradeAnalyses: any[] = analysis?.trade_analyses || []
+
+  for (const [dateKey, group] of dateGroups) {
+    const dayTrades = group.map(g => g.trade)
+    const originalIndices = group.map(g => g.originalIndex)
+
+    // Remap trade_analyses for this day's trades
+    const dayAnalyses = originalIndices.map((origIdx, newIdx) => {
+      const ai = tradeAnalyses.find((a: any) => a.trade_index === origIdx)
+      return ai ? { ...ai, trade_index: newIdx } : undefined
+    }).filter(Boolean)
+
+    // Build per-day analysis: keep session-level fields, replace trade_analyses
+    const dayAnalysis = analysis ? {
+      ...analysis,
+      trade_analyses: dayAnalyses,
+    } : undefined
+
+    const dayMetadata = {
+      ...metadata,
+      trade_date: dateKey !== 'unknown' ? dateKey : metadata?.trade_date || '',
+    }
+
+    const saved = await saveTradeSession({
+      userId, anonId, trades: dayTrades,
+      analysis: dayAnalysis, context, metadata: dayMetadata, plan,
+    })
+    const sid = saved?.id
+    if (!firstSessionId) firstSessionId = sid
+
+    if (sid && dayAnalyses.length > 0) {
+      const merged = dayTrades.map((t: any, i: number) => {
+        const ai = dayAnalyses.find((a: any) => a.trade_index === i)
+        return ai ? { ...t, ...ai } : t
+      })
+      saveTradeAnalysis(sid, merged, anonId).catch(err =>
+        console.error(`Trade analysis save error (${dateKey}):`, err)
+      )
+    }
+
+    console.log(`Saved session for ${dateKey}: ${dayTrades.length} trades, ID=${sid}`)
+  }
+
+  // Save raw files attached to the first session
+  if (firstSessionId && files) {
+    for (const file of files) {
+      saveRawFile({
+        userId, anonId,
+        fileName: file.name, fileType: file.type || getMediaType(file.name),
+        fileSize: file.size, fileBuffer: Buffer.from(await file.arrayBuffer()),
+        sessionId: firstSessionId, brokerDetected: metadata?.detected_broker || 'Unknown',
+        tradesCount: trades.length,
+      }).catch(err => console.error('Background file save error:', err))
+    }
+  }
+
+  if (userId) bustDashboardCache(userId)
+  return firstSessionId
 }
 
 export async function POST(req: NextRequest) {
@@ -320,52 +451,17 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   try {
     const { userId } = await auth();
     const anonId = userId ? undefined : await getOrCreateAnonId();
-    const owner = userId || anonId;
 
-    if (owner) {
-      const saved = await saveTradeSession({
-        userId: userId || undefined,
-        anonId,
-        trades,
-        analysis: response.analysis,
-        context,
-        metadata: {
-          detected_market: extracted.detected_market || 'Unknown',
-          detected_currency: extracted.detected_currency || 'INR',
-          detected_broker: extracted.detected_broker || 'Unknown',
-          trade_date: extracted.trade_date || '',
-        },
-        plan: 'free',
-      });
-      savedSessionId = saved?.id;
-      console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
-
-      if (savedSessionId && response.analysis?.trade_analyses) {
-        /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/AI shapes */
-        const mergedTrades = trades.map((t: any, i: number) => {
-          const ai = (response.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
-          return ai ? { ...t, ...ai } : t;
-        });
-        /* eslint-enable @typescript-eslint/no-explicit-any */
-        saveTradeAnalysis(savedSessionId, mergedTrades, anonId).catch(err =>
-          console.error('Background trade analysis save error:', err)
-        );
-      }
-
-      for (const file of files) {
-        saveRawFile({
-          userId: userId || undefined,
-          anonId,
-          fileName: file.name,
-          fileType: file.type || getMediaType(file.name),
-          fileSize: file.size,
-          fileBuffer: Buffer.from(await file.arrayBuffer()),
-          sessionId: savedSessionId,
-          brokerDetected: extracted.detected_broker || 'Unknown',
-          tradesCount: trades.length,
-        }).catch(err => console.error('Background file save error:', err));
-      }
-    }
+    savedSessionId = await saveSessionsByDay({
+      trades, analysis: response.analysis, context,
+      metadata: {
+        detected_market: extracted.detected_market || 'Unknown',
+        detected_currency: extracted.detected_currency || 'INR',
+        detected_broker: extracted.detected_broker || 'Unknown',
+        trade_date: extracted.trade_date || '',
+      },
+      plan: 'free', userId: userId || undefined, anonId, files,
+    });
   } catch (e) {
     console.error('Session save failed (non-blocking):', e);
   }
@@ -443,39 +539,17 @@ Analyse EVERY trade.`;
     try {
       const { userId } = await auth();
       const anonId = userId ? undefined : await getOrCreateAnonId();
-      const owner = userId || anonId;
 
-      if (owner) {
-        const saved = await saveTradeSession({
-          userId: userId || undefined,
-          anonId,
-          trades,
-          analysis: responseObj.analysis,
-          context: context || {},
-          metadata: {
-            detected_market: market || 'Unknown',
-            detected_currency: currency || 'INR',
-            detected_broker: broker || 'Unknown',
-            trade_date: trade_date || '',
-          },
-          plan: 'free',
-        });
-        console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
-        // Bust dashboard cache so next load gets fresh data
-        if (userId) bustDashboardCache(userId);
-
-        if (saved?.id && responseObj.analysis?.trade_analyses) {
-          /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/AI shapes */
-          const mergedTrades = trades.map((t: any, i: number) => {
-            const ai = (responseObj.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
-            return ai ? { ...t, ...ai } : t;
-          });
-          /* eslint-enable @typescript-eslint/no-explicit-any */
-          saveTradeAnalysis(saved.id, mergedTrades, anonId).catch(err =>
-            console.error('Background trade analysis save error:', err)
-          );
-        }
-      }
+      await saveSessionsByDay({
+        trades, analysis: responseObj.analysis, context: context || {},
+        metadata: {
+          detected_market: market || 'Unknown',
+          detected_currency: currency || 'INR',
+          detected_broker: broker || 'Unknown',
+          trade_date: trade_date || '',
+        },
+        plan: 'free', userId: userId || undefined, anonId,
+      });
     } catch (e) {
       console.error('Session save failed (non-blocking):', e);
     }
