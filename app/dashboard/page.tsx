@@ -110,7 +110,7 @@ export default function DashboardPage() {
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
         }}>
           <span className="text-sm" style={{ color: isPaid ? "var(--accent)" : "var(--text2)" }}>
-            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan \u2014 Upgrade for full features"}
+            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan — Upgrade for full features"}
           </span>
           {!isPaid && (
             <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
@@ -153,21 +153,6 @@ export default function DashboardPage() {
           <>
             <TradeSaathScore score={score} factors={factors} />
             <PreMarketCheckin />
-
-            <div className="grid grid-cols-3 gap-3">
-              <button onClick={() => router.push("/upload")} className="rounded-xl border p-4 text-center transition-all hover:border-[var(--accent)]" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div className="text-xl mb-1">📂</div>
-                <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>Add Trade</div>
-              </button>
-              <button onClick={() => router.push("/journal")} className="rounded-xl border p-4 text-center transition-all hover:border-[var(--accent)]" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div className="text-xl mb-1">📓</div>
-                <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>Open Journal</div>
-              </button>
-              <button onClick={() => router.push("/journey")} className="rounded-xl border p-4 text-center transition-all hover:border-[var(--accent)]" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div className="text-xl mb-1">🗺</div>
-                <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>Trading Journey</div>
-              </button>
-            </div>
 
             <PerformanceKPIs month={stats.month} score={score} />
             <DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} />
