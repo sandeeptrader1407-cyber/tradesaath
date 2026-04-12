@@ -34,7 +34,7 @@ export default function MistakeCostCalculator({
   const maxCost = hasData ? Math.max(...mistakes.map((m) => Math.abs(m.cost)), 1) : 1
 
   return (
-    <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+    <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <div className="flex items-center gap-2 mb-5">
         <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
           Mistake Cost Calculator
@@ -63,8 +63,8 @@ export default function MistakeCostCalculator({
             <div className="text-xs uppercase tracking-wider mb-1" style={{ color: "var(--text2)" }}>
               Learning Cost This Month
             </div>
-            <div style={{
-              fontSize: 32, fontWeight: 800, color: "var(--red, #ef4444)",
+            <div className="text-2xl md:text-[32px]" style={{
+              fontWeight: 800, color: "var(--red, #ef4444)",
               fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.1,
             }}>
               -₹{formatINR(Math.abs(totalCost))}

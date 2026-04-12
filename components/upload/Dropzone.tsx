@@ -102,7 +102,7 @@ export default function Dropzone() {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => !atLimit && inputRef.current?.click()}
-        className="flex flex-col items-center justify-center gap-3 px-6 py-10 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200"
+        className="flex flex-col items-center justify-center gap-3 px-4 py-8 md:px-6 md:py-10 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200"
         style={{
           background: isDragging ? 'var(--accent2)' : 'var(--s1)',
           borderColor: isDragging ? 'var(--accent)' : 'var(--border2)',

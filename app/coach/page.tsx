@@ -160,23 +160,22 @@ export default function CoachPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28 }}>Saathi</h2>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Your personal trading psychology coach</div>
+            <h2 className="text-2xl md:text-[28px]" style={{ fontFamily: "'Fraunces', serif" }}>Saathi</h2>
+            <div className="text-xs md:text-[13px]" style={{ color: 'var(--muted)' }}>Your personal trading psychology coach</div>
           </div>
           <span className="badge badge-free" style={{ background: 'rgba(157,122,247,.1)', color: 'var(--purple)' }}>PRO</span>
         </div>
 
         {/* Memory Indicator */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', marginBottom: 16,
-          background: 'rgba(16,185,129,.04)', border: '1px solid rgba(16,185,129,.12)', borderRadius: 8,
+        <div className="flex items-start sm:items-center gap-2 p-2 sm:px-3.5 sm:py-2 mb-4 rounded-lg" style={{
+          background: 'rgba(16,185,129,.04)', border: '1px solid rgba(16,185,129,.12)',
         }}>
           <span style={{
             width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', flexShrink: 0,
             boxShadow: '0 0 6px rgba(16,185,129,.5)',
             animation: 'pulse 2s ease-in-out infinite',
           }} />
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          <span className="text-[11px] sm:text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
             Reviewed{' '}
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text)', fontWeight: 600 }}>{sessions.length}</span>
             {' '}sessions{' \u00B7 '}
@@ -292,7 +291,7 @@ export default function CoachPage() {
                   {/* Performance Zones */}
                   {section.zones && (
                     <>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, fontSize: 12, marginBottom: 8 }}>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" style={{ fontSize: 12, marginBottom: 8 }}>
                         {section.zones.map((z: { name: string; color: string; criteria: string }, zi: number) => {
                           const zColors: Record<string, string> = { red: 'rgba(240,93,108,.08)', gold: 'rgba(245,166,35,.08)', green: 'rgba(16,185,129,.08)' }
                           const zBorders: Record<string, string> = { red: 'rgba(240,93,108,.2)', gold: 'rgba(245,166,35,.2)', green: 'rgba(16,185,129,.2)' }

@@ -34,7 +34,7 @@ const PLACEHOLDER_INSIGHTS = [
 export default function BehavioralInsights({ sessionCount }: Props) {
   if (sessionCount < 3) {
     return (
-      <div className="rounded-xl border p-8 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+      <div className="rounded-xl border p-5 md:p-8 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
         <div className="text-3xl mb-3">🧠</div>
         <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Behavioral Insights</h3>
         <p className="text-xs" style={{ color: "var(--text2)" }}>Upload 3+ sessions to unlock behavioral insights and pattern detection.</p>

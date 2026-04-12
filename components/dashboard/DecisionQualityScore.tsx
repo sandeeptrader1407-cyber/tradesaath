@@ -48,7 +48,7 @@ export default function DecisionQualityScore({ score = 0, factors = DEFAULT_FACT
   const offset = circumference - (animated / 100) * circumference
 
   return (
-    <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+    <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <div className="flex items-center gap-2 mb-5">
         <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
           Decision Quality Score

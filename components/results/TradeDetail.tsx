@@ -172,27 +172,27 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
             <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: isExpanded ? "4000px" : "0", opacity: isExpanded ? 1 : 0 }}>
               <div className={`bg-[var(--s1)] border border-t-0 border-[var(--border)] rounded-b-xl p-5 relative ${locked ? "blur-sm" : ""}`}>
 
-                <div className="grid grid-cols-5 gap-3 mb-5 p-3 rounded-lg bg-[var(--s2)]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5 p-3 rounded-lg bg-[var(--s2)]">
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Entry</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Entry</div>
                     <div className="text-sm font-jetbrains-mono font-bold text-[var(--text)]">{formatPrice(trade.entry_price)}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Exit</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Exit</div>
                     <div className="text-sm font-jetbrains-mono font-bold text-[var(--text)]">{formatPrice(trade.exit_price)}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Qty</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Qty</div>
                     <div className="text-sm font-jetbrains-mono font-bold text-[var(--text)]">{trade.quantity}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Gross P&L</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Gross P&L</div>
                     <div className={`text-sm font-jetbrains-mono font-bold ${trade.pnl >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
                       {formatPnl(trade.pnl)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Cumulative</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Cumulative</div>
                     <div className={`text-sm font-jetbrains-mono font-bold ${cumulativePnl >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
                       {formatPnl(cumulativePnl)}
                     </div>
@@ -201,7 +201,7 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
                   <div className="p-3 rounded-lg bg-[var(--s2)]">
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Running P&L after this trade</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Running P&L after this trade</div>
                     <div className={`text-lg font-jetbrains-mono font-bold ${cumulativePnl >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}>
                       {formatPnl(cumulativePnl)}
                     </div>
@@ -210,7 +210,7 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                     </div>
                   </div>
                   <div className="p-3 rounded-lg bg-[var(--s2)]">
-                    <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Previous Trades Momentum</div>
+                    <div className="text-[10px] sm:text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1">Previous Trades Momentum</div>
                     {idx === 0 ? (
                       <div className="text-sm text-[var(--text2)]">First trade of session</div>
                     ) : (

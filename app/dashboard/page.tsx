@@ -117,7 +117,7 @@ export default function DashboardPage() {
       <Toaster />
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
 
-        <div className="rounded-xl border px-5 py-3 flex items-center justify-between" style={{
+        <div className="rounded-xl border px-4 md:px-5 py-3 flex items-center justify-between flex-wrap gap-2" style={{
           background: isPaid ? "rgba(62,232,196,.06)" : "var(--s1)",
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
         }}>

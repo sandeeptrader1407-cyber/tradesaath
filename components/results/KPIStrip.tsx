@@ -44,7 +44,7 @@ export default function KPIStrip() {
               <div className={`text-[17px] font-bold font-jetbrains-mono ${m.pos ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                 {m.value}
               </div>
-              <div className="text-[9px] uppercase tracking-widest mt-1 text-[var(--text2)]">{m.label}</div>
+              <div className="text-[10px] sm:text-[9px] uppercase tracking-widest mt-1 text-[var(--text2)]">{m.label}</div>
             </div>
           ))}
         </div>
@@ -55,11 +55,11 @@ export default function KPIStrip() {
       {/* Gross Profit / Gross Loss row */}
       <div className="grid grid-cols-2 gap-3">
         <div className="p-4 rounded-lg border bg-[var(--s1)] border-[var(--border)]">
-          <div className="text-[9px] uppercase tracking-widest text-[var(--text2)] mb-1">Gross Profit</div>
+          <div className="text-[10px] sm:text-[9px] uppercase tracking-widest text-[var(--text2)] mb-1">Gross Profit</div>
           <div className="text-xl font-bold font-jetbrains-mono text-[var(--green)]">+{fmtAbs(kpis.gross_profit ?? 0)}</div>
         </div>
         <div className="p-4 rounded-lg border bg-[var(--s1)] border-[var(--border)]">
-          <div className="text-[9px] uppercase tracking-widest text-[var(--text2)] mb-1">Gross Loss</div>
+          <div className="text-[10px] sm:text-[9px] uppercase tracking-widest text-[var(--text2)] mb-1">Gross Loss</div>
           <div className="text-xl font-bold font-jetbrains-mono text-[var(--red)]">{fmtAbs(kpis.gross_loss ?? 0)}</div>
         </div>
       </div>
