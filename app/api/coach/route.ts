@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     // Fetch user's sessions from trade_sessions (where saveTradeSession writes)
     const { data: rawSessions } = await supabaseAdmin
       .from('trade_sessions')
-      .select('id, created_at, trade_count, net_pnl, win_rate, trades, analysis')
+      .select('id, created_at, trade_count, net_pnl, win_rate, win_count, loss_count, analysis')
       .eq('user_id', clerkId)
       .order('created_at', { ascending: false })
       .limit(20)
@@ -289,3 +289,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
+
