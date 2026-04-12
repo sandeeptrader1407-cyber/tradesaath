@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useUserPlan } from '@/hooks/useUserPlan'
+import { usePlan } from '@/lib/planStore'
 
 interface Session {
   id: string
@@ -38,7 +38,7 @@ const TAB_CONFIG: { key: CoachTab; label: string; icon: string }[] = [
 interface AiPlan { title: string; subtitle: string; sections: any[] }
 
 export default function CoachPage() {
-  const { isPro, loading: planLoading, plan } = useUserPlan()
+  const { isPro, loading: planLoading, plan } = usePlan()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<CoachTab>('tomorrow')
