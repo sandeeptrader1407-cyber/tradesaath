@@ -20,7 +20,7 @@ export default function DashboardEquityCurve({ equityCurve, streaks, risk }: Pro
       {/* Equity Curve */}
       <div className="md:col-span-2 rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
         <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text)" }}>Equity Curve — Last {equityCurve.length} Sessions</h3>
-        <div className="flex items-end gap-[3px] h-[140px]">
+        <div className="flex items-end gap-[3px] h-[140px] overflow-x-auto">
           {equityCurve.map((d, i) => {
             const height = Math.max(6, (Math.abs(d.pnl) / maxAbs) * 100)
             return (

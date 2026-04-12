@@ -72,7 +72,7 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
   const hasData = trades.length >= 5
 
   return (
-    <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+    <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <div className="flex items-center gap-2 mb-5">
         <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
           Performance Heatmap
@@ -146,7 +146,7 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-4 mt-4" style={{ fontSize: 10, color: "var(--text2)" }}>
+          <div className="flex items-center flex-wrap gap-3 sm:gap-4 mt-4" style={{ fontSize: 10, color: "var(--text2)" }}>
             <span className="flex items-center gap-1">
               <span style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(239,68,68,.4)", display: "inline-block" }} />
               {"<40%"}

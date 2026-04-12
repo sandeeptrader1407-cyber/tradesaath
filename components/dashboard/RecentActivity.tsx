@@ -36,9 +36,9 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Recent Trades */}
-      <div style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+      <div className="p-4 rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>📈 Recent Trades</div>
         {recentTrades.length === 0 ? (
           <div style={{ fontSize: 12, opacity: 0.4, padding: '20px 0', textAlign: 'center' }}>No trades yet — upload your first file</div>
@@ -47,15 +47,15 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
             {recentTrades.slice(0, 5).map((t, i) => {
               const tagStyle = getTagColor(t.tag)
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, fontFamily: 'monospace', opacity: 0.4, minWidth: 40 }}>{t.time || '--:--'}</span>
-                    <span style={{ fontSize: 12, fontWeight: 500 }}>{t.symbol || 'Unknown'}</span>
-                    <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, backgroundColor: t.side === 'BUY' ? 'rgba(54,211,153,0.15)' : 'rgba(240,93,108,0.15)', color: t.side === 'BUY' ? '#36d399' : '#f05d6c', fontFamily: 'monospace' }}>{t.side || '—'}</span>
+                <div key={i} className="flex items-center justify-between flex-wrap gap-1" style={{ padding: '6px 8px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[11px] font-mono opacity-40 shrink-0">{t.time || '--:--'}</span>
+                    <span className="text-xs font-medium truncate">{t.symbol || 'Unknown'}</span>
+                    <span className="text-[10px] font-mono shrink-0" style={{ padding: '1px 5px', borderRadius: 3, backgroundColor: t.side === 'BUY' ? 'rgba(54,211,153,0.15)' : 'rgba(240,93,108,0.15)', color: t.side === 'BUY' ? '#36d399' : '#f05d6c' }}>{t.side || '—'}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {t.tag && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, backgroundColor: tagStyle.bg, color: tagStyle.color, fontFamily: 'monospace' }}>{t.tag}</span>}
-                    <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 500, color: (t.pnl || 0) >= 0 ? '#36d399' : '#f05d6c' }}>{formatPnl(t.pnl || 0)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {t.tag && <span className="text-[10px] font-mono" style={{ padding: '1px 5px', borderRadius: 3, backgroundColor: tagStyle.bg, color: tagStyle.color }}>{t.tag}</span>}
+                    <span className="text-xs font-mono font-medium" style={{ color: (t.pnl || 0) >= 0 ? '#36d399' : '#f05d6c' }}>{formatPnl(t.pnl || 0)}</span>
                   </div>
                 </div>
               )
@@ -65,7 +65,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
       </div>
 
       {/* Recent Sessions */}
-      <div style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+      <div className="p-4 rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>📋 Recent Sessions</div>
         {recentSessions.length === 0 ? (
           <div style={{ fontSize: 12, opacity: 0.4, padding: '20px 0', textAlign: 'center' }}>No sessions yet — analyse your first trade file</div>

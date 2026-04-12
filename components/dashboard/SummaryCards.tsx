@@ -22,7 +22,7 @@ export default function SummaryCards({ today, week, month }: Props) {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {cards.map((c) => (
         <div key={c.label} className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-          <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--muted)" }}>{c.label}</div>
+          <div className="text-[11px] sm:text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--muted)" }}>{c.label}</div>
           {c.sessions > 0 ? (
             <div>
               <div className="font-jetbrains-mono font-bold text-2xl" style={{ color: c.pnl >= 0 ? "var(--green)" : "var(--red)" }}>

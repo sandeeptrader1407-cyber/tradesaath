@@ -35,7 +35,7 @@ export default function TradeSaathScore({ score, factors = [] }: Props) {
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
 
   return (
-    <div className="rounded-xl border p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+    <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <h2 className="text-base font-semibold mb-5" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>TradeSaath Discipline Score</h2>
       <div className="flex flex-col md:flex-row gap-8 items-center">
         {/* Ring */}

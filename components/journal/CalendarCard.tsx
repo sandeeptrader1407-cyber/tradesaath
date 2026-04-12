@@ -50,7 +50,7 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
         {DAYS.map((d) => (
-          <div key={d} className="text-[9px] py-1" style={{ color: "var(--muted)" }}>{d}</div>
+          <div key={d} className="text-[10px] sm:text-[9px] py-1" style={{ color: "var(--muted)" }}>{d}</div>
         ))}
         {cells.map((day, i) => {
           if (day === null) return <div key={`e${i}`} />

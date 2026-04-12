@@ -72,21 +72,21 @@ export default function UploadPage() {
         <Toaster />
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <button onClick={handleNewAnalysis} className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--text2)", border: "1px solid var(--border)" }}>{"←"} New Analysis</button>
               <span className="text-xs" style={{ color: "var(--muted)", fontFamily: "'JetBrains Mono', monospace" }}>{planLabel} {"·"} {trades.length} trades analysed</span>
             </div>
-            <button className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>{"⬇"} Report</button>
+            <button className="text-sm px-3 py-1.5 rounded-lg transition-colors shrink-0" style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>{"⬇"} Report</button>
           </div>
 
           {/* AI Status Banner */}
           {aiRunning && (
-            <div className="rounded-xl p-4 border flex items-center gap-3" style={{ background: "linear-gradient(135deg, rgba(62,232,196,.06) 0%, var(--s1) 100%)", borderColor: "var(--accent)" }}>
-              <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}></div>
+            <div className="rounded-xl p-4 border flex items-start sm:items-center gap-3" style={{ background: "linear-gradient(135deg, rgba(62,232,196,.06) 0%, var(--s1) 100%)", borderColor: "var(--accent)" }}>
+              <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5 sm:mt-0" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}></div>
               <div>
                 <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>AI analysis running in background...</span>
-                <span className="text-xs ml-2" style={{ color: "var(--text2)" }}>Dashboard will update automatically when ready</span>
+                <span className="text-xs block sm:inline sm:ml-2" style={{ color: "var(--text2)" }}>Dashboard will update automatically when ready</span>
               </div>
             </div>
           )}

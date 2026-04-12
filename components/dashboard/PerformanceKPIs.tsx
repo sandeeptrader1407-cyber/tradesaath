@@ -32,7 +32,7 @@ export default function PerformanceKPIs({ month, score }: Props) {
           <div className="font-jetbrains-mono font-bold text-lg" style={{ color: k.pos ? "var(--green)" : "var(--red)" }}>
             {k.value}
           </div>
-          <div className="text-[9px] uppercase tracking-widest mt-1" style={{ color: "var(--text2)" }}>{k.label}</div>
+          <div className="text-[10px] sm:text-[9px] uppercase tracking-widest mt-1" style={{ color: "var(--text2)" }}>{k.label}</div>
         </div>
       ))}
     </div>
