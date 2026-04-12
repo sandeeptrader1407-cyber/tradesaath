@@ -27,6 +27,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
       plan: plan.key === 'pro_monthly' ? 'pro_monthly' : plan.key === 'pro_yearly' ? 'pro_yearly' : 'single',
       email: user?.primaryEmailAddress?.emailAddress,
       onSuccess: () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plan key type
         setPlan(plan.key as any)
         showToast.success('Payment successful! All trades unlocked.')
       },

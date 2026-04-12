@@ -227,6 +227,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   const formData = await req.formData();
   const files = formData.getAll('files') as File[];
   const contextRaw = formData.get('context') as string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed JSON context
   let context: any = {};
   if (contextRaw) { try { context = JSON.parse(contextRaw); } catch { } }
 
@@ -242,6 +243,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   console.log(`=== ANALYSE: ${files.length} file(s) via FormData ===`);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content blocks
   const userContent: any[] = [];
   for (const file of files) {
     const mediaType = getMediaType(file.name);
@@ -275,6 +277,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   if (!extractParsed.ok || !extractParsed.data) {
     return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
   const extracted = extractParsed.data as any;
   const trades = extracted.trades || [];
   if (trades.length === 0) {
@@ -294,6 +297,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   );
   console.log(`Call 2 took ${Date.now() - c2Start}ms`);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape varies
   let analysis: any = null;
   if (analyseResult.ok) {
     const ap = safeParseJSON(analyseResult.data as string);
@@ -336,10 +340,12 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
       if (savedSessionId && response.analysis?.trade_analyses) {
+        /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/AI shapes */
         const mergedTrades = trades.map((t: any, i: number) => {
           const ai = (response.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
           return ai ? { ...t, ...ai } : t;
         });
+        /* eslint-enable @typescript-eslint/no-explicit-any */
         saveTradeAnalysis(savedSessionId, mergedTrades, anonId).catch(err =>
           console.error('Background trade analysis save error:', err)
         );
@@ -368,12 +374,13 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 }
 
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed JSON body
   let body: any;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { trades, kpis, broker, market, trade_date, currency, total_trades_in_file, time_analysis, context } = body;
+  const { trades, kpis, broker, market, trade_date, currency, total_trades_in_file: _total_trades_in_file, time_analysis, context } = body;
 
   if (!trades || !Array.isArray(trades) || trades.length === 0) {
     return NextResponse.json({ error: 'No trades provided. Please upload a broker statement.' }, { status: 400 });
@@ -455,10 +462,12 @@ Analyse EVERY trade.`;
         console.log(`Session saved to Supabase for ${userId ? 'user ' + userId : 'anon ' + anonId}`);
 
         if (saved?.id && responseObj.analysis?.trade_analyses) {
+          /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/AI shapes */
           const mergedTrades = trades.map((t: any, i: number) => {
             const ai = (responseObj.analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i);
             return ai ? { ...t, ...ai } : t;
           });
+          /* eslint-enable @typescript-eslint/no-explicit-any */
           saveTradeAnalysis(saved.id, mergedTrades, anonId).catch(err =>
             console.error('Background trade analysis save error:', err)
           );
@@ -483,6 +492,7 @@ Analyse EVERY trade.`;
     return NextResponse.json(resp);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape
   const analysis = aiParsed.data as any;
 
   if (analysis.trade_tags) {

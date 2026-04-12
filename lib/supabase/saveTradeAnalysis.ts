@@ -4,12 +4,14 @@ import { getSupabaseAdmin } from '@/lib/supabase'
  * Save per-trade AI analysis to the trade_analysis table.
  * Non-blocking — wrapped in try/catch, never throws.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade shapes from multiple sources
 export async function saveTradeAnalysis(sessionId: string, trades: any[], anonId?: string) {
   if (!sessionId || !trades?.length) return
 
   try {
     const supabase = getSupabaseAdmin()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = trades.map((t: any, i: number) => ({
       session_id: sessionId,
       trade_index: i,

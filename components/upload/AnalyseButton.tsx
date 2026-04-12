@@ -79,7 +79,7 @@ export default function AnalyseButton() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        const msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
+        const _msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
         console.warn("AI analysis HTTP error:", res.status, data)
         showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
         setAnalysisState("complete")
@@ -165,7 +165,7 @@ export default function AnalyseButton() {
         let res: Response
         try {
           res = await fetch("/api/analyse", { method: "POST", body: formData })
-        } catch (networkErr) {
+        } catch (_networkErr) {
           const msg = "Network error. Please check your internet connection and try again."
           showToast.error(msg)
           setError(msg)
@@ -199,7 +199,8 @@ export default function AnalyseButton() {
           detected_broker: broker,
           trade_date: tradeDate,
           trade_count: allTrades.length,
-          net_pnl: (allTrades as any[]).reduce((s: number, t: any) => s + (t.pnl || 0), 0),
+          net_pnl: // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade shape
+          (allTrades as any[]).reduce((s: number, t: any) => s + (t.pnl || 0), 0),
           processing_time_ms: 0,
         },
       })
@@ -216,6 +217,7 @@ export default function AnalyseButton() {
       setError(msg)
       setAnalysisState("error")
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional deps
   }, [files, context, isAnalysing, setAnalysisState, setAnalysis, setLoading, setError])
 
   return (

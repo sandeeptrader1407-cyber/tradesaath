@@ -98,7 +98,7 @@ export default function SessionDetail({ session }: Props) {
           <div className="absolute left-2 top-2 bottom-2 w-px" style={{ background: "var(--border)" }} />
 
           {trades.map((trade, idx) => {
-            let cumPnl = 0
+            let cumPnl = 0 // eslint-disable-line @typescript-eslint/no-unused-vars
             for (let i = 0; i <= idx; i++) cumPnl += trades[i].pnl
             const tagStyle = getTagColor(trade.tag)
 

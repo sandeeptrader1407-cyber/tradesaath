@@ -60,6 +60,7 @@ function JournalContent() {
       if (!analysis) return
 
       // Count from trade_analyses (new format)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic analysis JSON
       const tradeAnalyses = (analysis.trade_analyses || []) as any[]
       const seenTags = new Set<string>()
       for (const ta of tradeAnalyses) {
@@ -76,6 +77,7 @@ function JournalContent() {
 
       // Count from mistake_patterns (legacy)
       if (analysis.mistake_patterns) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const mp of (analysis.mistake_patterns as any[])) {
           const tag = (mp.name || '').toLowerCase().replace(/\s+/g, '_')
           if (!tag) continue
@@ -220,6 +222,7 @@ function JournalContent() {
 
               {/* Right panel */}
               <div className="flex-1 rounded-xl border overflow-hidden" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- session type varies */}
                 <SessionDetail session={activeSession as any} />
               </div>
             </div>

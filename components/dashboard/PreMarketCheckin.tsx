@@ -35,7 +35,7 @@ export default function PreMarketCheckin() {
   return (
     <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{"☀️"} Before you trade today</h3>
-      <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What's your one rule you won't break today?</p>
+      <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What&apos;s your one rule you won&apos;t break today?</p>
       <div className="flex flex-wrap gap-2 mb-4">
         {INTENTIONS.map((item) => (
           <button
@@ -63,7 +63,7 @@ export default function PreMarketCheckin() {
           cursor: selected.size > 0 ? "pointer" : "not-allowed",
         }}
       >
-        I'm ready {"→"}
+        I&apos;m ready {"→"}
       </button>
     </div>
   )

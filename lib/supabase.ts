@@ -27,13 +27,17 @@ export function getSupabaseAdmin(): SupabaseClient {
 }
 
 // Backward-compatible exports (lazy getters)
+/* eslint-disable @typescript-eslint/no-explicit-any -- Proxy requires any for dynamic dispatch */
 export const supabaseClient = new Proxy({} as SupabaseClient, {
   get(_, prop) { return (getSupabaseClient() as any)[prop] }
 })
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Proxy requires any for dynamic dispatch */
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_, prop) { return (getSupabaseAdmin() as any)[prop] }
 })
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Upsert a user into the users table.

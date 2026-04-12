@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAnalysisStore, Trade } from "@/lib/analysisStore";
+import { useAnalysisStore } from "@/lib/analysisStore";
 
 interface TradeDetailProps {
   activeTrade: number;
@@ -16,7 +16,7 @@ function parseMarkdownBold(text: string) {
   });
 }
 
-export default function TradeDetail({ activeTrade, freeLimit = 3 }: TradeDetailProps) {
+export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }: TradeDetailProps) {
   const { trades } = useAnalysisStore();
   const [expandedTradeIndex, setExpandedTradeIndex] = useState<number>(0);
   const [deepDiveOpen, setDeepDiveOpen] = useState<Record<number, boolean>>({});
