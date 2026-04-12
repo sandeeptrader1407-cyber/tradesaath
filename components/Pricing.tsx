@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRazorpay } from '@/hooks/useRazorpay'
+import { PLANS } from '@/lib/config/pricing'
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false)
@@ -72,9 +73,9 @@ export default function Pricing() {
 
           {/* Free */}
           <div className="plan-card">
-            <div className="plan-name">Free</div>
-            <div className="plan-price">₹0</div>
-            <div className="plan-billed">Always free &middot; no account needed</div>
+            <div className="plan-name">{PLANS.free.name}</div>
+            <div className="plan-price">{PLANS.free.displayPrice}</div>
+            <div className="plan-billed">{PLANS.free.description}</div>
             <a href="/upload" className="btn btn-ghost plan-cta">Start Free &rarr;</a>
             <ul className="plan-feats">
               <li>Gross P&amp;L &amp; KPIs</li>
@@ -89,9 +90,9 @@ export default function Pricing() {
 
           {/* Single Report */}
           <div className="plan-card">
-            <div className="plan-name">Single Report</div>
-            <div className="plan-price">₹99</div>
-            <div className="plan-billed">One-time &middot; full session analysis</div>
+            <div className="plan-name">{PLANS.single.name}</div>
+            <div className="plan-price">{PLANS.single.displayPrice}</div>
+            <div className="plan-billed">{PLANS.single.description}</div>
             <button
               className="btn btn-ghost plan-cta"
               disabled={payLoading}
@@ -115,13 +116,13 @@ export default function Pricing() {
             <div className="plan-name">Pro</div>
             {!yearly ? (
               <>
-                <div className="plan-price">₹799<span>/mo</span></div>
-                <div className="plan-billed">Billed monthly &middot; cancel anytime</div>
+                <div className="plan-price">{PLANS.pro_monthly.displayPrice.replace('/mo', '')}<span>/mo</span></div>
+                <div className="plan-billed">{PLANS.pro_monthly.description}</div>
               </>
             ) : (
               <>
-                <div className="plan-price">₹499<span>/mo</span></div>
-                <div className="plan-billed">Billed ₹5,988/year &middot; save 38%</div>
+                <div className="plan-price">{PLANS.pro_yearly.displayPrice.replace('/mo', '')}<span>/mo</span></div>
+                <div className="plan-billed">{PLANS.pro_yearly.description}</div>
               </>
             )}
             <button
