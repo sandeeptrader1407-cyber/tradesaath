@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
 
     // Build the message content based on file type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content block types
     const content: any[] = []
 
     if (isTextFile(file.name, file.type)) {

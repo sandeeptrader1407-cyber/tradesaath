@@ -90,6 +90,7 @@ export function usePlan() {
     if (!store.fetched) {
       store.fetchPlan()
     }
+    // Intentional: only re-run when fetched status changes, not the full store object
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.fetched])
 

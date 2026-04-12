@@ -13,8 +13,7 @@ export async function GET() {
   // Log all env var names that contain 'gemini' (case-insensitive) for debugging
   const geminiEnvVars = Object.keys(process.env).filter(k => k.toLowerCase().includes('gemini'));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const results: Record<string, any> = {
+  const results: Record<string, unknown> = {
     anthropic_key_set: !!anthropicKey,
     gemini_key_set: !!geminiKey,
     gemini_env_var_names: geminiEnvVars,
@@ -72,6 +71,7 @@ export async function GET() {
     }
   }
 
-  const anyWorking = results.claude?.status === 'ok' || results.gemini?.status === 'ok';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic health check results
+  const anyWorking = (results as any).claude?.status === 'ok' || (results as any).gemini?.status === 'ok';
   return NextResponse.json({ healthy: anyWorking, ...results });
 }

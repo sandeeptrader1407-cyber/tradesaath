@@ -27,7 +27,7 @@ export async function GET() {
     }
 
     // Map fields to match the coach page's Session interface
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row shape varies
     const mapped = (data || []).map((s: any) => ({
       id: s.id,
       created_at: s.created_at,

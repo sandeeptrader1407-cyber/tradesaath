@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Map fields for consistent access
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row shape varies
     const sessions = rawSessions.map((s: any) => ({
       ...s,
       total_pnl: s.net_pnl || 0,
@@ -185,42 +185,38 @@ export async function POST(req: NextRequest) {
     }))
 
     // Build data summary for Claude
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalTrades = sessions.reduce((s: number, sess: any) => s + (sess.trade_count || 0), 0)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalPnl = sessions.reduce((s: number, sess: any) => s + (sess.total_pnl || 0), 0)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const avgWr = sessions.reduce((s: number, sess: any) => s + (sess.win_rate || 0), 0) / sessions.length
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const avgDqs = sessions.reduce((s: number, sess: any) => s + (sess.dqs_score || 0), 0) / sessions.length
+    const totalTrades = sessions.reduce((s, sess) => s + (sess.trade_count || 0), 0)
+    const totalPnl = sessions.reduce((s, sess) => s + (sess.total_pnl || 0), 0)
+    const avgWr = sessions.reduce((s, sess) => s + (sess.win_rate || 0), 0) / sessions.length
+    const avgDqs = sessions.reduce((s, sess) => s + (sess.dqs_score || 0), 0) / sessions.length
 
     // Aggregate patterns from analysis.trade_analyses and legacy fields
     const tags: Record<string, number> = {}
     const costs: Record<string, number> = {}
     const cycleStages: Record<string, number> = {}
     for (const sess of sessions) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const analysis = (sess as any).analysis as any
+      // Dynamic analysis JSON from Supabase — shape varies by session
+      const analysis = sess.analysis as Record<string, unknown> | undefined
       // New format: trade_analyses array
       if (analysis?.trade_analyses) {
-        for (const ta of analysis.trade_analyses) {
+        for (const ta of analysis.trade_analyses as any[]) {
           if (ta.tag) tags[ta.tag] = (tags[ta.tag] || 0) + 1
           if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
         }
       }
       // Legacy format: perTrade
       if (analysis?.perTrade) {
-        for (const pt of analysis.perTrade) {
+        for (const pt of analysis.perTrade as any[]) {
           tags[pt.tag] = (tags[pt.tag] || 0) + 1
         }
       }
       if (analysis?.mistake_patterns) {
-        for (const p of analysis.mistake_patterns) {
+        for (const p of analysis.mistake_patterns as any[]) {
           costs[p.name] = (costs[p.name] || 0) + (p.cost || 0)
         }
       }
       if (analysis?.patterns) {
-        for (const p of analysis.patterns) {
+        for (const p of analysis.patterns as any[]) {
           costs[p.name] = (costs[p.name] || 0) + (p.costInRupees || 0)
         }
       }
