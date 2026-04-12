@@ -3,6 +3,7 @@ export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseTradeFile } from '@/lib/trade-parser';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
 /* ═══════════════════════════════════════════
    STEP 1: Local Parse Only — NO AI, instant response
@@ -10,6 +11,11 @@ import { parseTradeFile } from '@/lib/trade-parser';
    User sees preview, then clicks "Analyze" for AI.
 ═══════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
+  // Rate limit: 20 per IP per 15 min (local parse, cheaper)
+  const ip = getClientIp(req);
+  const rl = rateLimit(`parse:${ip}`, 20, 15 * 60 * 1000);
+  if (!rl.success) return rateLimitResponse(rl.resetIn);
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;

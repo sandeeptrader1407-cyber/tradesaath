@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -71,6 +72,10 @@ export async function POST(req: NextRequest) {
     if (!clerkId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
+
+    // Rate limit: 30 messages per user per hour
+    const rl = rateLimit(`chat:${clerkId}`, 30, 60 * 60 * 1000)
+    if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     // Pro plan check
     const { data: planData } = await supabaseAdmin

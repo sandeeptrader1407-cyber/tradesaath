@@ -7,6 +7,7 @@ import { saveTradeSession } from '@/lib/supabase/saveTrades';
 import { saveRawFile } from '@/lib/supabase/saveFile';
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 import { getOrCreateAnonId } from '@/lib/anonId';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AIResult = { ok: boolean; data?: any; error?: string; code?: string };
@@ -207,6 +208,11 @@ ${ctxLines}
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 per IP per 15 min (Claude API cost protection)
+  const ip = getClientIp(req);
+  const rl = rateLimit(`analyse:${ip}`, 5, 15 * 60 * 1000);
+  if (!rl.success) return rateLimitResponse(rl.resetIn);
+
   const startTime = Date.now();
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;

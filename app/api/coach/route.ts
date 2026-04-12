@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -151,6 +152,10 @@ export async function POST(req: NextRequest) {
     if (!clerkId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
+
+    // Rate limit: 10 per user per hour
+    const rl = rateLimit(`coach:${clerkId}`, 10, 60 * 60 * 1000)
+    if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const body = await req.json()
     const { tab } = body as { tab: string }
