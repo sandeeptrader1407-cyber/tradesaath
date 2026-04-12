@@ -295,20 +295,27 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                         <div className="flex flex-wrap gap-2">
                           {[
                             { label: "Disciplined Win", icon: "\u2713", color: "var(--green)" },
-                            { label: "FOMO Re-entry", icon: "\u26A0", color: "var(--gold)" },
-                            { label: "Against Trend", icon: "\u2194", color: "#ff9500" },
+                            { label: "Overconfidence", icon: "\uD83D\uDE0F", color: "var(--gold)" },
+                            { label: "Larger Position", icon: "\u2195", color: "#ff9500" },
+                            { label: "Market Goes Against", icon: "\u2194", color: "#e87940" },
+                            { label: "Hope & Hold", icon: "\uD83D\uDE4F", color: "var(--purple)" },
                             { label: "Averaging Down", icon: "\u2193", color: "var(--red)" },
                             { label: "Panic Exit", icon: "\u26A1", color: "#e879a0" },
                             { label: "Revenge Trade", icon: "\uD83D\uDD25", color: "#f05d6c" },
-                            { label: "Hope & Hold", icon: "\uD83D\uDE4F", color: "var(--purple)" },
                             { label: "Decision Fatigue", icon: "\uD83D\uDE35", color: "var(--muted)" },
+                            { label: "FOMO Re-entry", icon: "\u26A0", color: "var(--gold)" },
                           ].map((stage) => {
                             const isActive = trade.cycle_stage?.toLowerCase().includes(stage.label.toLowerCase());
                             return (
                               <div
                                 key={stage.label}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${isActive ? "ring-2" : "opacity-30"}`}
-                                style={{ background: isActive ? stage.color + "22" : "var(--s3)", color: isActive ? stage.color : "var(--muted)" }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all"
+                                style={{
+                                  background: isActive ? stage.color + "22" : "var(--s3)",
+                                  color: isActive ? stage.color : "var(--muted)",
+                                  opacity: isActive ? 1 : 0.3,
+                                  border: isActive ? "1.5px solid " + stage.color : "1.5px solid transparent",
+                                }}
                               >
                                 <span>{stage.icon}</span> {stage.label}
                               </div>
