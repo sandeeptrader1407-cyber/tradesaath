@@ -1,6 +1,6 @@
 'use client'
 
-import { usePlan } from '@/lib/hooks/usePlan'
+import { usePlan } from '@/lib/planStore'
 
 interface PlanGateProps {
   required: 'paid' | 'pro'

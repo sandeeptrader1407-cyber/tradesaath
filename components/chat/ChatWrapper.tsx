@@ -1,7 +1,7 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { usePlan } from '@/lib/hooks/usePlan'
+import { usePlan } from '@/lib/planStore'
 import { ChatFAB } from './ChatFAB'
 import { ChatPanel } from './ChatPanel'
 import { useState } from 'react'

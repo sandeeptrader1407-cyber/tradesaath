@@ -10,7 +10,7 @@ import {
   useUser,
 } from '@clerk/nextjs'
 import ClerkErrorBoundary from './ClerkErrorBoundary'
-import { usePlan } from '@/lib/hooks/usePlan'
+import { usePlan } from '@/lib/planStore'
 
 function ClerkAuthButtons() {
   const { isSignedIn, isLoaded } = useUser()

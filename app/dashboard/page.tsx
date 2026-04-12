@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
-import { usePlan } from "@/lib/hooks/usePlan"
+import { usePlan } from "@/lib/planStore"
 import TradeSaathScore from "@/components/dashboard/TradeSaathScore"
 import PreMarketCheckin from "@/components/dashboard/PreMarketCheckin"
 import PerformanceKPIs from "@/components/dashboard/PerformanceKPIs"
