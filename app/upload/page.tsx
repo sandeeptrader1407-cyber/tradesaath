@@ -24,7 +24,6 @@ import ErrorBoundary from "@/components/ui/ErrorBoundary"
 export default function UploadPage() {
   const analysis = useAnalysisStore((s) => s.analysis)
   const trades = useAnalysisStore((s) => s.trades)
-  const _kpis = useAnalysisStore((s) => s.kpis)
   const error = useAnalysisStore((s) => s.error)
   const resetAnalysis = useAnalysisStore((s) => s.reset)
   const resetUpload = useUploadStore((s) => s.reset)

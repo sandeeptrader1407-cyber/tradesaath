@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAnalysisStore } from "@/lib/analysisStore";
 
 interface TradeDetailProps {
-  activeTrade: number;
+  activeTrade?: number;
   freeLimit?: number;
 }
 
