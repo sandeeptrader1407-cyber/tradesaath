@@ -7,6 +7,8 @@ import { useAnalysisStore } from "@/lib/analysisStore"
 export default function AnalyseButton() {
   const files = useUploadStore((s) => s.files)
   const context = useUploadStore((s) => s.context)
+  const detectedBrokerFromStore = useUploadStore((s) => s.detectedBroker)
+  const setDetectedBroker = useUploadStore((s) => s.setDetectedBroker)
   const analysisState = useUploadStore((s) => s.analysisState)
   const setAnalysisState = useUploadStore((s) => s.setAnalysisState)
   const setAnalysis = useAnalysisStore((s) => s.setAnalysis)
@@ -81,7 +83,7 @@ export default function AnalyseButton() {
       // Step 1: Local Parse
       setStatus("Parsing your files locally...")
       let allTrades: unknown[] = []
-      let broker = "Unknown"
+      let broker = detectedBrokerFromStore || "Unknown"
       let market = "NSE"
       let tradeDate = ""
       let currency = "INR"
@@ -95,7 +97,7 @@ export default function AnalyseButton() {
             const parsed = await parseRes.json()
             if (parsed.trades && parsed.trades.length > 0) {
               allTrades = [...allTrades, ...parsed.trades]
-              broker = parsed.broker || broker
+              if (parsed.broker && parsed.broker !== "Unknown") broker = parsed.broker
               market = parsed.market || market
               tradeDate = parsed.trade_date || tradeDate
               currency = parsed.currency || currency
@@ -106,12 +108,15 @@ export default function AnalyseButton() {
         }
       }
 
+      // Update store with detected broker for UI display
+      if (broker !== "Unknown") setDetectedBroker(broker)
+
       if (allTrades.length === 0) {
         // Fallback: send files directly to AI for extraction + analysis
         setStatus("Local parse found no trades, trying AI extraction...")
         const formData = new FormData()
         for (const file of files) formData.append("files", file)
-        formData.append("context", JSON.stringify(context))
+        formData.append("context", JSON.stringify({ ...context, detected_broker: broker !== "Unknown" ? broker : undefined }))
         const res = await fetch("/api/analyse", { method: "POST", body: formData })
         const data = await res.json()
         if (!res.ok || data.error) {
@@ -165,12 +170,12 @@ export default function AnalyseButton() {
           boxShadow: isAnalysing ? "none" : "0 0 20px rgba(62,232,196,.2)",
         }}
       >
-        {isAnalysing ? "⏳ Analysing…" : "🔍 Run Free Analysis"}
+        {isAnalysing ? "\u231f Analysing\u2026" : "\ud83d\udd0d Run Free Analysis"}
       </button>
       <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         {isAnalysing
-          ? <span ref={statusRef}>Analysing {files.length} file(s)…</span>
-          : "No login required · upload your broker statement to start"}
+          ? <span ref={statusRef}>Analysing {files.length} file(s)\u2026</span>
+          : "No login required \u00b7 upload your broker statement to start"}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"

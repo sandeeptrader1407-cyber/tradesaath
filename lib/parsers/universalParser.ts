@@ -40,59 +40,115 @@ interface BrokerDef {
 }
 
 const BROKERS: BrokerDef[] = [
+  // ─── Indian Brokers ───
   {
     id: 'zerodha',
     name: 'Zerodha',
-    keywords: ['tradingsymbol', 'zerodha', 'trade date', 'order execution time'],
-    columnMap: { tradingsymbol: 'symbol', 'trade type': 'tradeType', quantity: 'quantity', price: 'price', 'realized p&l': 'pnl', exchange: 'exchange' },
+    keywords: ['tradingsymbol', 'zerodha', 'kite', 'order execution time', 'trade_id', 'order_id', 'auction'],
+    columnMap: { tradingsymbol: 'symbol', symbol: 'symbol', 'trade type': 'tradeType', 'trade_type': 'tradeType', quantity: 'quantity', price: 'price', 'realized p&l': 'pnl', exchange: 'exchange', 'order_execution_time': 'time', 'trade_date': 'date' },
   },
   {
     id: 'upstox',
     name: 'Upstox',
-    keywords: ['instrument_name', 'upstox', 'order_type', 'avg_price'],
+    keywords: ['instrument_name', 'upstox', 'rksv', 'order_type', 'avg_price', 'exchange_timestamp'],
     columnMap: { instrument_name: 'symbol', transaction_type: 'tradeType', quantity: 'quantity', avg_price: 'price', pnl: 'pnl', exchange: 'exchange' },
   },
   {
     id: 'angelone',
     name: 'Angel One',
-    keywords: ['scripname', 'angel', 'net qty', 'closing price'],
-    columnMap: { scripname: 'symbol', buysell: 'tradeType', qty: 'quantity', price: 'price', 'net amount': 'pnl' },
-  },
-  {
-    id: 'kotak',
-    name: 'Kotak Securities',
-    keywords: ['scrip name', 'kotak', 'neo', 'trade value'],
-    columnMap: { 'scrip name': 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', price: 'price', 'net amount': 'pnl', 'exchange segment': 'exchange' },
+    keywords: ['scripname', 'angel', 'angel one', 'smartapi', 'net qty', 'closing price', 'trade no'],
+    columnMap: { scripname: 'symbol', buysell: 'tradeType', 'buy/sell': 'tradeType', qty: 'quantity', price: 'price', 'net amount': 'pnl', 'trade date': 'date' },
   },
   {
     id: 'groww',
     name: 'Groww',
-    keywords: ['groww', 'isin', 'order status', 'transaction type'],
+    keywords: ['groww', 'isin', 'order status', 'transaction type', 'folio number'],
     columnMap: { symbol: 'symbol', 'transaction type': 'tradeType', quantity: 'quantity', price: 'price', exchange: 'exchange' },
+  },
+  {
+    id: '5paisa',
+    name: '5Paisa',
+    keywords: ['5paisa', '5 paisa', 'scrip code', 'client code', 'scripcode'],
+    columnMap: { 'scrip name': 'symbol', scripname: 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', rate: 'price', price: 'price', 'net amount': 'pnl' },
+  },
+  {
+    id: 'icicidirect',
+    name: 'ICICI Direct',
+    keywords: ['icici', 'icicidirect', 'icici direct', 'icici securities', 'stock code', 'order ref'],
+    columnMap: { 'stock symbol': 'symbol', 'stock code': 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', price: 'price', 'profit/loss': 'pnl', exchange: 'exchange' },
+  },
+  {
+    id: 'hdfc',
+    name: 'HDFC Securities',
+    keywords: ['hdfc', 'hdfcsec', 'hdfc securities', 'blink'],
+    columnMap: { symbol: 'symbol', 'scrip name': 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', price: 'price', 'net amount': 'pnl', exchange: 'exchange' },
+  },
+  {
+    id: 'kotak',
+    name: 'Kotak Securities',
+    keywords: ['kotak', 'neo', 'kotak securities', 'kotak neo', 'trade value'],
+    columnMap: { 'scrip name': 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', price: 'price', 'net amount': 'pnl', 'exchange segment': 'exchange' },
   },
   {
     id: 'fyers',
     name: 'Fyers',
-    keywords: ['fyers', 'clientid', 'orderid', 'tradedqty'],
+    keywords: ['fyers', 'clientid', 'orderid', 'tradedqty', 'tradedprice', 'fytoken'],
     columnMap: { symbol: 'symbol', side: 'tradeType', tradedqty: 'quantity', tradedprice: 'price', pl: 'pnl', exchange: 'exchange' },
   },
   {
+    id: 'dhan',
+    name: 'Dhan',
+    keywords: ['dhan', 'dhan hq', 'dhanhq', 'security id', 'drvexpdt'],
+    columnMap: { symbol: 'symbol', 'security name': 'symbol', 'transaction type': 'tradeType', quantity: 'quantity', price: 'price', 'realized profit': 'pnl', exchange: 'exchange' },
+  },
+  {
+    id: 'paytm',
+    name: 'Paytm Money',
+    keywords: ['paytm', 'paytm money', 'paytmmoney'],
+    columnMap: { symbol: 'symbol', 'order type': 'tradeType', quantity: 'quantity', price: 'price', 'p&l': 'pnl' },
+  },
+  {
+    id: 'motilal',
+    name: 'Motilal Oswal',
+    keywords: ['motilal', 'motilal oswal', 'mosl'],
+    columnMap: { 'scrip name': 'symbol', symbol: 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', rate: 'price', 'net amount': 'pnl' },
+  },
+  {
+    id: 'sharekhan',
+    name: 'Sharekhan',
+    keywords: ['sharekhan', 'trade tiger'],
+    columnMap: { symbol: 'symbol', 'scrip name': 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', price: 'price', 'profit/loss': 'pnl' },
+  },
+  // ─── International Brokers ───
+  {
     id: 'ibkr',
     name: 'Interactive Brokers',
-    keywords: ['ibkr', 'interactive brokers', 'conid', 'execution id', 'realized p/l'],
-    columnMap: { symbol: 'symbol', buy_sell: 'tradeType', quantity: 'quantity', price: 'price', 'realized p/l': 'pnl' },
+    keywords: ['ibkr', 'interactive brokers', 'conid', 'execution id', 'realized p/l', 'comm/fee', 't. price'],
+    columnMap: { symbol: 'symbol', buy_sell: 'tradeType', 'buy/sell': 'tradeType', quantity: 'quantity', 't. price': 'price', price: 'price', 'realized p/l': 'pnl' },
   },
   {
     id: 'tdameritrade',
     name: 'TD Ameritrade',
-    keywords: ['thinkorswim', 'tdameritrade', 'td ameritrade', 'spread', 'side'],
+    keywords: ['thinkorswim', 'tdameritrade', 'td ameritrade', 'schwab'],
     columnMap: { symbol: 'symbol', side: 'tradeType', qty: 'quantity', price: 'price', 'p/l open': 'pnl' },
   },
   {
     id: 'robinhood',
     name: 'Robinhood',
-    keywords: ['robinhood', 'activity date', 'trans code', 'description'],
+    keywords: ['robinhood', 'activity date', 'trans code'],
     columnMap: { description: 'symbol', 'trans code': 'tradeType', quantity: 'quantity', price: 'price', amount: 'pnl' },
+  },
+  {
+    id: 'webull',
+    name: 'Webull',
+    keywords: ['webull', 'filled qty', 'avg price', 'total p&l'],
+    columnMap: { symbol: 'symbol', side: 'tradeType', 'filled qty': 'quantity', 'avg price': 'price', 'total p&l': 'pnl' },
+  },
+  {
+    id: 'trading212',
+    name: 'Trading212',
+    keywords: ['trading212', 'trading 212', 'isin', 'currency (price / share)'],
+    columnMap: { ticker: 'symbol', action: 'tradeType', 'no. of shares': 'quantity', 'price / share': 'price', result: 'pnl' },
   },
   {
     id: 'etoro',
@@ -103,7 +159,39 @@ const BROKERS: BrokerDef[] = [
 ]
 
 /* ─── Broker Detection ─── */
+// High-specificity keywords: if ANY of these appear, it's an instant match (confidence: high)
+const INSTANT_MATCH: Record<string, string> = {
+  'zerodha': 'zerodha', 'kite': 'zerodha', 'tradingsymbol': 'zerodha', 'order execution time': 'zerodha',
+  'upstox': 'upstox', 'rksv': 'upstox', 'instrument_name': 'upstox', 'exchange_timestamp': 'upstox',
+  'angel one': 'angelone', 'angel broking': 'angelone', 'smartapi': 'angelone', 'scripname': 'angelone',
+  'groww': 'groww',
+  '5paisa': '5paisa', '5 paisa': '5paisa', 'scripcode': '5paisa',
+  'icici direct': 'icicidirect', 'icicidirect': 'icicidirect', 'icici securities': 'icicidirect',
+  'hdfc securities': 'hdfc', 'hdfcsec': 'hdfc',
+  'kotak neo': 'kotak', 'kotak securities': 'kotak',
+  'fyers': 'fyers', 'fytoken': 'fyers', 'tradedqty': 'fyers',
+  'dhan hq': 'dhan', 'dhanhq': 'dhan', 'drvexpdt': 'dhan',
+  'paytm money': 'paytm', 'paytmmoney': 'paytm',
+  'motilal oswal': 'motilal',
+  'sharekhan': 'sharekhan', 'trade tiger': 'sharekhan',
+  'interactive brokers': 'ibkr', 'ibkr': 'ibkr',
+  'thinkorswim': 'tdameritrade', 'td ameritrade': 'tdameritrade',
+  'robinhood': 'robinhood',
+  'webull': 'webull',
+  'trading212': 'trading212', 'trading 212': 'trading212',
+  'etoro': 'etoro',
+}
+
 function detectBroker(headersLower: string[], fullTextLower: string): BrokerDef | null {
+  // Phase 1: instant match on high-specificity keywords (broker names, unique columns)
+  const searchText = headersLower.join(' ') + ' ' + fullTextLower
+  for (const [keyword, brokerId] of Object.entries(INSTANT_MATCH)) {
+    if (searchText.includes(keyword)) {
+      return BROKERS.find(b => b.id === brokerId) || null
+    }
+  }
+
+  // Phase 2: fallback to >=2 keyword match for generic patterns
   for (const broker of BROKERS) {
     if (broker.keywords.length === 0) continue
     const matchCount = broker.keywords.filter(kw =>
