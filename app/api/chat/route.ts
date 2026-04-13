@@ -67,17 +67,14 @@ Weave these in when relevant:
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth check
     const { userId: clerkId } = await auth()
     if (!clerkId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Rate limit: 30 messages per user per hour
     const rl = rateLimit(`chat:${clerkId}`, 30, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
-    // Pro plan check
     const { data: planData } = await supabaseAdmin
       .from('user_plans')
       .select('plan')
@@ -88,7 +85,6 @@ export async function POST(req: NextRequest) {
     const isPro = ['pro_monthly', 'pro_yearly'].includes(plan)
 
     if (!isPro) {
-      // Fallback: check users table
       const { data: userData } = await supabaseAdmin
         .from('users')
         .select('plan')
@@ -108,22 +104,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No message provided' }, { status: 400 })
     }
 
-    // Fetch user's recent trade sessions for context
     const { data: sessions } = await supabaseAdmin
       .from('trade_sessions')
       .select('trade_date, detected_market, trade_count, net_pnl, win_count, loss_count, win_rate, profit_factor, analysis')
       .eq('user_id', clerkId)
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(50)
 
-    // Fetch user's journey profile
     const { data: journey } = await supabaseAdmin
       .from('user_journeys')
       .select('*')
       .eq('user_id', clerkId)
       .single()
 
-    // Build context
     const sessionSummary = sessions && sessions.length > 0
       ? sessions.map(s =>
           `${s.trade_date || 'Unknown'}: ${s.detected_market || 'Market'} | ${s.trade_count} trades | P&L: INR${s.net_pnl} | WR: ${s.win_rate}% | PF: ${s.profit_factor}`
@@ -144,7 +137,6 @@ ${sessionSummary}
 TRADER PROFILE:
 ${journeyContext}`
 
-    // Build message history
     const messages: { role: 'user' | 'assistant'; content: string }[] = []
     if (history && Array.isArray(history)) {
       for (const h of history.slice(-8)) {
@@ -172,6 +164,24 @@ ${journeyContext}`
     if (errMessage.includes('ANTHROPIC_API_KEY')) {
       return NextResponse.json({ error: 'AI service not configured.' }, { status: 500 })
     }
-    return NextResponse.json({ error: errMessage }, { status: 500 })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const status = (err as any)?.status
+    if (status === 529 || /overload/i.test(errMessage)) {
+      return NextResponse.json(
+        { error: 'Saathi is busy right now. Try again in a moment.' },
+        { status: 503 }
+      )
+    }
+    if (status === 429 || /rate[_ ]?limit/i.test(errMessage)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment and try again.' },
+        { status: 429 }
+      )
+    }
+    return NextResponse.json(
+      { error: 'Saathi couldn\u2019t respond. Please try again.' },
+      { status: 500 }
+    )
   }
 }

@@ -16,7 +16,7 @@ export async function GET() {
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(500)
 
     if (error) {
       console.error('Journal sessions error:', error)
