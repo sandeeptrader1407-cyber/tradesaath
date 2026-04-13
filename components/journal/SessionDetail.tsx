@@ -3,13 +3,26 @@
 import { useState } from "react"
 
 interface Trade {
-  entry_time: string
+  // Accept both naming conventions:
+  // - AI extraction (Claude) returns: entry_time, exit_time, entry_price, exit_price, quantity
+  // - Local parser returns:           time,       (no exit_time), entry, exit,         qty
+  entry_time?: string
+  exit_time?: string
+  time?: string
   symbol: string
   side: string
-  quantity: number
+  quantity?: number
+  qty?: number
+  entry_price?: number
+  exit_price?: number
+  entry?: number
+  exit?: number
   pnl: number
+  date?: string
+  session?: string
   tag?: string
   tag_label?: string
+  label?: string
   quick_summary?: string
   psychology_coaching?: string
   counterfactual?: string
@@ -99,6 +112,11 @@ export default function SessionDetail({ session }: Props) {
 
           {trades.map((trade, idx) => {
             const tagStyle = getTagColor(trade.tag)
+            const displayTime = trade.entry_time || trade.time || `#${idx + 1}`
+            const displayQty = trade.quantity ?? trade.qty
+            const entryPrice = trade.entry_price ?? trade.entry
+            const exitPrice = trade.exit_price ?? trade.exit
+            const hasAIAnalysis = !!(trade.quick_summary || trade.psychology_coaching || trade.technical_analysis || trade.counterfactual || trade.cycle_stage)
 
             return (
               <div key={idx} className="relative mb-4 last:mb-0">
@@ -119,7 +137,7 @@ export default function SessionDetail({ session }: Props) {
                   <div className="flex items-center justify-between flex-wrap gap-2 p-3">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-jetbrains-mono" style={{ color: "var(--muted)" }}>
-                        {trade.entry_time || `#${idx + 1}`}
+                        {displayTime}
                       </span>
                       <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{trade.symbol}</span>
                       <span
@@ -131,7 +149,9 @@ export default function SessionDetail({ session }: Props) {
                       >
                         {trade.side?.toUpperCase()}
                       </span>
-                      <span className="text-[10px]" style={{ color: "var(--muted)" }}>&times;{trade.quantity}</span>
+                      {displayQty !== undefined && (
+                        <span className="text-[10px]" style={{ color: "var(--muted)" }}>&times;{displayQty}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {trade.tag && (
@@ -157,30 +177,69 @@ export default function SessionDetail({ session }: Props) {
                     </div>
                   )}
 
-                  {/* Expanded AI Analysis */}
-                  {expandedTrade === idx && (trade.quick_summary || trade.psychology_coaching || trade.technical_analysis || trade.counterfactual || trade.cycle_stage) && (
+                  {/* Expanded view — ALWAYS render when expanded so the click is responsive */}
+                  {expandedTrade === idx && (
                     <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "var(--border)" }}>
+                      {/* Trade details — always shown */}
+                      <div className="pt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                        {entryPrice !== undefined && entryPrice !== 0 && (
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--muted)" }}>Entry</span>
+                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>&#8377;{entryPrice.toLocaleString("en-IN")}</span>
+                          </div>
+                        )}
+                        {exitPrice !== undefined && exitPrice !== 0 && (
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--muted)" }}>Exit</span>
+                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>&#8377;{exitPrice.toLocaleString("en-IN")}</span>
+                          </div>
+                        )}
+                        {displayQty !== undefined && (
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--muted)" }}>Quantity</span>
+                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>{displayQty}</span>
+                          </div>
+                        )}
+                        {trade.exit_time && (
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--muted)" }}>Exit Time</span>
+                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>{trade.exit_time}</span>
+                          </div>
+                        )}
+                        {trade.session && (
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--muted)" }}>Session</span>
+                            <span style={{ color: "var(--text)" }}>{trade.session}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span style={{ color: "var(--muted)" }}>Net P&amp;L</span>
+                          <span className="font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>{fmt(trade.pnl)}</span>
+                        </div>
+                      </div>
+
+                      {/* AI analysis — only if available */}
                       {trade.quick_summary && (
-                        <div className="pt-3">
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--accent)" }}>Summary</p>
+                        <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                          <p className="text-[11px] font-bold mb-1 mt-2" style={{ color: "var(--accent)" }}>Summary</p>
                           <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.quick_summary}</p>
                         </div>
                       )}
                       {trade.psychology_coaching && (
                         <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--gold)" }}>🧠 Psychology Coaching</p>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--gold)" }}>Psychology Coaching</p>
                           <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.psychology_coaching}</p>
                         </div>
                       )}
                       {trade.technical_analysis && (
                         <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--blue, #60a5fa)" }}>📊 Technical Analysis</p>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--blue, #60a5fa)" }}>Technical Analysis</p>
                           <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.technical_analysis}</p>
                         </div>
                       )}
                       {trade.counterfactual && (
                         <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--green)" }}>💡 What If</p>
+                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--green)" }}>What If</p>
                           <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.counterfactual}</p>
                         </div>
                       )}
@@ -189,6 +248,13 @@ export default function SessionDetail({ session }: Props) {
                           <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--s3)", color: "var(--text2)" }}>
                             Cycle: {trade.cycle_stage}
                           </span>
+                        </div>
+                      )}
+
+                      {/* If no AI analysis, tell the user why */}
+                      {!hasAIAnalysis && (
+                        <div className="pt-2 border-t text-[10px]" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                          AI psychology and technical analysis weren&apos;t generated for this session. Re-upload the file to run analysis.
                         </div>
                       )}
                     </div>
