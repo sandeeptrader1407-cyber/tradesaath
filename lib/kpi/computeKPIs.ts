@@ -79,7 +79,7 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
   }
 
   const winRate = totalTrades > 0
-    ? Math.round((totalWins / totalTrades) * 100)
+    ? Math.round((totalWins / totalTrades) * 1000) / 10
     : 0
 
   const successRate = sessions.length > 0
@@ -116,5 +116,7 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     riskReward,
     profitFactor,
     maxDrawdown,
+  }
+}
   }
 }

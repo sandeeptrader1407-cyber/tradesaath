@@ -7,11 +7,13 @@ export default function KPIStrip() {
 
   if (!kpis) return null;
 
+  const safe = (v: number) => (Number.isFinite(v) ? v : 0);
   const fmt = (val: number) => {
-    const sign = val >= 0 ? '+' : '';
-    return `${sign}₹${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
+    const v = safe(val);
+    const sign = v > 0 ? '+' : v < 0 ? '-' : '';
+    return `${sign}₹${Math.abs(Math.round(v)).toLocaleString('en-IN')}`;
   };
-  const fmtAbs = (val: number) => `₹${Math.abs(Math.round(val)).toLocaleString('en-IN')}`;
+  const fmtAbs = (val: number) => `₹${Math.abs(Math.round(safe(val))).toLocaleString('en-IN')}`;
 
   const metrics = [
     { label: 'Gross P&L', value: fmt(kpis.net_pnl), pos: kpis.net_pnl >= 0 },
