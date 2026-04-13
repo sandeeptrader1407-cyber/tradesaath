@@ -5,6 +5,7 @@ import { usePlanStore } from '@/lib/planStore'
 import { useUser } from '@clerk/nextjs'
 import { showToast } from '@/components/ui/Toast'
 import { useState } from 'react'
+import CouponInput from '@/components/CouponInput'
 
 export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
   const [selectedIdx, setSelectedIdx] = useState(0)
@@ -27,12 +28,11 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
       plan: plan.key === 'pro_monthly' ? 'pro_monthly' : plan.key === 'pro_yearly' ? 'pro_yearly' : 'single',
       email: user?.primaryEmailAddress?.emailAddress,
       onSuccess: () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plan key type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setPlan(plan.key as any)
         showToast.success('Payment successful! All trades unlocked.')
       },
       onError: (err) => {
-        // Map technical errors to user-friendly messages
         let msg = err || 'Payment failed. Please try again.'
         if (/verif/i.test(msg)) {
           msg = 'Payment received but verification pending. Your plan will be activated within a few minutes. If not, contact support.'
@@ -58,7 +58,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
             {plan.badge && <div className="mb-3"><span className="inline-block px-2 py-1 rounded text-xs font-semibold" style={{ background: 'rgba(54,211,153,.15)', color: 'var(--green)' }}>{plan.badge}</span></div>}
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text)' }}>{plan.name}</h3>
             <div className="mb-3">
-              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>{String.fromCodePoint(0x20B9)}{plan.price}</span>
+              <span className="text-2xl font-bold" style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>&#8377;{plan.price}</span>
               <span className="text-xs ml-1" style={{ color: 'var(--text2)' }}>{plan.period}</span>
             </div>
             <p className="text-xs" style={{ color: 'var(--text2)' }}>{plan.desc}</p>
@@ -67,8 +67,11 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
       </div>
       <div className="flex justify-center">
         <button onClick={handleUnlock} disabled={loading} className="font-semibold rounded-xl px-8 py-3 transition-all" style={{ background: loading ? 'var(--s3)' : 'var(--accent)', color: loading ? 'var(--muted)' : '#0a0e17', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-          {loading ? String.fromCodePoint(0x23F3) + ' Processing...' : 'Unlock Full Report ' + String.fromCodePoint(0x2192)}
+          {loading ? 'Processing...' : 'Unlock Full Report'}
         </button>
+      </div>
+      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'center' }}>
+        <CouponInput />
       </div>
     </div>
   )

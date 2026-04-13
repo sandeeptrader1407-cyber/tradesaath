@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRazorpay } from '@/hooks/useRazorpay'
 import { PLANS } from '@/lib/config/pricing'
+import CouponInput from '@/components/CouponInput'
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false)
@@ -34,7 +35,7 @@ export default function Pricing() {
 
         {testMode && (
           <div className="test-mode-badge" style={{ margin: '0 auto 16px', width: 'fit-content' }}>
-            TEST MODE — no real charges
+            TEST MODE - no real charges
           </div>
         )}
 
@@ -65,13 +66,12 @@ export default function Pricing() {
 
         {payError && (
           <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--red)', marginBottom: 16, padding: '10px 16px', background: 'rgba(244,63,94,.08)', borderRadius: 8, border: '1px solid rgba(244,63,94,.2)' }}>
-            ⚠ {payError}
+            {payError}
           </div>
         )}
 
         <div className="pricing-grid">
 
-          {/* Free */}
           <div className="plan-card">
             <div className="plan-name">{PLANS.free.name}</div>
             <div className="plan-price">{PLANS.free.displayPrice}</div>
@@ -88,7 +88,6 @@ export default function Pricing() {
             </ul>
           </div>
 
-          {/* Single Report */}
           <div className="plan-card">
             <div className="plan-name">{PLANS.single.name}</div>
             <div className="plan-price">{PLANS.single.displayPrice}</div>
@@ -98,7 +97,7 @@ export default function Pricing() {
               disabled={payLoading}
               onClick={() => handleBuy('single')}
             >
-              {payLoading ? '⏳ Processing...' : 'Buy Report →'}
+              {payLoading ? 'Processing...' : 'Buy Report'}
             </button>
             <ul className="plan-feats">
               <li>All trades full analysis</li>
@@ -110,7 +109,6 @@ export default function Pricing() {
             </ul>
           </div>
 
-          {/* Pro */}
           <div className="plan-card" style={{ position: 'relative', border: '2px solid #3ee8c4', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#f0b429', color: '#071a15', fontSize: 10, fontWeight: 600, padding: '3px 12px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'monospace', whiteSpace: 'nowrap', zIndex: 1 }}>Most Popular</div>
             <div className="plan-name">Pro</div>
@@ -130,7 +128,7 @@ export default function Pricing() {
               disabled={payLoading}
               onClick={() => handleBuy(yearly ? 'pro_yearly' : 'pro_monthly')}
             >
-              {payLoading ? '⏳ Processing...' : 'Get Pro Plan →'}
+              {payLoading ? 'Processing...' : 'Get Pro Plan'}
             </button>
             <ul className="plan-feats">
               <li>Everything in Free + Single Report</li>
@@ -141,13 +139,17 @@ export default function Pricing() {
               <li>Premium journal + history</li>
               <li>Trading Journey profiling</li>
               <li>Pattern intelligence alerts</li>
-              <li><strong style={{ color: 'var(--accent)' }}>📊 Pro Dashboard</strong></li>
-              <li><strong style={{ color: 'var(--accent)' }}>🗺 Saathi (daily/weekly/monthly plans)</strong></li>
-              <li><strong style={{ color: 'var(--accent)' }}>💬 Personal AI Chatbot</strong></li>
+              <li><strong style={{ color: 'var(--accent)' }}>Pro Dashboard</strong></li>
+              <li><strong style={{ color: 'var(--accent)' }}>Saathi (daily/weekly/monthly plans)</strong></li>
+              <li><strong style={{ color: 'var(--accent)' }}>Personal AI Chatbot</strong></li>
               <li>Priority support</li>
             </ul>
           </div>
 
+        </div>
+
+        <div style={{ marginTop: 28, display: 'flex', justifyContent: 'center' }}>
+          <CouponInput onSuccess={() => { window.location.href = '/dashboard' }} />
         </div>
 
         {testMode && (

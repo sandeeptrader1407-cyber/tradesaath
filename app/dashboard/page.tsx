@@ -18,6 +18,7 @@ import MistakeCostCalculator from "@/components/dashboard/MistakeCostCalculator"
 import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
+import CouponInput from "@/components/CouponInput"
 
 interface DashStats {
   hasData: boolean
@@ -121,7 +122,6 @@ export default function DashboardPage() {
     { name: "Emotional Control", value: 30 },
   ] : [])
 
-  // Tag → human-readable label map
   const TAG_LABELS: Record<string, string> = {
     loss: "Taking Losses Poorly",
     rvg: "Revenge Trading",
@@ -135,11 +135,9 @@ export default function DashboardPage() {
     overtrading: "Overtrading",
   }
 
-  // Determine #1 issue from data
   const topMistake = stats?.mistakeTrades?.length ? stats.mistakeTrades[0] : null
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
 
-  // Discipline trend from recent sessions
   const streakDir = stats?.streaks?.current
     ? stats.streaks.current > 0 ? "↑" : "↓"
     : "→"
@@ -149,7 +147,6 @@ export default function DashboardPage() {
       <Toaster />
       <div className="max-w-6xl mx-auto flex flex-col gap-5">
 
-        {/* Row 1: Plan banner + Greeting + New Analysis button */}
         <div className="rounded-xl border px-4 md:px-5 py-3 flex items-center justify-between flex-wrap gap-2" style={{
           background: isPaid ? "rgba(62,232,196,.06)" : "var(--s1)",
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
@@ -158,9 +155,12 @@ export default function DashboardPage() {
             {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan — Upgrade for full features"}
           </span>
           {!isPaid && (
-            <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
-              Upgrade {"→"}
-            </a>
+            <div className="flex items-center gap-3">
+              <CouponInput compact />
+              <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
+                Upgrade {"→"}
+              </a>
+            </div>
           )}
         </div>
 
@@ -182,7 +182,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Empty state */}
         {!stats?.hasData && !loading && (
           <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
             <div className="text-5xl mb-4">{"📊"}</div>
@@ -206,12 +205,8 @@ export default function DashboardPage() {
 
         {stats?.hasData && !loading && (
           <>
-            {/* ═══════ SECTION A: Above the Fold ═══════ */}
-
-            {/* Row 2: Three focus cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-              {/* Card 1: Your Score */}
               <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
                 <div className="text-xs uppercase tracking-wider mb-3 font-semibold" style={{ color: "var(--text2)" }}>Your Score</div>
                 <div className="flex flex-col items-center">
@@ -241,7 +236,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 2: Your #1 Issue */}
               <div className="rounded-xl border p-5 flex flex-col" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
                 <div className="text-xs uppercase tracking-wider mb-3 font-semibold" style={{ color: "var(--text2)" }}>Your #1 Issue</div>
                 <div className="flex-1 flex flex-col justify-center">
@@ -287,14 +281,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 3: Before You Trade */}
               <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
                 <div className="text-xs uppercase tracking-wider mb-3 font-semibold" style={{ color: "var(--text2)" }}>Before You Trade</div>
                 <ErrorBoundary name="PreMarketCheckin"><PreMarketCheckin compact /></ErrorBoundary>
               </div>
             </div>
 
-            {/* Row 3: Quick Stats Strip */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 { label: "This Month P&L", value: fmtPnl(stats.month.pnl), pos: stats.month.pnl >= 0 },
@@ -310,7 +302,6 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* ═══════ Toggle Button ═══════ */}
             <div className="flex justify-center">
               <button
                 onClick={() => setShowDetailed(!showDetailed)}
@@ -321,7 +312,6 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* ═══════ SECTION B: Detailed Analytics (collapsed by default) ═══════ */}
             {showDetailed && (
               <div className="flex flex-col gap-5">
                 <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
@@ -342,16 +332,6 @@ export default function DashboardPage() {
                     factors={stats.dqsFactors || []}
                   /></ErrorBoundary>
                 </div>
-                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
-                <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </main>
-  )
-}
                 <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
                 <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
               </div>
