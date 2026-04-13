@@ -23,10 +23,10 @@ export default function JournalStats({ sessions }: Props) {
   }
 
   const stats = [
-    { label: "Cumulative P&L", value: fmt(kpis.totalPnl), pos: kpis.totalPnl >= 0 },
+    { label: "Cumulative Gross P&L", value: fmt(kpis.totalPnl), pos: kpis.totalPnl >= 0 },
     { label: "Sessions", value: String(kpis.totalSessions), pos: true },
     { label: "Win Rate", value: `${kpis.winRate}%`, pos: kpis.winRate >= 50 },
-    { label: "Best Day P&L", value: fmt(kpis.bestSessionPnl), pos: kpis.bestSessionPnl >= 0 },
+    { label: "Best Day Gross P&L", value: fmt(kpis.bestSessionPnl), pos: kpis.bestSessionPnl >= 0 },
   ]
 
   return (

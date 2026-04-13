@@ -8,14 +8,14 @@ interface Props {
 
 export default function SummaryCards({ today, week, month }: Props) {
   const fmt = (v: number) => {
-    const sign = v >= 0 ? "+" : ""
+    const sign = v >= 0 ? "+" : "-"
     return sign + "₹" + Math.abs(Math.round(v)).toLocaleString("en-IN")
   }
 
   const cards = [
-    { label: "Today", pnl: today.pnl, sessions: today.sessions, empty: "No session yet" },
-    { label: "This Week", pnl: week.pnl, sessions: week.sessions, empty: "No sessions this week" },
-    { label: "This Month", pnl: month.pnl, sessions: month.sessions, empty: "No sessions this month" },
+    { label: "Today (Gross P&L)", pnl: today.pnl, sessions: today.sessions, empty: "No session yet" },
+    { label: "This Week (Gross P&L)", pnl: week.pnl, sessions: week.sessions, empty: "No sessions this week" },
+    { label: "This Month (Gross P&L)", pnl: month.pnl, sessions: month.sessions, empty: "No sessions this month" },
   ]
 
   return (
