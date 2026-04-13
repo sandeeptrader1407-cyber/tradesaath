@@ -36,6 +36,7 @@ function JournalContent() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [patterns, setPatterns] = useState<PatternAlert[]>([])
+  const [patternsExpanded, setPatternsExpanded] = useState(false)
 
   useEffect(() => {
     fetch("/api/journal/sessions")
@@ -140,57 +141,73 @@ function JournalContent() {
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
       <div className="max-w-6xl mx-auto">
-        {/* Pattern Alert Cards */}
+        {/* Compact Pattern Banner */}
         {patterns.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            {patterns.map((p, i) => {
-              const t = trendConfig[p.trend]
-              return (
-                <div key={i} style={{
-                  borderLeft: '4px solid var(--purple)',
-                  background: 'rgba(157,122,247,.04)',
-                  border: '1px solid rgba(157,122,247,.15)',
-                  borderLeftWidth: 4,
-                  borderLeftColor: 'var(--purple)',
-                  borderRadius: 10,
-                  padding: '14px 18px',
-                  marginBottom: i < patterns.length - 1 ? 8 : 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  flexWrap: 'wrap',
+          <div style={{
+            borderLeft: '3px solid var(--purple)',
+            background: 'rgba(157,122,247,.04)',
+            borderRadius: 8,
+            padding: '10px 14px',
+            marginBottom: 12,
+            fontSize: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                <span style={{ color: 'var(--purple)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {"\u26A0\uFE0F"} Patterns:
+                </span>
+                {patterns.slice(0, 3).map((p, i) => (
+                  <span key={i} style={{ color: 'var(--text2)', whiteSpace: 'nowrap' }}>
+                    {p.name} <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--muted)' }}>({p.count}x)</span>
+                    {i < Math.min(patterns.length, 3) - 1 ? <span style={{ color: 'var(--border)', margin: '0 2px' }}>{" \u00B7 "}</span> : null}
+                  </span>
+                ))}
+                {patterns.length > 3 && (
+                  <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>and {patterns.length - 3} more</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => setPatternsExpanded(!patternsExpanded)}
+                  style={{
+                    fontSize: 11, fontWeight: 600, color: 'var(--text2)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '2px 6px', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {patternsExpanded ? 'Hide \u25B2' : 'Details \u25BC'}
+                </button>
+                <Link href="/coach?tab=patterns" style={{
+                  fontSize: 11, fontWeight: 600, color: 'var(--purple)',
+                  padding: '3px 8px', borderRadius: 5,
+                  background: 'rgba(157,122,247,.1)',
+                  textDecoration: 'none', whiteSpace: 'nowrap',
                 }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--purple)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {'\u26A0\uFE0F'} Recurring Behaviour Detected
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      Cost: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--red)', fontWeight: 600 }}>
-                        {'\u20B9'}{p.cost.toLocaleString('en-IN')}
-                      </span>
-                      {' across '}
-                      <span style={{ fontWeight: 600 }}>{p.sessions}</span> sessions
-                      {' \u00B7 '}
-                      <span style={{ fontWeight: 600 }}>{p.count}</span> occurrences
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: t.color, display: 'flex', alignItems: 'center', gap: 3 }}>
-                      {t.icon} {t.label}
-                    </span>
-                    <Link href="/coach?tab=patterns" style={{
-                      fontSize: 11, fontWeight: 600, color: 'var(--purple)',
-                      padding: '4px 10px', borderRadius: 6,
-                      background: 'rgba(157,122,247,.1)',
-                      textDecoration: 'none', whiteSpace: 'nowrap',
+                  Saathi {"\u2192"}
+                </Link>
+              </div>
+            </div>
+            {patternsExpanded && (
+              <div style={{ marginTop: 10, borderTop: '1px solid rgba(157,122,247,.12)', paddingTop: 10 }}>
+                {patterns.map((p, i) => {
+                  const t = trendConfig[p.trend]
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                      padding: '6px 0',
+                      borderBottom: i < patterns.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none',
                     }}>
-                      View in Saathi {'\u2192'}
-                    </Link>
-                  </div>
-                </div>
-              )
-            })}
+                      <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 160, fontSize: 12 }}>{p.name}</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--muted)' }}>{p.count}x in {p.sessions} sessions</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--red)' }}>
+                        {"\u20B9"}{p.cost.toLocaleString('en-IN')}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: t.color }}>{t.icon} {t.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
