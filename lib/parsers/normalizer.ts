@@ -1,16 +1,29 @@
 /**
  * Trade Normalizer for TradeSaath
- * Pairs buy/sell trades and calculates trade metrics
+ * Pairs buy/sell trades and calculates trade metrics.
+ *
+ * IMPORTANT: trades are paired within (symbol + date) buckets only.
+ * A BUY on Jan 5 must NEVER be FIFO-matched against a SELL on Jan 12 —
+ * doing so produces nonsense P&L for multi-day broker statements.
  */
 
 import { AnyRow, ParsedTrade, classifySession, timeGapMinutes } from './types';
 
-/* ─── Pair buy/sell orders for same instrument ─── */
+const UNKNOWN_DATE = 'unknown';
+
+function dateOf(row: AnyRow): string {
+  const d = row?.date;
+  if (typeof d === 'string' && d.length > 0) return d;
+  return UNKNOWN_DATE;
+}
+
+/* ─── Pair buy/sell orders for same instrument on the same day ─── */
 export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
-  // Group by symbol (normalized)
+  // Group by symbol + date so cross-day pairing is impossible.
   const groups: Record<string, AnyRow[]> = {};
   for (const t of rawTrades) {
-    const key = t.symbol.toLowerCase().replace(/\s+/g, ' ').trim();
+    const symKey = (t.symbol || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = `${symKey}|${dateOf(t)}`;
     if (!groups[key]) groups[key] = [];
     groups[key].push(t);
   }
@@ -18,18 +31,19 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
   const paired: ParsedTrade[] = [];
 
   for (const [, trades] of Object.entries(groups)) {
-    // Sort by time within each symbol group
+    // Sort by time within each (symbol + date) group
     trades.sort((a, b) => {
       const ta = (a.time || '00:00:00').replace(/:/g, '');
       const tb = (b.time || '00:00:00').replace(/:/g, '');
       return parseInt(ta) - parseInt(tb);
     });
 
+    const groupDate = dateOf(trades[0]);
+
     const buys = trades.filter(t => t.side === 'BUY');
     const sells = trades.filter(t => t.side === 'SELL');
 
     // FIFO matching: match buy qty with sell qty in chronological order
-    // Track remaining qty for each order
     const buyQ: (AnyRow & { remaining: number })[] = buys.map(b => ({ ...b, remaining: b.qty || 0 }));
     const sellQ: (AnyRow & { remaining: number })[] = sells.map(s => ({ ...s, remaining: s.qty || 0 }));
 
@@ -53,6 +67,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
       paired.push({
         index: 0,
         time: closingTime || '09:15',
+        date: groupDate,
         symbol: buy.symbol || sell.symbol,
         side: 'BUY',
         qty: matchQty,
@@ -82,6 +97,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
         paired.push({
           index: 0,
           time: t.time || '09:15',
+          date: dateOf(t),
           symbol: t.symbol,
           side: t.side || 'BUY',
           qty: t.remaining || t.qty || 1,
@@ -104,6 +120,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
       paired.push({
         index: 0,
         time: t.time || '09:15',
+        date: dateOf(t),
         symbol: t.symbol,
         side: t.side || 'BUY',
         qty: t.qty || 1,
@@ -119,21 +136,29 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
     }
   }
 
-  // Sort by time
+  // Sort by date then time so multi-day statements come out chronologically
   paired.sort((a, b) => {
-    const ta = a.time.replace(/:/g, '');
-    const tb = b.time.replace(/:/g, '');
+    if (a.date !== b.date) {
+      // 'unknown' dates go to the end
+      if (a.date === UNKNOWN_DATE) return 1;
+      if (b.date === UNKNOWN_DATE) return -1;
+      return a.date.localeCompare(b.date);
+    }
+    const ta = (a.time || '').replace(/:/g, '');
+    const tb = (b.time || '').replace(/:/g, '');
     return parseInt(ta || '0') - parseInt(tb || '0');
   });
 
-  // Set indices, cum_pnl, time gaps
+  // Set indices, cum_pnl, time gaps (gaps only meaningful within same day)
   let cumPnl = 0;
   for (let i = 0; i < paired.length; i++) {
     paired[i].index = i;
     cumPnl += paired[i].pnl;
     paired[i].cum_pnl = Math.round(cumPnl * 100) / 100;
-    if (i > 0) {
+    if (i > 0 && paired[i].date === paired[i - 1].date) {
       paired[i].time_gap_minutes = timeGapMinutes(paired[i - 1].time, paired[i].time);
+    } else {
+      paired[i].time_gap_minutes = null;
     }
   }
 
