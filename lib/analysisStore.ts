@@ -167,12 +167,3 @@ export const useAnalysisStore = create<AnalysisStore>()(
     }
   )
 )
-        trades: state.trades,
-        analysis: state.analysis,
-        metadata: state.metadata,
-        kpis: state.kpis,
-        sessionId: state.sessionId,
-      }),
-    }
-  )
-)

@@ -118,5 +118,3 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     maxDrawdown,
   }
 }
-  }
-}
