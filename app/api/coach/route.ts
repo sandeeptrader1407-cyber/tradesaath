@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 export const maxDuration = 60
 
@@ -186,10 +187,11 @@ export async function POST(req: NextRequest) {
       dqs_score: s.analysis?.dqs?.score || s.analysis?.dqsScore || 0,
     }))
 
-    // Build data summary for Claude
-    const totalTrades = sessions.reduce((s, sess) => s + (sess.trade_count || 0), 0)
-    const totalPnl = sessions.reduce((s, sess) => s + (sess.total_pnl || 0), 0)
-    const avgWr = sessions.reduce((s, sess) => s + (sess.win_rate || 0), 0) / sessions.length
+    // Build data summary for Claude using shared KPI calculator
+    const kpis = computeKPIs(sessions)
+    const totalTrades = kpis.totalTrades
+    const totalPnl = kpis.totalPnl
+    const avgWr = kpis.winRate
     const avgDqs = sessions.reduce((s, sess) => s + (sess.dqs_score || 0), 0) / sessions.length
 
     // Aggregate patterns from analysis.trade_analyses and legacy fields

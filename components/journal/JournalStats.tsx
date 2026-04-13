@@ -1,9 +1,13 @@
 "use client"
 
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
+
 interface Session {
   net_pnl: number
   win_rate: number
   trade_count: number
+  win_count?: number
+  loss_count?: number
 }
 
 interface Props {
@@ -11,13 +15,7 @@ interface Props {
 }
 
 export default function JournalStats({ sessions }: Props) {
-  const totalPnl = sessions.reduce((s, x) => s + Number(x.net_pnl || 0), 0)
-  const avgWinRate = sessions.length > 0
-    ? Math.round(sessions.reduce((s, x) => s + (x.win_rate || 0), 0) / sessions.length)
-    : 0
-  const bestSession = sessions.length > 0
-    ? Math.max(...sessions.map((s) => Number(s.net_pnl || 0)))
-    : 0
+  const kpis = computeKPIs(sessions)
 
   const fmt = (v: number) => {
     const sign = v >= 0 ? "+" : ""
@@ -25,10 +23,10 @@ export default function JournalStats({ sessions }: Props) {
   }
 
   const stats = [
-    { label: "Cumulative P&L", value: fmt(totalPnl), pos: totalPnl >= 0 },
-    { label: "Sessions", value: String(sessions.length), pos: true },
-    { label: "Avg Win Rate", value: `${avgWinRate}%`, pos: avgWinRate >= 50 },
-    { label: "Best Session", value: fmt(bestSession), pos: bestSession >= 0 },
+    { label: "Cumulative P&L", value: fmt(kpis.totalPnl), pos: kpis.totalPnl >= 0 },
+    { label: "Sessions", value: String(kpis.totalSessions), pos: true },
+    { label: "Win Rate", value: `${kpis.winRate}%`, pos: kpis.winRate >= 50 },
+    { label: "Best Day P&L", value: fmt(kpis.bestSessionPnl), pos: kpis.bestSessionPnl >= 0 },
   ]
 
   return (

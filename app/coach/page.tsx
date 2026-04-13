@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePlan } from '@/lib/planStore'
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 interface Session {
   id: string
   created_at: string
   total_pnl: number
   trade_count: number
+  win_count: number
+  loss_count: number
   win_rate: number
   dqs_score: number
   analysis: {
@@ -145,10 +148,18 @@ export default function CoachPage() {
     )
   }
 
-  // Aggregate stats for memory indicator
-  const totalTrades = sessions.reduce((s, x) => s + (x.trade_count || 0), 0)
-  const totalPnl = sessions.reduce((s, x) => s + (x.total_pnl || 0), 0)
-  const avgWr = sessions.length > 0 ? Math.round(sessions.reduce((s, x) => s + (x.win_rate || 0), 0) / sessions.length) : 0
+  // Aggregate stats using shared KPI calculator (single source of truth)
+  const kpiSessions = sessions.map(s => ({
+    net_pnl: s.total_pnl,
+    trade_count: s.trade_count,
+    win_count: s.win_count,
+    loss_count: s.loss_count,
+    win_rate: s.win_rate,
+  }))
+  const kpis = computeKPIs(kpiSessions)
+  const totalTrades = kpis.totalTrades
+  const totalPnl = kpis.totalPnl
+  const avgWr = kpis.winRate
   const avgDqs = sessions.length > 0 ? Math.round(sessions.reduce((s, x) => s + (x.dqs_score || 0), 0) / sessions.length) : 0
   const dqsColor = avgDqs >= 70 ? 'var(--green)' : avgDqs >= 50 ? 'var(--gold)' : avgDqs >= 30 ? 'var(--orange)' : 'var(--red)'
 
@@ -199,7 +210,7 @@ export default function CoachPage() {
             <div className="kpi-val">{totalTrades}</div>
           </div>
           <div className="kpi-item">
-            <div className="kpi-label">Avg Win Rate</div>
+            <div className="kpi-label">Win Rate</div>
             <div className="kpi-val">{avgWr}%</div>
           </div>
           <div className="kpi-item">
