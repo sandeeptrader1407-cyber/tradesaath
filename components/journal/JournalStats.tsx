@@ -18,7 +18,7 @@ export default function JournalStats({ sessions }: Props) {
   const kpis = computeKPIs(sessions)
 
   const fmt = (v: number) => {
-    const sign = v >= 0 ? "+" : ""
+    const sign = v >= 0 ? "+" : "-"
     return `${sign}\u20B9${Math.abs(Math.round(v)).toLocaleString("en-IN")}`
   }
 
