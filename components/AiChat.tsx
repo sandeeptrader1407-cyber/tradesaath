@@ -94,7 +94,7 @@ export default function AiChat() {
           topPattern: patternEntries[0]?.[0] || null,
         })
 
-        const ctx = `All ${sessions.length} sessions (all-time): Net P&L \u20B9${kpis.totalPnl.toLocaleString('en-IN')}, WR ${kpis.winRate}%, ${kpis.totalTrades} trades, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}.`
+        const ctx = `All ${sessions.length} sessions (all-time): Gross P&L \u20B9${kpis.totalPnl.toLocaleString('en-IN')}, WR ${kpis.winRate}%, ${kpis.totalTrades} trades, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}.`
         setTradeContext(ctx)
       })
       .catch(() => { /* silently fail */ })
@@ -197,9 +197,9 @@ export default function AiChat() {
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
                 <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl > 0 ? '+' : memoryStats.pnl < 0 ? '-' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
-                <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
+                <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs === 0 ? 'var(--muted)' : memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs > 0 ? memoryStats.avgDqs : 'N/A'}</strong></span>
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
-                <span><span style={{ color: 'var(--muted)' }}>PATTERNS</span> <strong style={{ color: 'var(--text)' }}>{patternCount}</strong></span>
+                <span><span style={{ color: 'var(--muted)' }}>PATTERNS</span> <strong style={{ color: patternCount === 0 ? 'var(--muted)' : 'var(--text)' }}>{patternCount > 0 ? patternCount : 'N/A'}</strong></span>
               </div>
               {memoryStats.topPattern && (
                 <div style={{ fontSize: 10, color: 'var(--muted2)', marginTop: 4 }}>

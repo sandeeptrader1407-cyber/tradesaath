@@ -61,7 +61,7 @@ export default function MistakeCostCalculator({
           {/* Main number */}
           <div className="rounded-lg p-4 mb-4" style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.15)" }}>
             <div className="text-xs uppercase tracking-wider mb-1" style={{ color: "var(--text2)" }}>
-              Learning Cost This Month
+              Total Learning Cost (All Time)
             </div>
             <div className="text-2xl md:text-[32px]" style={{
               fontWeight: 800, color: "var(--red, #ef4444)",

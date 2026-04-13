@@ -46,13 +46,13 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     const monthSessions = sessions.filter(
-      (s) => new Date(s.created_at) >= monthStart
+      (s) => s.trade_date && new Date(s.trade_date) >= monthStart
     )
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - now.getDay())
     weekStart.setHours(0, 0, 0, 0)
     const weekSessions = sessions.filter(
-      (s) => new Date(s.created_at) >= weekStart
+      (s) => s.trade_date && new Date(s.trade_date) >= weekStart
     )
     const todayStr = now.toISOString().split('T')[0]
     const todaySessions = sessions.filter((s) => s.trade_date === todayStr)
@@ -210,7 +210,9 @@ export async function GET(req: NextRequest) {
 
         const sessionDateMap: Record<string, string> = {}
         for (const s of sessions) {
-          sessionDateMap[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
+          // CRITICAL: use ONLY trade_date for heatmap day-of-week, never fall back to created_at
+          // (created_at is upload time, not actual trade date — would collapse all trades to the same weekday)
+          if (s.trade_date) sessionDateMap[s.id] = s.trade_date
         }
 
         /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -258,7 +260,7 @@ export async function GET(req: NextRequest) {
       /* eslint-disable @typescript-eslint/no-explicit-any */
       const sessionDateMap2: Record<string, string> = {}
       for (const s of sessions) {
-        sessionDateMap2[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
+        if (s.trade_date) sessionDateMap2[s.id] = s.trade_date
       }
       const jsonbTrades: { entry_time: string; pnl: number }[] = []
       for (const sess of sessions) {
@@ -287,7 +289,7 @@ export async function GET(req: NextRequest) {
       const fallbackSlots = ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '14:00', '14:30', '15:00']
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tradesByTimeDay = sessions.map((s: any, i: number) => {
-        const dateStr = s.trade_date || s.created_at?.split('T')[0] || ''
+        const dateStr = s.trade_date || ''
         if (!dateStr) return null
         const slot = fallbackSlots[i % fallbackSlots.length]
         return {
@@ -321,7 +323,9 @@ export async function GET(req: NextRequest) {
       score: Math.round(v.total / v.count),
     }))
 
-    const actualMonthPnl = monthPnl
+    // Counterfactual uses ALL-TIME actual P&L (mistakes tagged across all sessions, not just this month)
+    // Formula: if you hadn't lost money on tagged mistakes, your P&L would be better by |mistake cost|
+    const actualMonthPnl = allTimeKPIs.totalPnl
     const counterfactualPnl = actualMonthPnl + totalMistakeCost
 
     const responseData = {

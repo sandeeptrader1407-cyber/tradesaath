@@ -69,18 +69,29 @@ function getMonthYear(): string {
 
 function getDisplayName(user: { firstName?: string | null; lastName?: string | null; username?: string | null; fullName?: string | null; primaryEmailAddress?: { emailAddress?: string } | null } | null | undefined): string {
   if (!user) return "Trader"
-  const blocked = new Set(["tradesaath", "trade saath", "tradesaathi", "saathi"])
-  const isOk = (s?: string | null) => !!s && !blocked.has(s.trim().toLowerCase())
+  // Block any name that looks like the app name, an email, or is empty
+  const isOk = (s?: string | null) => {
+    if (!s) return false
+    const trimmed = s.trim()
+    if (!trimmed) return false
+    const lower = trimmed.toLowerCase()
+    if (lower.includes("tradesaath") || lower.includes("trade saath") || lower.includes("saathi")) return false
+    if (lower.includes("@")) return false // email address
+    if (/^\d+$/.test(trimmed)) return false // pure digits
+    return true
+  }
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-  if (isOk(user.firstName)) return (user.firstName as string).trim()
-  if (isOk(user.fullName)) return (user.fullName as string).split(" ")[0].trim()
-  if (isOk(user.username)) return (user.username as string).trim()
+  if (isOk(user.firstName)) return cap((user.firstName as string).trim())
+  if (isOk(user.fullName)) {
+    const first = (user.fullName as string).split(" ")[0].trim()
+    if (isOk(first)) return cap(first)
+  }
+  if (isOk(user.username)) return cap((user.username as string).trim())
   const email = user.primaryEmailAddress?.emailAddress
   if (email) {
-    const prefix = email.split("@")[0]?.replace(/[._-]+/g, " ").trim()
-    if (prefix && isOk(prefix)) {
-      return prefix.charAt(0).toUpperCase() + prefix.slice(1)
-    }
+    const prefix = email.split("@")[0]?.replace(/[._-]+/g, " ").replace(/\d+$/, "").trim()
+    if (prefix && isOk(prefix)) return cap(prefix)
   }
   return "Trader"
 }
@@ -307,7 +318,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { label: "This Month P&L", value: fmtPnl(stats.month.pnl), pos: stats.month.pnl >= 0 },
+                { label: "This Month Gross P&L", value: fmtPnl(stats.month.pnl), pos: stats.month.pnl >= 0 },
                 { label: "Win Rate", value: `${stats.month.winRate}%`, pos: stats.month.winRate >= 50 },
                 { label: "Sessions", value: String(stats.month.sessions), pos: true },
                 { label: stats.month.sessions === 1 ? "Last Session" : "Best Day", value: fmtPnl(stats.month.bestSessionPnl || 0), pos: (stats.month.bestSessionPnl || 0) >= 0 },
