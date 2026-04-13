@@ -10,6 +10,7 @@ export type AnyRow = Record<string, any>;
 export interface ParsedTrade {
   index: number;
   time: string;
+  date: string; // YYYY-MM-DD from the original trade row (or 'unknown' if missing)
   symbol: string;
   side: string;
   qty: number;
@@ -148,6 +149,19 @@ export function mapColumns(headers: string[]): Record<string, number> {
   return mapping;
 }
 
+// Normalize a date string into YYYY-MM-DD (best effort)
+function normalizeDateStr(raw: string): string | undefined {
+  if (!raw) return undefined;
+  const s = raw.trim();
+  // Already YYYY-MM-DD or YYYY/MM/DD
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  // DD-MM-YYYY or DD/MM/YYYY
+  const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  return undefined;
+}
+
 // Parse a single row into a raw trade
 export function parseRow(row: string[], colMap: Record<string, number>): AnyRow | null {
   const get = (key: string) => {
@@ -180,7 +194,10 @@ export function parseRow(row: string[], colMap: Record<string, number>): AnyRow 
     const isoDate = timeVal.match(/(\d{4}-\d{2}-\d{2})/);
     const ddmmDate = timeVal.match(/(\d{2}[-/]\d{2}[-/]\d{4})/);
     if (isoDate) result.date = isoDate[1];
-    else if (ddmmDate) result.date = ddmmDate[1];
+    else if (ddmmDate) {
+      const norm = normalizeDateStr(ddmmDate[1]);
+      if (norm) result.date = norm;
+    }
   }
 
   if (result.date === undefined) {
@@ -192,7 +209,8 @@ export function parseRow(row: string[], colMap: Record<string, number>): AnyRow 
         const d = new Date(epoch.getTime() + serial * 86400000);
         result.date = d.toISOString().split('T')[0];
       } else {
-        result.date = dateVal;
+        const norm = normalizeDateStr(dateVal);
+        result.date = norm || dateVal;
       }
     }
   }
