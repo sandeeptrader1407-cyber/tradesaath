@@ -21,6 +21,17 @@ const QUICK_PROMPTS: { label: string; prompt: string; tag: string; color: string
   { label: 'I\u2019m trading LIVE right now \u2014 guide me', prompt: 'I am trading LIVE right now. Based on my history, what are the top 3 things I must watch out for in the next hour? Give me rapid-fire rules.', tag: 'LIVE', color: 'var(--blue)' },
 ]
 
+/** Lightweight markdown to HTML for chat bubbles. Handles **bold**, *italic*, and `code`. */
+function renderMarkdown(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:rgba(255,255,255,.08);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>')
+}
+
 export default function AiChat() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -147,13 +158,13 @@ export default function AiChat() {
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>TradeSaath AI</div>
-                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online \u00B7 Your Trading Saathi</div>
+                <div style={{ fontSize: 10, color: 'var(--accent)' }}>Online {'\u00B7'} Your Trading Saathi</div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>\u2715</button>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>{'\u2715'}</button>
           </div>
 
-          {/* Coaching Memory Bar — shows what the AI remembers about you */}
+          {/* Coaching Memory Bar */}
           {sessionCount > 0 && (
             <div style={{
               padding: '8px 14px', borderBottom: '1px solid var(--border)',
@@ -172,11 +183,11 @@ export default function AiChat() {
                 fontFamily: "'JetBrains Mono', monospace", color: 'var(--text2)',
               }}>
                 <span><span style={{ color: 'var(--muted)' }}>SESSIONS</span> <strong style={{ color: 'var(--text)' }}>{sessionCount}</strong></span>
-                <span style={{ color: 'var(--border)' }}>\u00B7</span>
+                <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
                 <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
-                <span style={{ color: 'var(--border)' }}>\u00B7</span>
+                <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
                 <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
-                <span style={{ color: 'var(--border)' }}>\u00B7</span>
+                <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
                 <span><span style={{ color: 'var(--muted)' }}>PATTERNS</span> <strong style={{ color: 'var(--text)' }}>{patternCount}</strong></span>
               </div>
               {memoryStats.topPattern && (
@@ -226,7 +237,9 @@ export default function AiChat() {
                 color: m.role === 'user' ? 'var(--bg)' : 'var(--text)',
                 fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-line',
               }}>
-                {m.content}
+                {m.role === 'assistant'
+                  ? <span dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} />
+                  : m.content}
               </div>
             ))}
 

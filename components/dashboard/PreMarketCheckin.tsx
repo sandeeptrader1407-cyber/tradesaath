@@ -54,13 +54,14 @@ export default function PreMarketCheckin({ compact = false }: Props) {
             onClick={() => toggle(item)}
             className="text-xs px-3 py-1.5 rounded-full border transition-all"
             style={{
-              background: selected.has(item) ? "rgba(62,232,196,.15)" : "var(--s2)",
+              background: selected.has(item) ? "rgba(62,232,196,.25)" : "var(--s2)",
               borderColor: selected.has(item) ? "var(--accent)" : "var(--border)",
               color: selected.has(item) ? "var(--accent)" : "var(--text2)",
-              fontWeight: selected.has(item) ? 600 : 400,
+              fontWeight: selected.has(item) ? 700 : 400,
+              boxShadow: selected.has(item) ? "0 0 8px rgba(62,232,196,.2)" : "none",
             }}
           >
-            {item}
+            {selected.has(item) ? "\u2713 " : ""}{item}
           </button>
         ))}
       </div>

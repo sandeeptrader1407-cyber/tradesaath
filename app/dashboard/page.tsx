@@ -68,7 +68,7 @@ function getMonthYear(): string {
 
 function fmtPnl(n: number) {
   const sign = n >= 0 ? "+" : ""
-  return `${sign}\u20B9${Math.abs(Math.round(n)).toLocaleString("en-IN")}`
+  return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`
 }
 
 export default function DashboardPage() {
@@ -121,14 +121,28 @@ export default function DashboardPage() {
     { name: "Emotional Control", value: 30 },
   ] : [])
 
+  // Tag → human-readable label map
+  const TAG_LABELS: Record<string, string> = {
+    loss: "Taking Losses Poorly",
+    rvg: "Revenge Trading",
+    fomo: "FOMO Entries",
+    vs: "Vicious Cycle",
+    avg: "Averaging Down",
+    pnc: "Panic Exits",
+    win: "Overconfidence After Wins",
+    revenge_trading: "Revenge Trading",
+    fomo_entry: "FOMO Entries",
+    overtrading: "Overtrading",
+  }
+
   // Determine #1 issue from data
   const topMistake = stats?.mistakeTrades?.length ? stats.mistakeTrades[0] : null
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
 
   // Discipline trend from recent sessions
   const streakDir = stats?.streaks?.current
-    ? stats.streaks.current > 0 ? "\u2191" : "\u2193"
-    : "\u2192"
+    ? stats.streaks.current > 0 ? "↑" : "↓"
+    : "→"
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
@@ -141,11 +155,11 @@ export default function DashboardPage() {
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
         }}>
           <span className="text-sm" style={{ color: isPaid ? "var(--accent)" : "var(--text2)" }}>
-            {isPro ? "\u2B50 Pro Plan Active" : isPaid ? "\u2B50 Single Report Plan" : "Free Plan \u2014 Upgrade for full features"}
+            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan — Upgrade for full features"}
           </span>
           {!isPaid && (
             <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
-              Upgrade {"\u2192"}
+              Upgrade {"→"}
             </a>
           )}
         </div>
@@ -156,7 +170,7 @@ export default function DashboardPage() {
               {getGreeting()}, {user?.firstName || "Trader"}
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
-              {getMonthYear()} {"\u00B7"} {stats?.sessionCount || 0} sessions {"\u00B7"} {stats?.totalTrades || 0} trades analysed
+              {getMonthYear()} {"·"} {stats?.sessionCount || 0} sessions {"·"} {stats?.totalTrades || 0} trades analysed
             </p>
           </div>
           <button
@@ -164,14 +178,14 @@ export default function DashboardPage() {
             className="px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shrink-0"
             style={{ background: "var(--accent)", color: "#071a15" }}
           >
-            {"\uD83D\uDCE4"} New Analysis
+            {"📤"} New Analysis
           </button>
         </div>
 
         {/* Empty state */}
         {!stats?.hasData && !loading && (
           <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-            <div className="text-5xl mb-4">{"\uD83D\uDCCA"}</div>
+            <div className="text-5xl mb-4">{"📊"}</div>
             <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Welcome to your Trading Dashboard</h2>
             <p className="text-sm mb-6" style={{ color: "var(--text2)" }}>Upload your first trading session to see your performance insights, discipline score, and behavioral patterns.</p>
             <button
@@ -179,7 +193,7 @@ export default function DashboardPage() {
               className="px-6 py-3 rounded-xl text-sm font-semibold"
               style={{ background: "var(--accent)", color: "#071a15" }}
             >
-              {"\uD83D\uDCC2"} Upload First Session {"\u2192"}
+              {"📋"} Upload First Session {"→"}
             </button>
           </div>
         )}
@@ -235,7 +249,7 @@ export default function DashboardPage() {
                     <>
                       <div className="text-2xl mb-2">{topMistake.icon}</div>
                       <div className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
-                        {topMistake.type}
+                        {TAG_LABELS[topMistake.type] || topMistake.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                       </div>
                       <div className="text-xs mb-3" style={{ color: "var(--text2)", lineHeight: 1.6 }}>
                         Cost you <strong style={{ color: "var(--red)" }}>{fmtPnl(-topMistake.cost)}</strong> across{" "}
@@ -244,7 +258,7 @@ export default function DashboardPage() {
                     </>
                   ) : lowest ? (
                     <>
-                      <div className="text-2xl mb-2">{"\u26A0\uFE0F"}</div>
+                      <div className="text-2xl mb-2">{"⚠️"}</div>
                       <div className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
                         {lowest.name}
                       </div>
@@ -255,14 +269,14 @@ export default function DashboardPage() {
                     </>
                   ) : (
                     <>
-                      <div className="text-2xl mb-2">{"\uD83D\uDCCA"}</div>
+                      <div className="text-2xl mb-2">{"📊"}</div>
                       <div className="text-xs" style={{ color: "var(--text2)", lineHeight: 1.6 }}>
                         Upload more sessions to discover your patterns
                       </div>
                     </>
                   )}
                   <Link href="/coach" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
-                    Fix this in Saathi {"\u2192"}
+                    Fix this in Saathi {"→"}
                   </Link>
                 </div>
               </div>
@@ -297,7 +311,7 @@ export default function DashboardPage() {
                 className="text-xs px-5 py-2 rounded-lg font-semibold transition-all"
                 style={{ background: "var(--s2)", color: "var(--text2)", border: "1px solid var(--border)" }}
               >
-                {showDetailed ? "\uD83D\uDCCA Hide detailed analytics \u25B2" : "\uD83D\uDCCA Show detailed analytics \u25BC"}
+                {showDetailed ? "📊 Hide detailed analytics ▲" : "📊 Show detailed analytics ▼"}
               </button>
             </div>
 
