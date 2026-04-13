@@ -70,9 +70,23 @@ function JournalContent() {
           if (!tagCounts[tag]) tagCounts[tag] = { count: 0, sessions: 0, cost: 0, recentCount: 0, olderCount: 0 }
           tagCounts[tag].count++
           if (!seenTags.has(tag)) { tagCounts[tag].sessions++; seenTags.add(tag) }
-          if (ta.pnl && ta.pnl < 0) tagCounts[tag].cost += Math.abs(ta.pnl)
+          // Try multiple pnl field names; parse strings to numbers
+          const pnlVal = Number(ta.pnl ?? ta.net_pnl ?? ta.trade_pnl ?? 0)
+          if (pnlVal < 0) tagCounts[tag].cost += Math.abs(pnlVal)
           if (idx < midpoint) tagCounts[tag].recentCount++
           else tagCounts[tag].olderCount++
+        }
+      }
+
+      // Fallback: if trade_analyses had no per-trade pnl, distribute session loss to tags present
+      if (tradeAnalyses.length > 0 && sess.net_pnl < 0) {
+        const tagsInSession = Array.from(seenTags)
+        const anyHadPnl = tradeAnalyses.some((ta: Record<string, unknown>) => ta.pnl != null || ta.net_pnl != null || ta.trade_pnl != null)
+        if (!anyHadPnl && tagsInSession.length > 0) {
+          const share = Math.abs(sess.net_pnl) / tagsInSession.length
+          for (const tag of tagsInSession) {
+            tagCounts[tag].cost += Math.round(share)
+          }
         }
       }
 

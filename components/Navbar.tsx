@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  SignInButton,
   SignUpButton,
   UserButton,
   useUser,
@@ -27,9 +26,7 @@ function ClerkAuthButtons() {
 
   return (
     <>
-      <SignInButton mode="redirect">
-        <button className="btn btn-ghost btn-sm nav-auth-btn">Sign In</button>
-      </SignInButton>
+      <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">Sign In</Link>
       <SignUpButton mode="redirect">
         <button className="btn btn-accent btn-sm nav-getstarted-btn">Get Started</button>
       </SignUpButton>

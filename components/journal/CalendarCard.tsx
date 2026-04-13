@@ -23,12 +23,20 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const today = new Date()
 
+  // Normalize date string to YYYY-MM-DD with zero-padded month/day
+  const normalizeDate = (d: string): string => {
+    const parts = d.split("-")
+    if (parts.length !== 3) return d
+    return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`
+  }
+
   // Build date->pnl+count map
   const dateMap = new Map<string, { pnl: number; count: number }>()
   for (const s of sessions) {
     if (s.trade_date) {
-      const existing = dateMap.get(s.trade_date) || { pnl: 0, count: 0 }
-      dateMap.set(s.trade_date, { pnl: existing.pnl + Number(s.net_pnl || 0), count: existing.count + 1 })
+      const key = normalizeDate(s.trade_date)
+      const existing = dateMap.get(key) || { pnl: 0, count: 0 }
+      dateMap.set(key, { pnl: existing.pnl + Number(s.net_pnl || 0), count: existing.count + 1 })
     }
   }
 
