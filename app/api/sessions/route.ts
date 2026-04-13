@@ -16,7 +16,7 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from('trade_sessions')
-      .select('id, created_at, trade_count, net_pnl, win_rate, trades, analysis')
+      .select('id, created_at, trade_count, net_pnl, win_count, loss_count, win_rate, trades, analysis')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -33,6 +33,8 @@ export async function GET() {
       created_at: s.created_at,
       total_pnl: s.net_pnl || 0,
       trade_count: s.trade_count || 0,
+      win_count: s.win_count || 0,
+      loss_count: s.loss_count || 0,
       win_rate: s.win_rate || 0,
       dqs_score: s.analysis?.dqs?.score || s.analysis?.dqsScore || 0,
       analysis: s.analysis || null,

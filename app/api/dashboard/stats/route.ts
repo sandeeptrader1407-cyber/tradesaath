@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
 import { statsCache } from '@/lib/dashboardCache'
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,23 +65,14 @@ export async function GET(req: NextRequest) {
     const todayStr = now.toISOString().split('T')[0]
     const todaySessions = sessions.filter((s) => s.trade_date === todayStr)
 
-    // Aggregate KPIs for the month
-    const totalTrades = monthSessions.reduce(
-      (s, x) => s + (x.trade_count || 0),
-      0
-    )
-    const totalWins = monthSessions.reduce(
-      (s, x) => s + (x.win_count || 0),
-      0
-    )
-    const totalLosses = monthSessions.reduce(
-      (s, x) => s + (x.loss_count || 0),
-      0
-    )
-    const monthPnl = monthSessions.reduce(
-      (s, x) => s + Number(x.net_pnl || 0),
-      0
-    )
+    // Compute KPIs using shared single-source-of-truth calculator
+    const monthKPIs = computeKPIs(monthSessions)
+    const allTimeKPIs = computeKPIs(sessions)
+
+    const totalTrades = monthKPIs.totalTrades
+    const totalWins = monthKPIs.totalWins
+    const totalLosses = monthKPIs.totalLosses
+    const monthPnl = monthKPIs.totalPnl
     const weekPnl = weekSessions.reduce(
       (s, x) => s + Number(x.net_pnl || 0),
       0
@@ -89,21 +81,6 @@ export async function GET(req: NextRequest) {
       (s, x) => s + Number(x.net_pnl || 0),
       0
     )
-    const profitableSessions = monthSessions.filter(
-      (s) => Number(s.net_pnl) > 0
-    ).length
-
-    // Average win and loss for risk:reward
-    const allWinPnl = monthSessions.reduce(
-      (s, x) => s + Math.max(0, Number(x.net_pnl || 0)),
-      0
-    )
-    const allLossPnl = monthSessions.reduce(
-      (s, x) => s + Math.abs(Math.min(0, Number(x.net_pnl || 0))),
-      0
-    )
-    const avgWin = totalWins > 0 ? allWinPnl / totalWins : 0
-    const avgLoss = totalLosses > 0 ? allLossPnl / totalLosses : 0
 
     // Equity curve (last 20 sessions)
     const equityCurve = sessions
@@ -345,15 +322,15 @@ export async function GET(req: NextRequest) {
         trades: totalTrades,
         wins: totalWins,
         losses: totalLosses,
-        winRate:
-          totalTrades > 0 ? Math.round((totalWins / totalTrades) * 100) : 0,
-        successRate:
-          monthSessions.length > 0
-            ? Math.round((profitableSessions / monthSessions.length) * 100)
-            : 0,
-        avgWin: Math.round(avgWin),
-        avgLoss: Math.round(avgLoss),
-        riskReward: avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : '0',
+        winRate: monthKPIs.winRate,
+        successRate: monthKPIs.successRate > 0 ? monthKPIs.successRate : allTimeKPIs.successRate,
+        successRateScope: monthKPIs.successRate > 0 ? 'month' : 'allTime',
+        avgWin: monthKPIs.avgWinAmount,
+        avgLoss: monthKPIs.avgLossAmount,
+        riskReward: monthKPIs.riskReward > 0 ? String(monthKPIs.riskReward) : String(allTimeKPIs.riskReward),
+        riskRewardScope: monthKPIs.riskReward > 0 ? 'month' : 'allTime',
+        bestSessionPnl: monthKPIs.bestSessionPnl,
+        profitFactor: monthKPIs.profitFactor,
       },
       week: {
         pnl: weekPnl,
@@ -371,8 +348,8 @@ export async function GET(req: NextRequest) {
         worstLoss: worstLossStreak,
       },
       risk: {
-        maxDrawdown,
-        avgLossAvgWin: avgWin > 0 ? (avgLoss / avgWin).toFixed(2) : '0',
+        maxDrawdown: allTimeKPIs.maxDrawdown,
+        avgLossAvgWin: monthKPIs.avgWinAmount > 0 ? (monthKPIs.avgLossAmount / monthKPIs.avgWinAmount).toFixed(2) : '0',
       },
       // New fields for dashboard components
       recentTrades,
