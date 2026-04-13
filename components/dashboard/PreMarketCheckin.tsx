@@ -10,7 +10,11 @@ const INTENTIONS = [
   "Stop loss every trade",
 ]
 
-export default function PreMarketCheckin() {
+interface Props {
+  compact?: boolean
+}
+
+export default function PreMarketCheckin({ compact = false }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [done, setDone] = useState(false)
 
@@ -25,7 +29,7 @@ export default function PreMarketCheckin() {
 
   if (done) {
     return (
-      <div className="rounded-xl border p-5 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+      <div className={compact ? "text-center py-2" : "rounded-xl border p-5 text-center"} style={compact ? {} : { background: "var(--s1)", borderColor: "var(--border)" }}>
         <div className="text-2xl mb-2">{"✅"}</div>
         <p className="text-sm font-semibold" style={{ color: "var(--green)" }}>Intention set. Have a disciplined session.</p>
       </div>
@@ -33,10 +37,17 @@ export default function PreMarketCheckin() {
   }
 
   return (
-    <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-      <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{"☀️"} Before you trade today</h3>
-      <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What&apos;s your one rule you won&apos;t break today?</p>
-      <div className="flex flex-wrap gap-2 mb-4">
+    <div {...(compact ? {} : { className: "rounded-xl border p-5", style: { background: "var(--s1)", borderColor: "var(--border)" } as React.CSSProperties })}>
+      {!compact && (
+        <>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{"☀️"} Before you trade today</h3>
+          <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What&apos;s your one rule you won&apos;t break today?</p>
+        </>
+      )}
+      {compact && (
+        <p className="text-xs mb-3" style={{ color: "var(--text2)" }}>Set your intention for today:</p>
+      )}
+      <div className="flex flex-wrap gap-2 mb-3">
         {INTENTIONS.map((item) => (
           <button
             key={item}
