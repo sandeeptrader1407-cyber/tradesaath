@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -59,15 +60,25 @@ export default function AiChat() {
         if (sessions.length === 0) return
         setSessionCount(sessions.length)
 
-        // Build context from recent sessions
-        const recent = sessions.slice(0, 5)
-        const totalPnl = recent.reduce((s: number, sess: { total_pnl?: number }) => s + (sess.total_pnl || 0), 0)
-        const avgWr = recent.reduce((s: number, sess: { win_rate?: number }) => s + (sess.win_rate || 0), 0) / recent.length
-        const avgDqs = recent.reduce((s: number, sess: { dqs_score?: number }) => s + (sess.dqs_score || 0), 0) / recent.length
+        // Single source of truth: computeKPIs across ALL sessions (matches Dashboard + Saathi)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const kpiSessions = sessions.map((s: any) => ({
+          net_pnl: s.total_pnl || 0,
+          win_rate: s.win_rate || 0,
+          trade_count: s.trade_count || 0,
+          win_count: s.win_count || 0,
+          loss_count: s.loss_count || 0,
+        }))
+        const kpis = computeKPIs(kpiSessions)
 
-        // Collect patterns across sessions
+        // Avg DQS across sessions that have a non-zero score
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dqsScores = sessions.map((s: any) => s.dqs_score || 0).filter((v: number) => v > 0)
+        const avgDqs = dqsScores.length > 0 ? dqsScores.reduce((a: number, b: number) => a + b, 0) / dqsScores.length : 0
+
+        // Collect patterns across ALL sessions
         const patterns: Record<string, number> = {}
-        for (const sess of recent) {
+        for (const sess of sessions) {
           const analysis = sess.analysis as { perTrade?: { tag: string }[] } | null
           if (analysis?.perTrade) {
             for (const pt of analysis.perTrade) {
@@ -78,12 +89,12 @@ export default function AiChat() {
         const patternEntries = Object.entries(patterns).sort((a, b) => b[1] - a[1])
         setPatternCount(patternEntries.length)
         setMemoryStats({
-          pnl: totalPnl,
+          pnl: kpis.totalPnl,
           avgDqs: Math.round(avgDqs),
           topPattern: patternEntries[0]?.[0] || null,
         })
 
-        const ctx = `Last ${recent.length} sessions: Gross P&L \u20B9${totalPnl.toLocaleString('en-IN')}, Avg WR ${Math.round(avgWr)}%, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}. Total ${sessions.length} sessions analyzed.`
+        const ctx = `All ${sessions.length} sessions (all-time): Net P&L \u20B9${kpis.totalPnl.toLocaleString('en-IN')}, WR ${kpis.winRate}%, ${kpis.totalTrades} trades, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}.`
         setTradeContext(ctx)
       })
       .catch(() => { /* silently fail */ })

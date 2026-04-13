@@ -13,7 +13,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Check cache (skip if ?refresh=true)
     const refresh = req.nextUrl.searchParams.get('refresh') === 'true'
     const cacheKey = `stats:${userId}`
     if (!refresh) {
@@ -23,7 +22,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fallback: migrate anon data if cookie still exists
     const anonId = req.cookies.get('tradesaath_anon_id')?.value
     if (anonId) {
       try {
@@ -46,26 +44,19 @@ export async function GET(req: NextRequest) {
     }
 
     const now = new Date()
-
-    // Current month filter
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     const monthSessions = sessions.filter(
       (s) => new Date(s.created_at) >= monthStart
     )
-
-    // This week filter
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - now.getDay())
     weekStart.setHours(0, 0, 0, 0)
     const weekSessions = sessions.filter(
       (s) => new Date(s.created_at) >= weekStart
     )
-
-    // Today
     const todayStr = now.toISOString().split('T')[0]
     const todaySessions = sessions.filter((s) => s.trade_date === todayStr)
 
-    // Compute KPIs using shared single-source-of-truth calculator
     const monthKPIs = computeKPIs(monthSessions)
     const allTimeKPIs = computeKPIs(sessions)
 
@@ -82,7 +73,6 @@ export async function GET(req: NextRequest) {
       0
     )
 
-    // Equity curve (last 20 sessions)
     const equityCurve = sessions
       .slice(0, 20)
       .reverse()
@@ -91,7 +81,6 @@ export async function GET(req: NextRequest) {
         date: s.trade_date || s.created_at?.split('T')[0],
       }))
 
-    // Streaks
     let currentStreak = 0
     let bestWinStreak = 0
     let worstLossStreak = 0
@@ -109,7 +98,6 @@ export async function GET(req: NextRequest) {
         worstLossStreak = Math.max(worstLossStreak, tempLoss)
       }
     }
-    // Current streak from most recent
     if (sessions.length > 0) {
       const firstPnl = Number(sessions[0].net_pnl || 0)
       const isWin = firstPnl > 0
@@ -122,29 +110,7 @@ export async function GET(req: NextRequest) {
       if (!isWin) currentStreak = -currentStreak
     }
 
-    // Max drawdown
-    let peak = 0
-    let maxDrawdown = 0
-    let cumPnl = 0
-    for (const s of [...sessions].reverse()) {
-      cumPnl += Number(s.net_pnl || 0)
-      if (cumPnl > peak) peak = cumPnl
-      const dd = peak - cumPnl
-      if (dd > maxDrawdown) maxDrawdown = dd
-    }
-
-    // --- Additional data for dashboard components ---
-
-    // Recent sessions (last 4)
-    const recentSessions = sessions.slice(0, 4).map((s) => ({
-      date: s.trade_date || s.created_at?.split('T')[0] || '',
-      trades: s.trade_count || 0,
-      pnl: Number(s.net_pnl || 0),
-      winRate: s.win_rate || 0,
-    }))
-
-    // Fetch trade_analysis for recent trades, mistakes, heatmap, and DQS
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase dynamic rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic
     const sessionIds = sessions.map((s: any) => s.id)
     let recentTrades: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string }[] = []
     let mistakeTrades: { type: string; icon: string; count: number; cost: number }[] = []
@@ -153,8 +119,14 @@ export async function GET(req: NextRequest) {
     let dqsScore = 0
     let dqsFactors: { name: string; score: number }[] = []
 
+    const recentSessions = sessions.slice(0, 4).map((s) => ({
+      date: s.trade_date || s.created_at?.split('T')[0] || '',
+      trades: s.trade_count || 0,
+      pnl: Number(s.net_pnl || 0),
+      winRate: s.win_rate || 0,
+    }))
+
     if (sessionIds.length > 0) {
-      // Get recent individual trades (last 5)
       const { data: recentTA } = await supabaseAdmin
         .from('trade_analysis')
         .select('symbol, side, pnl, entry_time, tag, tag_label')
@@ -163,7 +135,7 @@ export async function GET(req: NextRequest) {
         .limit(20)
 
       if (recentTA && recentTA.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recentTrades = recentTA.slice(0, 5).map((t: any) => ({
           time: t.entry_time || '',
           symbol: t.symbol || 'Unknown',
@@ -171,16 +143,33 @@ export async function GET(req: NextRequest) {
           pnl: Number(t.pnl || 0),
           tag: t.tag_label || t.tag || '',
         }))
+      } else {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        for (const sess of sessions.slice(0, 5)) {
+          const trades = (sess as any).trades
+          if (Array.isArray(trades) && trades.length > 0) {
+            for (const t of trades) {
+              if (recentTrades.length >= 5) break
+              recentTrades.push({
+                time: t.entry_time || t.time || '',
+                symbol: t.symbol || 'Unknown',
+                side: t.side || '',
+                pnl: Number(t.pnl || 0),
+                tag: t.tag_label || t.tag || '',
+              })
+            }
+          }
+          if (recentTrades.length >= 5) break
+        }
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
 
-      // Get all trade_analysis for mistake aggregation and heatmap
       const { data: allTA } = await supabaseAdmin
         .from('trade_analysis')
         .select('tag, tag_label, pnl, entry_time, cycle_stage, session_id')
         .in('session_id', sessionIds)
 
       if (allTA && allTA.length > 0) {
-        // Mistake aggregation
         const mistakeMap: Record<string, { count: number; cost: number; icon: string }> = {}
         const mistakeIcons: Record<string, string> = {
           rvg: String.fromCodePoint(0x2694, 0xFE0F),
@@ -208,6 +197,8 @@ export async function GET(req: NextRequest) {
         const tagLabels: Record<string, string> = {
           rvg: 'Revenge Trading', fomo: 'FOMO Entries', pnc: 'Panic Exits',
           avg: 'Averaging Down', vs: 'Vicious Cycle', fatigue: 'Decision Fatigue',
+          loss: 'Taking Losses Poorly', hope: 'Hope Trading', tilt: 'On Tilt',
+          over: 'Overtrading', hold: 'Holding Losers', cut: 'Cutting Winners Early',
         }
 
         mistakeTrades = Object.entries(mistakeMap)
@@ -217,14 +208,12 @@ export async function GET(req: NextRequest) {
 
         totalMistakeCost = mistakeTrades.reduce((s, m) => s + m.cost, 0)
 
-        // Heatmap data: trades with entry_time for time-of-day analysis
-        // Build session id -> trade_date map for day-of-week
         const sessionDateMap: Record<string, string> = {}
         for (const s of sessions) {
           sessionDateMap[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
         }
 
-        /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row type */
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         const taWithTime = allTA
           .filter((t: any) => t.entry_time)
           .map((t: any) => {
@@ -241,19 +230,16 @@ export async function GET(req: NextRequest) {
           })
         /* eslint-enable @typescript-eslint/no-explicit-any */
 
-        // If trade-level entry_time data is insufficient, distribute across trading hours
         if (taWithTime.length >= 5) {
           tradesByTimeDay = taWithTime
         } else {
-          // Fallback: distribute trades across realistic trading hour slots
-          // using session trade_date for day-of-week and sequential time slots
           const tradingSlots = [
             '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '10:45',
             '11:00', '11:15', '11:30', '11:45', '12:00', '12:30', '13:00',
             '13:30', '14:00', '14:15', '14:30', '14:45', '15:00', '15:15',
           ]
           let slotIdx = 0
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           tradesByTimeDay = allTA.map((t: any) => {
             const sessionDate = sessionDateMap[t.session_id] || ''
             if (!sessionDate) return null
@@ -268,10 +254,38 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Last-resort heatmap: if no trade_analysis data, use sessions themselves
+    if (tradesByTimeDay.length < 5) {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const sessionDateMap2: Record<string, string> = {}
+      for (const s of sessions) {
+        sessionDateMap2[s.id] = s.trade_date || s.created_at?.split('T')[0] || ''
+      }
+      const jsonbTrades: { entry_time: string; pnl: number }[] = []
+      for (const sess of sessions) {
+        const trades = (sess as any).trades
+        if (!Array.isArray(trades)) continue
+        const dateStr = sessionDateMap2[sess.id]
+        if (!dateStr) continue
+        for (const t of trades) {
+          const timeStr = t.entry_time || t.time || ''
+          if (!timeStr) continue
+          let fullTime = timeStr
+          if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeStr)) {
+            const parts = timeStr.split(':')
+            const hh = parts[0].padStart(2, '0')
+            const mm = (parts[1] || '00').padStart(2, '0')
+            fullTime = `${dateStr}T${hh}:${mm}:00`
+          }
+          jsonbTrades.push({ entry_time: fullTime, pnl: Number(t.pnl || 0) })
+        }
+      }
+      if (jsonbTrades.length >= 5) tradesByTimeDay = jsonbTrades
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    }
+
     if (tradesByTimeDay.length < 5 && sessions.length >= 5) {
       const fallbackSlots = ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '14:00', '14:30', '15:00']
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tradesByTimeDay = sessions.map((s: any, i: number) => {
         const dateStr = s.trade_date || s.created_at?.split('T')[0] || ''
         if (!dateStr) return null
@@ -283,12 +297,11 @@ export async function GET(req: NextRequest) {
       }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
     }
 
-    // DQS from session analysis
     let dqsTotal = 0
     let dqsCount = 0
     const factorTotals: Record<string, { total: number; count: number }> = {}
     for (const sess of sessions.slice(0, 10)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic analysis JSON
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const analysis = (sess as any).analysis
       if (analysis?.dqs?.score) {
         dqsTotal += analysis.dqs.score
@@ -308,7 +321,6 @@ export async function GET(req: NextRequest) {
       score: Math.round(v.total / v.count),
     }))
 
-    // Counterfactual P&L (actual + mistake cost)
     const actualMonthPnl = monthPnl
     const counterfactualPnl = actualMonthPnl + totalMistakeCost
 
@@ -351,7 +363,6 @@ export async function GET(req: NextRequest) {
         maxDrawdown: allTimeKPIs.maxDrawdown,
         avgLossAvgWin: monthKPIs.avgWinAmount > 0 ? (monthKPIs.avgLossAmount / monthKPIs.avgWinAmount).toFixed(2) : '0',
       },
-      // New fields for dashboard components
       recentTrades,
       recentSessions,
       mistakeTrades,
@@ -363,12 +374,10 @@ export async function GET(req: NextRequest) {
       dqsFactors,
     }
 
-    // Cache the response for 60 seconds
     statsCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + 60_000 })
 
     const statsResponse = NextResponse.json(responseData)
 
-    // Clear anon cookie if it was migrated
     if (anonId) {
       statsResponse.cookies.set('tradesaath_anon_id', '', {
         httpOnly: true,

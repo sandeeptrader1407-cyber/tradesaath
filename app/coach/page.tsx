@@ -160,8 +160,11 @@ export default function CoachPage() {
   const totalTrades = kpis.totalTrades
   const totalPnl = kpis.totalPnl
   const avgWr = kpis.winRate
-  const avgDqs = sessions.length > 0 ? Math.round(sessions.reduce((s, x) => s + (x.dqs_score || 0), 0) / sessions.length) : 0
-  const dqsColor = avgDqs >= 70 ? 'var(--green)' : avgDqs >= 50 ? 'var(--gold)' : avgDqs >= 30 ? 'var(--orange)' : 'var(--red)'
+  // Only average sessions that actually have a DQS (>0); avoid zero-padding the mean
+  const dqsScores = sessions.map(x => x.dqs_score || 0).filter(v => v > 0)
+  const avgDqs = dqsScores.length > 0 ? Math.round(dqsScores.reduce((a, b) => a + b, 0) / dqsScores.length) : 0
+  const dqsDisplay = avgDqs > 0 ? String(avgDqs) : 'N/A'
+  const dqsColor = avgDqs === 0 ? 'var(--muted)' : avgDqs >= 70 ? 'var(--green)' : avgDqs >= 50 ? 'var(--gold)' : avgDqs >= 30 ? 'var(--orange)' : 'var(--red)'
 
   const activeTabConfig = TAB_CONFIG.find(t => t.key === tab)
 
@@ -215,7 +218,7 @@ export default function CoachPage() {
           </div>
           <div className="kpi-item">
             <div className="kpi-label">Avg DQS</div>
-            <div className="kpi-val" style={{ color: dqsColor }}>{avgDqs}</div>
+            <div className="kpi-val" style={{ color: dqsColor }}>{dqsDisplay}</div>
           </div>
         </div>
 
