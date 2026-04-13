@@ -184,7 +184,7 @@ export default function AiChat() {
               }}>
                 <span><span style={{ color: 'var(--muted)' }}>SESSIONS</span> <strong style={{ color: 'var(--text)' }}>{sessionCount}</strong></span>
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
-                <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl >= 0 ? '+' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
+                <span><span style={{ color: 'var(--muted)' }}>Gross P&amp;L</span> <strong style={{ color: memoryStats.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{(memoryStats.pnl > 0 ? '+' : memoryStats.pnl < 0 ? '-' : '') + '\u20B9' + Math.abs(memoryStats.pnl).toLocaleString('en-IN')}</strong></span>
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
                 <span><span style={{ color: 'var(--muted)' }}>DQS</span> <strong style={{ color: memoryStats.avgDqs >= 60 ? 'var(--green)' : memoryStats.avgDqs >= 40 ? 'var(--gold)' : 'var(--red)' }}>{memoryStats.avgDqs}</strong></span>
                 <span style={{ color: 'var(--border)' }}>{'\u00B7'}</span>
@@ -275,6 +275,11 @@ export default function AiChat() {
             }}>Send</button>
           </div>
         </div>
+      )}
+    </>
+  )
+}
+iv>
       )}
     </>
   )

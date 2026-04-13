@@ -67,7 +67,7 @@ function getMonthYear(): string {
 }
 
 function fmtPnl(n: number) {
-  const sign = n >= 0 ? "+" : ""
+  const sign = n > 0 ? "+" : n < 0 ? "-" : ""
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`
 }
 
@@ -170,7 +170,7 @@ export default function DashboardPage() {
               {getGreeting()}, {user?.firstName || "Trader"}
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
-              {getMonthYear()} {"·"} {stats?.sessionCount || 0} sessions {"·"} {stats?.totalTrades || 0} trades analysed
+              {getMonthYear()} {"·"} {stats?.sessionCount || 0} {(stats?.sessionCount || 0) === 1 ? "session" : "sessions"} {"·"} {stats?.totalTrades || 0} trades analysed
             </p>
           </div>
           <button
@@ -275,9 +275,15 @@ export default function DashboardPage() {
                       </div>
                     </>
                   )}
-                  <Link href="/coach" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
-                    Fix this in Saathi {"→"}
-                  </Link>
+                  {isPro ? (
+                    <Link href="/coach" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
+                      Fix this in Saathi {"→"}
+                    </Link>
+                  ) : (
+                    <Link href="/#pricing" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
+                      Upgrade to unlock Saathi {"→"}
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -294,7 +300,7 @@ export default function DashboardPage() {
                 { label: "This Month P&L", value: fmtPnl(stats.month.pnl), pos: stats.month.pnl >= 0 },
                 { label: "Win Rate", value: `${stats.month.winRate}%`, pos: stats.month.winRate >= 50 },
                 { label: "Sessions", value: String(stats.month.sessions), pos: true },
-                { label: "Best Day", value: fmtPnl(stats.month.bestSessionPnl || 0), pos: (stats.month.bestSessionPnl || 0) >= 0 },
+                { label: stats.month.sessions === 1 ? "Last Session" : "Best Day", value: fmtPnl(stats.month.bestSessionPnl || 0), pos: (stats.month.bestSessionPnl || 0) >= 0 },
                 { label: "Discipline", value: `${score} ${streakDir}`, pos: score >= 50 },
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border px-3 py-2.5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
@@ -336,6 +342,16 @@ export default function DashboardPage() {
                     factors={stats.dqsFactors || []}
                   /></ErrorBoundary>
                 </div>
+                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
+                <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  )
+}
                 <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
                 <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
               </div>

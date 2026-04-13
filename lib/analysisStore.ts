@@ -95,19 +95,25 @@ function computeKPIs(trades: Trade[]): KPIs {
   const grossWin = wins.reduce((s, t) => s + t.pnl, 0)
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0))
   const buyValue = trades.reduce((s, t) => {
-    if (t.side?.toUpperCase() === 'BUY') return s + (t.entry_price * t.quantity)
-    return s + (t.exit_price * t.quantity)
+    const ep = Number(t.entry_price) || 0
+    const xp = Number(t.exit_price) || 0
+    const qty = Number(t.quantity) || 0
+    if (t.side?.toUpperCase() === 'BUY') return s + (ep * qty)
+    return s + (xp * qty)
   }, 0)
   const sellValue = trades.reduce((s, t) => {
-    if (t.side?.toUpperCase() === 'SELL') return s + (t.entry_price * t.quantity)
-    return s + (t.exit_price * t.quantity)
+    const ep = Number(t.entry_price) || 0
+    const xp = Number(t.exit_price) || 0
+    const qty = Number(t.quantity) || 0
+    if (t.side?.toUpperCase() === 'SELL') return s + (ep * qty)
+    return s + (xp * qty)
   }, 0)
   return {
     net_pnl: trades.reduce((s, t) => s + t.pnl, 0),
     total_trades: trades.length,
     wins: wins.length,
     losses: losses.length,
-    win_rate: trades.length > 0 ? Math.round((wins.length / trades.length) * 100) : 0,
+    win_rate: trades.length > 0 ? Math.round((wins.length / trades.length) * 1000) / 10 : 0,
     profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : grossWin > 0 ? 999 : 0,
     best_trade_pnl: trades.length > 0 ? Math.max(...trades.map(t => t.pnl)) : 0,
     worst_trade_pnl: trades.length > 0 ? Math.min(...trades.map(t => t.pnl)) : 0,
@@ -152,6 +158,15 @@ export const useAnalysisStore = create<AnalysisStore>()(
       name: 'tradesaath-analysis',
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
+        trades: state.trades,
+        analysis: state.analysis,
+        metadata: state.metadata,
+        kpis: state.kpis,
+        sessionId: state.sessionId,
+      }),
+    }
+  )
+)
         trades: state.trades,
         analysis: state.analysis,
         metadata: state.metadata,
