@@ -237,6 +237,24 @@ Return ONLY the story text. No JSON, no markdown headers, no backticks. Just the
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Story generation failed'
     console.error('Journey story error:', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const status = (err as any)?.status
+    if (status === 529 || /overload/i.test(msg)) {
+      return NextResponse.json(
+        { error: 'Our AI is busy right now. Please try again in a minute.' },
+        { status: 503 }
+      )
+    }
+    if (status === 429 || /rate[_ ]?limit/i.test(msg)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment and try again.' },
+        { status: 429 }
+      )
+    }
+    return NextResponse.json(
+      { error: 'Story generation failed. Please try again.' },
+      { status: 500 }
+    )
   }
 }

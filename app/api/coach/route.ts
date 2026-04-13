@@ -156,7 +156,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Rate limit: 10 per user per hour
     const rl = rateLimit(`coach:${clerkId}`, 10, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
@@ -167,41 +166,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid tab' }, { status: 400 })
     }
 
-    // Fetch user's sessions from trade_sessions (where saveTradeSession writes)
     const { data: rawSessions } = await supabaseAdmin
       .from('trade_sessions')
       .select('id, created_at, trade_count, net_pnl, win_rate, win_count, loss_count, analysis')
       .eq('user_id', clerkId)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(500)
 
     if (!rawSessions || rawSessions.length === 0) {
       return NextResponse.json({ error: 'No sessions found. Upload trades first.' }, { status: 404 })
     }
 
-    // Map fields for consistent access
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase row shape varies
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessions = rawSessions.map((s: any) => ({
       ...s,
       total_pnl: s.net_pnl || 0,
       dqs_score: s.analysis?.dqs?.score || s.analysis?.dqsScore || 0,
     }))
 
-    // Build data summary for Claude using shared KPI calculator
     const kpis = computeKPIs(sessions)
     const totalTrades = kpis.totalTrades
     const totalPnl = kpis.totalPnl
     const avgWr = kpis.winRate
     const avgDqs = sessions.reduce((s, sess) => s + (sess.dqs_score || 0), 0) / sessions.length
 
-    // Aggregate patterns from analysis.trade_analyses and legacy fields
     const tags: Record<string, number> = {}
     const costs: Record<string, number> = {}
     const cycleStages: Record<string, number> = {}
     for (const sess of sessions) {
-      // Dynamic analysis JSON from Supabase — shape varies by session
       const analysis = sess.analysis as Record<string, unknown> | undefined
-      // New format: trade_analyses array
       if (analysis?.trade_analyses) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const ta of analysis.trade_analyses as any[]) {
@@ -209,7 +202,6 @@ export async function POST(req: NextRequest) {
           if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
         }
       }
-      // Legacy format: perTrade
       if (analysis?.perTrade) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const pt of analysis.perTrade as any[]) {
@@ -230,8 +222,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fetch per-trade analysis for recent sessions (richer coaching context)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase dynamic rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recentSessionIds = sessions.slice(0, 5).map((s: any) => s.id)
     let tradeInsightsSummary = ''
     if (recentSessionIds.length > 0) {
@@ -242,13 +233,11 @@ export async function POST(req: NextRequest) {
         .order('trade_index', { ascending: true })
 
       if (tradeAnalyses && tradeAnalyses.length > 0) {
-        // Aggregate from trade_analysis table
         for (const ta of tradeAnalyses) {
           if (ta.tag) tags[ta.tag] = (tags[ta.tag] || 0) + 1
           if (ta.cycle_stage) cycleStages[ta.cycle_stage] = (cycleStages[ta.cycle_stage] || 0) + 1
         }
-        // Pick top psychology coaching insights (biggest losses)
-        /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row type */
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         const worstTrades = tradeAnalyses
           .filter((t: any) => t.psychology_coaching && t.pnl < 0)
           .sort((a: any, b: any) => (a.pnl || 0) - (b.pnl || 0))
@@ -299,7 +288,24 @@ export async function POST(req: NextRequest) {
     if (err instanceof SyntaxError) {
       return NextResponse.json({ error: 'AI coaching plan could not be generated. Try again.' }, { status: 500 })
     }
-    return NextResponse.json({ error: msg }, { status: 500 })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const status = (err as any)?.status
+    if (status === 529 || /overload/i.test(msg)) {
+      return NextResponse.json(
+        { error: 'Saathi is busy right now. Try again in a moment.' },
+        { status: 503 }
+      )
+    }
+    if (status === 429 || /rate[_ ]?limit/i.test(msg)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment and try again.' },
+        { status: 429 }
+      )
+    }
+    return NextResponse.json(
+      { error: 'Coaching plan could not be generated. Please try again.' },
+      { status: 500 }
+    )
   }
 }
-

@@ -19,7 +19,7 @@ export async function GET() {
       .select('id, created_at, trade_count, net_pnl, win_count, loss_count, win_rate, trades, analysis')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(500)
 
     if (error) {
       console.error('Sessions fetch error:', error)

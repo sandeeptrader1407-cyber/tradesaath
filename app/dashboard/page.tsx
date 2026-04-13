@@ -67,6 +67,24 @@ function getMonthYear(): string {
   return new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })
 }
 
+function getDisplayName(user: { firstName?: string | null; lastName?: string | null; username?: string | null; fullName?: string | null; primaryEmailAddress?: { emailAddress?: string } | null } | null | undefined): string {
+  if (!user) return "Trader"
+  const blocked = new Set(["tradesaath", "trade saath", "tradesaathi", "saathi"])
+  const isOk = (s?: string | null) => !!s && !blocked.has(s.trim().toLowerCase())
+
+  if (isOk(user.firstName)) return (user.firstName as string).trim()
+  if (isOk(user.fullName)) return (user.fullName as string).split(" ")[0].trim()
+  if (isOk(user.username)) return (user.username as string).trim()
+  const email = user.primaryEmailAddress?.emailAddress
+  if (email) {
+    const prefix = email.split("@")[0]?.replace(/[._-]+/g, " ").trim()
+    if (prefix && isOk(prefix)) {
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1)
+    }
+  }
+  return "Trader"
+}
+
 function fmtPnl(n: number) {
   const sign = n > 0 ? "+" : n < 0 ? "-" : ""
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`
@@ -167,7 +185,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
-              {getGreeting()}, {user?.firstName || "Trader"}
+              {getGreeting()}, {getDisplayName(user)}
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
               {getMonthYear()} {"·"} {stats?.sessionCount || 0} {(stats?.sessionCount || 0) === 1 ? "session" : "sessions"} {"·"} {stats?.totalTrades || 0} trades analysed
