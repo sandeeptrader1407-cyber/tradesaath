@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
+import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 export const maxDuration = 60
 
@@ -66,12 +67,21 @@ function buildDataSummary(sessions: SessionRow[]): string {
     return new Date(da).getTime() - new Date(db).getTime()
   })
 
+  // Use single-source-of-truth KPIs
+  const kpis = computeKPIs(sorted.map(x => ({
+    net_pnl: x.net_pnl,
+    trade_count: x.trade_count,
+    win_count: x.win_count,
+    loss_count: x.loss_count,
+    win_rate: x.win_rate,
+    trade_date: x.trade_date,
+  })))
   const totalSessions = sorted.length
-  const totalTrades = sorted.reduce((s, x) => s + (x.trade_count || 0), 0)
-  const totalPnl = sorted.reduce((s, x) => s + (x.net_pnl || 0), 0)
-  const totalWins = sorted.reduce((s, x) => s + (x.win_count || 0), 0)
-  const totalLosses = sorted.reduce((s, x) => s + (x.loss_count || 0), 0)
-  const overallWinRate = totalTrades > 0 ? Math.round((totalWins / totalTrades) * 100) : 0
+  const totalTrades = kpis.totalTrades
+  const totalPnl = kpis.totalPnl
+  const totalWins = kpis.totalWins
+  const totalLosses = kpis.totalLosses
+  const overallWinRate = Math.round(kpis.winRate)
 
   const firstSession = sorted[0]
   const latestSession = sorted[sorted.length - 1]
@@ -83,17 +93,13 @@ function buildDataSummary(sessions: SessionRow[]): string {
   const worstDay = byPnl[byPnl.length - 1]
 
   let curWin = 0, curLoss = 0, longestWin = 0, longestLoss = 0
-  let runningPeak = 0, runningPnl = 0, maxDrawdown = 0
   for (const s of sorted) {
-    runningPnl += s.net_pnl || 0
-    if (runningPnl > runningPeak) runningPeak = runningPnl
-    const dd = runningPnl - runningPeak
-    if (dd < maxDrawdown) maxDrawdown = dd
-
     if ((s.net_pnl || 0) > 0) { curWin++; curLoss = 0; longestWin = Math.max(longestWin, curWin) }
     else if ((s.net_pnl || 0) < 0) { curLoss++; curWin = 0; longestLoss = Math.max(longestLoss, curLoss) }
     else { curWin = 0; curLoss = 0 }
   }
+  // Exact max drawdown from single source of truth (positive number)
+  const maxDrawdown = -Math.abs(kpis.maxDrawdown)
 
   const half = Math.floor(sorted.length / 2)
   let trajectory = 'steady'
@@ -210,6 +216,7 @@ WRITING RULES:
 - Make it feel like the opening of a movie about their trading life
 - Make it shareable — punchy, emotional, true
 - NO generic motivational quotes. Every line must be PERSONAL to THIS trader's data.
+- NEVER invent biographical details. Do not mention jobs, family members, cities, age, education, or any life context not given in THE TRADER'S OWN WORDS or derivable from the trading sessions above. Only reference data from the trading sessions provided and any narrative the trader wrote.
 
 Return ONLY the story text. No JSON, no markdown headers, no backticks. Just the prose.`
 

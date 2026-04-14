@@ -64,10 +64,10 @@ export default function DecisionQualityScore({ score = 0, factors = DEFAULT_FACT
         <div className="text-center py-10">
           <div className="text-3xl mb-3">🎯</div>
           <p className="text-sm" style={{ color: "var(--text2)" }}>
-            No decision quality data yet.
+            Requires AI analysis.
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Upload sessions to get scored on entry timing, exit timing, position sizing, and rule adherence.
+            Run AI analysis on your sessions to get scored on entry timing, exit timing, position sizing, and rule adherence.
           </p>
         </div>
       ) : (

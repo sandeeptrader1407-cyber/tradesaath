@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatPnl } from "@/lib/format/money"
 
 interface Trade {
   // Accept both naming conventions:
@@ -69,11 +70,6 @@ export default function SessionDetail({ session }: Props) {
     trades = []
   }
 
-  const fmt = (v: number) => {
-    const sign = v >= 0 ? "+" : ""
-    return `${sign}\u20B9${Math.abs(Math.round(v)).toLocaleString("en-IN")}`
-  }
-
   const getTagColor = (tag?: string) => {
     switch (tag?.toLowerCase()) {
       case "win": return { bg: "rgba(62,232,196,.15)", color: "var(--green)" }
@@ -96,7 +92,7 @@ export default function SessionDetail({ session }: Props) {
           </p>
         </div>
         <div className="font-jetbrains-mono font-bold text-xl" style={{ color: Number(session.net_pnl) >= 0 ? "var(--green)" : "var(--red)" }}>
-          {fmt(Number(session.net_pnl || 0))}
+          {formatPnl(Number(session.net_pnl || 0))}
         </div>
       </div>
 
@@ -160,7 +156,7 @@ export default function SessionDetail({ session }: Props) {
                         </span>
                       )}
                       <span className="text-xs font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>
-                        {fmt(trade.pnl)}
+                        {formatPnl(trade.pnl)}
                       </span>
                       <span className="text-[10px]" style={{ color: "var(--muted)" }}>
                         {expandedTrade === idx ? "\u25B2" : "\u25BC"}
@@ -214,7 +210,7 @@ export default function SessionDetail({ session }: Props) {
                         )}
                         <div className="flex justify-between">
                           <span style={{ color: "var(--muted)" }}>Net P&amp;L</span>
-                          <span className="font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>{fmt(trade.pnl)}</span>
+                          <span className="font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>{formatPnl(trade.pnl)}</span>
                         </div>
                       </div>
 
