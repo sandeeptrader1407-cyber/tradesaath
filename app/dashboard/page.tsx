@@ -31,11 +31,17 @@ interface DashStats {
     wins: number
     losses: number
     winRate: number
+    successRate?: number
     bestSessionPnl: number
+    bestSessionDate?: string
+    worstSessionPnl?: number
+    worstSessionDate?: string
     avgWin: number
     avgLoss: number
     profitFactor: number
     riskReward: string
+    maxDrawdown?: number
+    disciplineScore?: number
   }
   month: {
     pnl: number
@@ -155,7 +161,7 @@ export default function DashboardPage() {
     )
   }
 
-  const score = stats?.dqsScore || (stats?.hasData ? 45 : 0)
+  const score = stats?.allTime?.disciplineScore ?? stats?.dqsScore ?? (stats?.hasData ? 45 : 0)
   const factors = stats?.dqsFactors?.length ? stats.dqsFactors.map(f => ({ name: f.name, value: f.score })) : (stats?.hasData ? [
     { name: "Entry Quality", value: 52 },
     { name: "Exit Timing", value: 38 },
