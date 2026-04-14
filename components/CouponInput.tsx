@@ -139,10 +139,34 @@ export default function CouponInput({ onSuccess, compact = false, className }: C
         </button>
       </div>
       {error && (
-        <div style={{ fontSize: 11, color: 'var(--red)' }}>{error}</div>
+        <div
+          role="alert"
+          style={{
+            fontSize: 12,
+            color: '#fca5a5',
+            background: 'rgba(239,68,68,.12)',
+            border: '1px solid rgba(239,68,68,.3)',
+            padding: '6px 10px',
+            borderRadius: 6,
+            fontWeight: 500,
+          }}
+        >
+          {'\u26A0 '}{error}
+        </div>
       )}
       {success && (
-        <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+        <div
+          role="status"
+          style={{
+            fontSize: 12,
+            color: 'var(--accent)',
+            background: 'rgba(62,232,196,.1)',
+            border: '1px solid rgba(62,232,196,.3)',
+            padding: '6px 10px',
+            borderRadius: 6,
+            fontWeight: 600,
+          }}
+        >
           {'\u2713 '}{success}
         </div>
       )}

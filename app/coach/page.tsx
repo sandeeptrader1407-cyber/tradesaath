@@ -368,12 +368,19 @@ export default function CoachPage() {
                   {merged.map((rule, i) => {
                     const checked = !!rulesChecked[rule]
                     return (
-                      <div key={rule} onClick={() => toggleRule(rule)} style={{
+                      <div
+                        key={rule}
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); toggleRule(rule) }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRule(rule) } }}
+                        style={{
                         display: 'flex', alignItems: 'center', gap: 12,
                         padding: '8px 4px',
                         borderBottom: i < merged.length - 1 ? '1px dashed rgba(255,255,255,.06)' : 'none',
                         cursor: 'pointer',
                         opacity: checked ? 0.55 : 1,
+                        userSelect: 'none',
                       }}>
                         <span style={{
                           width: 16, height: 16, flexShrink: 0,

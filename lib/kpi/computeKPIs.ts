@@ -106,21 +106,33 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     const dd = peak - runningPnl
     if (dd > maxDrawdown) maxDrawdown = dd
 
-    // #2 fix: trades may come from Supabase JSONB as an array OR as a JSON string
-    let tradesArr: unknown = s.trades
-    if (typeof tradesArr === 'string') {
-      try { tradesArr = JSON.parse(tradesArr) } catch { tradesArr = null }
+    // Handle every shape Supabase may return trades as:
+    // - Array (JSONB parsed by driver)
+    // - String (JSONB returned raw)
+    // - Object with numeric keys (edge case)
+    // - null / undefined (no trades column)
+    let tradesArr: Array<{ pnl?: number | string }> = []
+    const raw = s.trades
+    if (Array.isArray(raw)) {
+      tradesArr = raw as Array<{ pnl?: number | string }>
+    } else if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) tradesArr = parsed
+        else if (parsed && typeof parsed === 'object') tradesArr = Object.values(parsed) as Array<{ pnl?: number | string }>
+      } catch { /* ignore bad JSON */ }
+    } else if (raw && typeof raw === 'object') {
+      tradesArr = Object.values(raw) as Array<{ pnl?: number | string }>
     }
-    if (Array.isArray(tradesArr)) {
-      for (const trade of tradesArr as Array<{ pnl?: number | string }>) {
-        const tradePnl = Number(trade?.pnl) || 0
-        if (tradePnl > 0) {
-          perTradeWinSum += tradePnl
-          winnersCount++
-        } else if (tradePnl < 0) {
-          perTradeLossSum += Math.abs(tradePnl)
-          losersCount++
-        }
+
+    for (const trade of tradesArr) {
+      const tradePnl = Number(trade?.pnl) || 0
+      if (tradePnl > 0) {
+        perTradeWinSum += tradePnl
+        winnersCount++
+      } else if (tradePnl < 0) {
+        perTradeLossSum += Math.abs(tradePnl)
+        losersCount++
       }
     }
   }
