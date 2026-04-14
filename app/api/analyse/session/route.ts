@@ -1,5 +1,5 @@
 export const runtime = 'nodejs'
-export const maxDuration = 90
+export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -70,6 +70,23 @@ function safeParseJSON(raw: string): { ok: boolean; data?: unknown; truncated?: 
   for (let i = 0; i < openBrackets; i++) cleaned += ']'
   for (let i = 0; i < openBraces; i++) cleaned += '}'
   try { return { ok: true, data: JSON.parse(cleaned), truncated: true } } catch { return { ok: false } }
+}
+
+function buildPerTradeOnlyPrompt(): string {
+  return `You are TradeSaath --- a brutally honest yet empathetic trading psychology coach. For EACH trade in the input list, produce one entry in trade_analyses.
+
+Return ONLY this exact JSON (no markdown, no backticks, no extra text):
+{"trade_analyses":[{"trade_index":N,"tag":"win|fomo|rvg|avg|pnc|vs","tag_label":"...","quick_summary":"...","technical_analysis":"...","psychology_coaching":"...","counterfactual":"...","cycle_stage":"win|overconf|large|vs|hope|avg|pnc|rvg|fatigue|fomo"}]}
+
+CRITICAL: The trade_index of each entry MUST equal the _trade_index field of the corresponding input trade (absolute position in the whole session, not chunk-relative).
+
+For each trade:
+- tag: one of win, fomo, rvg, avg, pnc, vs
+- quick_summary: 1 line with Rs amount
+- technical_analysis: entry/exit vs structure
+- psychology_coaching: name a specific cognitive bias (loss aversion, sunk cost, recency, anchoring, overconfidence, gambler's fallacy, disposition effect, FOMO, etc.) using "I know..." empathetic language
+- counterfactual: specific Rs amounts and the right action
+- cycle_stage: one of win, overconf, large, vs, hope, avg, pnc, rvg, fatigue, fomo`
 }
 
 function buildAnalysePrompt(context: Record<string, string | number | null | undefined>): string {
@@ -226,62 +243,114 @@ export async function POST(request: Request) {
       await supabase.from('trade_analysis').delete().eq('session_id', sessionId)
     }
 
-    // 4. Cap very large sessions to keep the Claude response inside max_tokens
-    const MAX_TRADES = 200
+    // 4. Cap very large sessions
+    const MAX_TRADES = 300
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const trades = allTrades.slice(0, MAX_TRADES) as any[]
     const truncated = allTrades.length > MAX_TRADES
 
-    // 5. Build prompt + call Claude
+    // 5. Build prompts + chunk trades for parallel Claude calls
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const context = (session.context as Record<string, any>) || {}
-    const systemPrompt = buildAnalysePrompt({
+    const systemPromptFull = buildAnalysePrompt({
       market: context.market,
       trading_style: context.trading_style,
       risk_per_trade: context.risk_per_trade,
       capital: context.capital,
       goals: context.goals,
     })
+    const systemPromptPerTrade = buildPerTradeOnlyPrompt()
 
-    const payload = {
-      trade_date: session.trade_date,
-      trade_count: trades.length,
-      net_pnl: session.net_pnl,
-      trades,
+    const CHUNK_SIZE = 30
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chunks: { startIdx: number; trades: any[] }[] = []
+    for (let i = 0; i < trades.length; i += CHUNK_SIZE) {
+      chunks.push({ startIdx: i, trades: trades.slice(i, i + CHUNK_SIZE) })
     }
 
-    const claudeRes = await callClaude(
-      apiKey,
-      systemPrompt,
-      [{ type: 'text', text: `Analyse this trading session. Return the JSON structure described in the system prompt.\n\n${JSON.stringify(payload, null, 2)}` }],
-      8192,
-      80000,
-    )
+    // Call Claude for each chunk in parallel. First chunk gets the full prompt
+    // (session-level + per-trade for its slice). Remaining chunks get only the
+    // compact per-trade prompt.
+    const chunkPromises = chunks.map((chunk, chunkIdx) => {
+      const isFirst = chunkIdx === 0
+      // Inject absolute _trade_index into each trade so Claude returns correct indices
+      const stampedTrades = chunk.trades.map((t, i) => ({ _trade_index: chunk.startIdx + i, ...t }))
+      const payload = isFirst
+        ? {
+            trade_date: session.trade_date,
+            trade_count: trades.length,
+            net_pnl: session.net_pnl,
+            chunk_index: chunkIdx,
+            total_chunks: chunks.length,
+            note_for_ai: 'Use the _trade_index field as trade_index in your per-trade output. This chunk contains the first set of trades; provide session-level fields based on the full session context (count/date/pnl given above).',
+            trades: stampedTrades,
+          }
+        : {
+            chunk_index: chunkIdx,
+            total_chunks: chunks.length,
+            trade_index_offset: chunk.startIdx,
+            trades: stampedTrades,
+          }
+      return callClaude(
+        apiKey,
+        isFirst ? systemPromptFull : systemPromptPerTrade,
+        [{ type: 'text', text: isFirst
+          ? `Analyse this trading session. Return the JSON structure described in the system prompt. For trade_analyses use the _trade_index field as trade_index.\n\n${JSON.stringify(payload, null, 2)}`
+          : `Produce trade_analyses for each trade below (use _trade_index as trade_index). Return only the JSON.\n\n${JSON.stringify(payload, null, 2)}`
+        }],
+        isFirst ? 8192 : 5000,
+        55000,
+      )
+    })
 
-    if (!claudeRes.ok) {
-      // Structured response so the batch runner can auto-retry rate-limit errors
-      if (claudeRes.code === 'RATE_LIMIT' || claudeRes.code === 'OVERLOADED') {
-        return NextResponse.json(
-          { error: 'rate_limited', retryAfter: 10, code: 'RATE_LIMIT' },
-          { status: 429 },
-        )
-      }
-      const status = claudeRes.code === 'TIMEOUT' ? 504 : 500
+    const chunkResults = await Promise.all(chunkPromises)
+
+    // If any chunk is rate-limited, surface 429 so the batch runner can retry whole session
+    const anyRateLimited = chunkResults.find(r => !r.ok && (r.code === 'RATE_LIMIT' || r.code === 'OVERLOADED'))
+    if (anyRateLimited) {
       return NextResponse.json(
-        { error: claudeRes.error || 'Claude call failed', code: claudeRes.code },
+        { error: 'rate_limited', retryAfter: 10, code: 'RATE_LIMIT' },
+        { status: 429 },
+      )
+    }
+
+    // If the FIRST chunk fails (we need its session-level analysis), abort
+    const firstResult = chunkResults[0]
+    if (!firstResult?.ok) {
+      const status = firstResult?.code === 'TIMEOUT' ? 504 : 500
+      return NextResponse.json(
+        { error: firstResult?.error || 'Claude call failed on first chunk', code: firstResult?.code },
         { status },
       )
     }
 
-    const parsed = safeParseJSON(String(claudeRes.data || ''))
-    if (!parsed.ok || !parsed.data) {
-      return NextResponse.json({ error: 'Could not parse AI response' }, { status: 502 })
+    const firstParsed = safeParseJSON(String(firstResult.data || ''))
+    if (!firstParsed.ok || !firstParsed.data) {
+      return NextResponse.json({ error: 'Could not parse AI response (first chunk)' }, { status: 502 })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const analysis = parsed.data as any
+    const analysis = firstParsed.data as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tradeAnalyses: any[] = Array.isArray(analysis?.trade_analyses) ? analysis.trade_analyses : []
+    const tradeAnalyses: any[] = Array.isArray(analysis?.trade_analyses) ? [...analysis.trade_analyses] : []
+
+    // Merge trade_analyses from remaining chunks (per-trade only chunks). Skip failed
+    // chunks silently -- merged array will just be missing those trades.
+    for (let i = 1; i < chunkResults.length; i++) {
+      const r = chunkResults[i]
+      if (!r.ok) {
+        console.warn(`Chunk ${i} failed:`, r.error, r.code)
+        continue
+      }
+      const p = safeParseJSON(String(r.data || ''))
+      if (!p.ok || !p.data) continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const extra = (p.data as any)?.trade_analyses
+      if (Array.isArray(extra)) tradeAnalyses.push(...extra)
+    }
+
+    // Make sure session-level analysis object carries the FULL merged trade list
+    analysis.trade_analyses = tradeAnalyses
 
     // 6. Merge per-trade analysis back into each trade row
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -304,6 +373,7 @@ export async function POST(request: Request) {
       tradesAnalysed: merged.length,
       totalTrades: allTrades.length,
       truncated,
+      chunks: chunks.length,
     })
 
   } catch (err: unknown) {
