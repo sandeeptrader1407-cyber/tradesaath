@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface Session {
   trade_date: string
@@ -14,8 +14,32 @@ interface Props {
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 
+function latestSessionMonth(sessions: Session[]): Date {
+  const today = new Date()
+  if (!sessions || sessions.length === 0) return today
+  let latest = 0
+  for (const s of sessions) {
+    if (!s.trade_date) continue
+    const t = new Date(s.trade_date + "T12:00:00").getTime()
+    if (!Number.isNaN(t) && t > latest) latest = t
+  }
+  if (latest === 0) return today
+  const d = new Date(latest)
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
 export default function CalendarCard({ sessions, onSelectDate }: Props) {
-  const [viewDate, setViewDate] = useState(new Date())
+  const [viewDate, setViewDate] = useState<Date>(() => latestSessionMonth(sessions))
+  const [autoJumped, setAutoJumped] = useState(false)
+
+  // If sessions load after mount (async fetch), jump to their latest month once
+  useEffect(() => {
+    if (autoJumped) return
+    if (!sessions || sessions.length === 0) return
+    const target = latestSessionMonth(sessions)
+    setViewDate(target)
+    setAutoJumped(true)
+  }, [sessions, autoJumped])
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
 

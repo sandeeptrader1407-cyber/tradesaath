@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
 - Sessions: ${sessions.length} (last ${sessions.length} sessions)
 - Total trades: ${totalTrades}
 - Net P&L: ₹${totalPnl.toLocaleString('en-IN')}
-- Average Win Rate: ${Math.round(avgWr)}%
+- ALL-TIME WIN RATE: ${Math.round(avgWr)}% — use ONLY this number when referencing win rate. Do NOT cite per-session win rates.
 - Average DQS: ${Math.round(avgDqs)}/100
 - Trade patterns: ${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}x`).join(', ') || 'No patterns yet'}
 - Cycle stages: ${Object.entries(cycleStages).sort((a, b) => b[1] - a[1]).map(([s, c]) => `${s}: ${c}x`).join(', ') || 'No cycle data yet'}

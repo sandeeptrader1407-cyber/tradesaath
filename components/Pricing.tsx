@@ -76,7 +76,11 @@ export default function Pricing() {
             <div className="plan-name">{PLANS.free.name}</div>
             <div className="plan-price">{PLANS.free.displayPrice}</div>
             <div className="plan-billed">{PLANS.free.description}</div>
-            <a href="/upload" className="btn btn-ghost plan-cta">Start Free &rarr;</a>
+            {isSignedIn ? (
+              <a href="/upload" className="btn btn-ghost plan-cta">Go to Upload &rarr;</a>
+            ) : (
+              <a href="/sign-up" className="btn btn-ghost plan-cta">Start Free &rarr;</a>
+            )}
             <ul className="plan-feats">
               <li>Gross P&amp;L &amp; KPIs</li>
               <li>Vicious Cycle detection</li>
@@ -100,12 +104,13 @@ export default function Pricing() {
               {payLoading ? 'Processing...' : 'Buy Report'}
             </button>
             <ul className="plan-feats">
-              <li>All trades full analysis</li>
-              <li>Deep technical analysis</li>
+              <li>Full session analysis (one-time)</li>
+              <li>Per-trade technical breakdown</li>
               <li>Full psychology coaching</li>
               <li>Counterfactual scenarios</li>
               <li className="no">Journal &amp; history</li>
               <li className="no">Trading Journey</li>
+              <li className="no">Saathi coaching</li>
             </ul>
           </div>
 
@@ -132,8 +137,8 @@ export default function Pricing() {
             </button>
             <ul className="plan-feats">
               <li>Everything in Free + Single Report</li>
-              <li>All trades full analysis</li>
-              <li>Deep technical analysis</li>
+              <li>Unlimited sessions + history</li>
+              <li>Saathi AI coaching (daily/weekly/monthly)</li>
               <li>Counterfactual scenarios</li>
               <li>Trade notes (per section)</li>
               <li>Premium journal + history</li>

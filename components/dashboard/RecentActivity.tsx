@@ -44,10 +44,19 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
           <div style={{ fontSize: 12, opacity: 0.4, padding: '20px 0', textAlign: 'center' }}>No trades yet — upload your first file</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {recentTrades.slice(0, 5).map((t, i) => {
+            {(() => {
+              const seen = new Set<string>()
+              return recentTrades.filter((t) => {
+                const key = `${t.time || ''}|${t.symbol || ''}|${t.side || ''}|${t.pnl ?? ''}`
+                if (seen.has(key)) return false
+                seen.add(key)
+                return true
+              }).slice(0, 5)
+            })().map((t, i) => {
               const tagStyle = getTagColor(t.tag)
+              const rowKey = `${t.time || 'no-time'}-${t.symbol || 'no-sym'}-${t.side || ''}-${i}`
               return (
-                <div key={i} className="flex items-center justify-between flex-wrap gap-1" style={{ padding: '6px 8px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                <div key={rowKey} className="flex items-center justify-between flex-wrap gap-1" style={{ padding: '6px 8px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)' }}>
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[11px] font-mono opacity-40 shrink-0">{t.time || '--:--'}</span>
                     <span className="text-xs font-medium truncate">{t.symbol || 'Unknown'}</span>
@@ -72,13 +81,13 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recentSessions.slice(0, 4).map((s, i) => (
-              <div key={i} style={{ padding: '8px 10px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={`${s.date || 'no-date'}-${i}`} style={{ padding: '8px 10px', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 11, fontFamily: 'monospace', opacity: 0.5 }}>{s.date || 'Unknown date'}</span>
                   <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 500, color: (s.pnl || 0) >= 0 ? '#36d399' : '#f05d6c' }}>{formatPnl(s.pnl || 0)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <span style={{ fontSize: 10, opacity: 0.4 }}>{s.trades || 0} trades</span>
+                  <span style={{ fontSize: 10, opacity: 0.4 }}>{s.trades || 0} {(s.trades || 0) === 1 ? 'trade' : 'trades'}</span>
                   <span style={{ fontSize: 10, opacity: 0.4 }}>WR {s.winRate || 0}%</span>
                   <div style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.06)', alignSelf: 'center' }}>
                     <div style={{ height: '100%', borderRadius: 2, width: `${Math.min(100, s.winRate || 0)}%`, backgroundColor: (s.winRate || 0) >= 50 ? '#36d399' : '#f05d6c' }} />
