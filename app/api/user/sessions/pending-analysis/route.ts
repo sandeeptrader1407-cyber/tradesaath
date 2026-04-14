@@ -7,8 +7,6 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 /**
  * GET /api/user/sessions/pending-analysis
  * Returns this user's sessions that still need per-trade analysis.
- * Analysed detection: a session counts as analysed only when its
- * analysis.trade_analyses array covers (nearly) every trade.
  */
 export async function GET() {
   try {
@@ -32,6 +30,9 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isAnalysed = (a: any, tradeCount: number) => {
       if (!a || typeof a !== 'object') return false
+      // Primary: explicit marker set by /api/analyse/session on success
+      if (typeof a.analysed_at === 'string' && a.analysed_at.length > 0) return true
+      // Fallback for older sessions: require trade_analyses covers trade_count
       if (!Array.isArray(a.trade_analyses)) return false
       if (a.trade_analyses.length === 0) return false
       const expected = Math.max(1, Number(tradeCount) || 0)

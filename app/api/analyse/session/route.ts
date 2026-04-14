@@ -355,6 +355,11 @@ export async function POST(request: Request) {
 
     // Make sure session-level analysis object carries the FULL merged trade list
     analysis.trade_analyses = tradeAnalyses
+    // Explicit marker — this session has been run through the batch pipeline.
+    // Used by /api/user/sessions/pending-analysis to classify "done" even if a
+    // sub-chunk silently failed and trade_analyses is short of trade_count.
+    analysis.analysed_at = new Date().toISOString()
+    analysis.analysed_version = 2
 
     // 6. Merge per-trade analysis back into each trade row
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -362,7 +367,8 @@ export async function POST(request: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ai = tradeAnalyses.find((a: any) => a.trade_index === i)
       return ai ? { ...t, ...ai } : t
-    })
+    }
+    )
 
     // 7. Persist per-trade analysis and session-level analysis
     await saveTradeAnalysis(sessionId, merged, session.anon_id || undefined)
