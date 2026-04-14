@@ -217,14 +217,22 @@ export async function GET(req: NextRequest) {
             const timeStr = t.entry_time as string
             const dateStr = sessionDateMap[t.session_id] || ''
             let fullTime = timeStr
-            if (/^\d{1,2}:\d{2}$/.test(timeStr) && dateStr) {
-              fullTime = `${dateStr}T${timeStr.padStart(5, '0')}:00`
+            // Already full ISO? keep as-is. Time-only ("HH:MM" or "HH:MM:SS")? prepend date.
+            if (!/^\d{4}-\d{2}-\d{2}T/.test(timeStr) && dateStr) {
+              const m = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+              if (m) {
+                const hh = m[1].padStart(2, '0')
+                const mm = m[2]
+                const ss = (m[3] || '00')
+                fullTime = `${dateStr}T${hh}:${mm}:${ss}`
+              }
             }
             return {
               entry_time: fullTime,
               pnl: Number(t.pnl || 0),
             }
           })
+          .filter((t: any) => /^\d{4}-\d{2}-\d{2}T/.test(t.entry_time))
         /* eslint-enable @typescript-eslint/no-explicit-any */
 
         if (taWithTime.length >= 5) {
@@ -264,15 +272,18 @@ export async function GET(req: NextRequest) {
         const dateStr = sessionDateMap2[sess.id]
         if (!dateStr) continue
         for (const t of trades) {
-          const timeStr = t.entry_time || t.time || ''
+          const timeStr = String(t.entry_time || t.time || '')
           if (!timeStr) continue
           let fullTime = timeStr
-          if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeStr)) {
-            const parts = timeStr.split(':')
-            const hh = parts[0].padStart(2, '0')
-            const mm = (parts[1] || '00').padStart(2, '0')
-            fullTime = `${dateStr}T${hh}:${mm}:00`
+          if (!/^\d{4}-\d{2}-\d{2}T/.test(timeStr)) {
+            const m = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+            if (!m) continue
+            const hh = m[1].padStart(2, '0')
+            const mm = m[2]
+            const ss = (m[3] || '00')
+            fullTime = `${dateStr}T${hh}:${mm}:${ss}`
           }
+          if (!/^\d{4}-\d{2}-\d{2}T/.test(fullTime)) continue
           jsonbTrades.push({ entry_time: fullTime, pnl: Number(t.pnl || 0) })
         }
       }

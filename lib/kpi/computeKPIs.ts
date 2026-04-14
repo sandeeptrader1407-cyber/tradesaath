@@ -106,9 +106,14 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     const dd = peak - runningPnl
     if (dd > maxDrawdown) maxDrawdown = dd
 
-    if (s.trades && Array.isArray(s.trades)) {
-      for (const trade of s.trades) {
-        const tradePnl = Number(trade.pnl) || 0
+    // #2 fix: trades may come from Supabase JSONB as an array OR as a JSON string
+    let tradesArr: unknown = s.trades
+    if (typeof tradesArr === 'string') {
+      try { tradesArr = JSON.parse(tradesArr) } catch { tradesArr = null }
+    }
+    if (Array.isArray(tradesArr)) {
+      for (const trade of tradesArr as Array<{ pnl?: number | string }>) {
+        const tradePnl = Number(trade?.pnl) || 0
         if (tradePnl > 0) {
           perTradeWinSum += tradePnl
           winnersCount++
