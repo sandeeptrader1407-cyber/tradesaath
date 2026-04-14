@@ -18,6 +18,7 @@ import TradeSidebar from "@/components/results/TradeSidebar"
 import TradeDetail from "@/components/results/TradeDetail"
 import PaywallGate from "@/components/results/PaywallGate"
 import EquityCurve from "@/components/results/EquityCurve"
+import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
@@ -89,6 +90,13 @@ export default function UploadPage() {
                 <span className="text-xs block sm:inline sm:ml-2" style={{ color: "var(--text2)" }}>Dashboard will update automatically when ready</span>
               </div>
             </div>
+          )}
+
+          {/* Background batch-analysis for any other sessions on this account */}
+          {aiDone && (
+            <ErrorBoundary name="BatchAnalysisRunner">
+              <BatchAnalysisRunner autoStart />
+            </ErrorBoundary>
           )}
 
           {/* KPIs (always shown after parse) */}

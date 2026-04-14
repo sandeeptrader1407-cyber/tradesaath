@@ -19,6 +19,7 @@ import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import CouponInput from "@/components/CouponInput"
+import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
 
 interface DashStats {
   hasData: boolean
@@ -229,6 +230,12 @@ export default function DashboardPage() {
             {"📤"} New Analysis
           </button>
         </div>
+
+        {stats?.hasData && (
+          <ErrorBoundary name="BatchAnalysisRunner">
+            <BatchAnalysisRunner />
+          </ErrorBoundary>
+        )}
 
         {!stats?.hasData && !loading && (
           <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
