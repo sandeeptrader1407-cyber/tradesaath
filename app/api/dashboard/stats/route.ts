@@ -4,7 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
 import { statsCache } from '@/lib/dashboardCache'
-import { computeKPIs } from '@/lib/kpi/computeKPIs'
+import {
+  computeKPIs,
+  computeAllPeriodKPIs,
+  filterByPeriod,
+  computeDisciplineScore,
+} from '@/lib/kpi/computeKPIs'
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,35 +48,26 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // SINGLE SOURCE OF TRUTH: every period-level metric comes from computeAllPeriodKPIs.
+    // No per-period math lives in this file anymore.
     const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthSessions = sessions.filter(
-      (s) => s.trade_date && new Date(s.trade_date) >= monthStart
-    )
-    const weekStart = new Date(now)
-    weekStart.setDate(now.getDate() - now.getDay())
-    weekStart.setHours(0, 0, 0, 0)
-    const weekSessions = sessions.filter(
-      (s) => s.trade_date && new Date(s.trade_date) >= weekStart
-    )
-    const todayStr = now.toISOString().split('T')[0]
-    const todaySessions = sessions.filter((s) => s.trade_date === todayStr)
+    const periods = computeAllPeriodKPIs(sessions, now)
+    const allTimeKPIs = periods.allTime
+    const monthKPIs = periods.thisMonth
+    const weekKPIs = periods.thisWeek
+    const todayKPIs = periods.today
 
-    const monthKPIs = computeKPIs(monthSessions)
-    const allTimeKPIs = computeKPIs(sessions)
+    // Keep these named aliases so downstream code that reads them still works.
+    const monthSessions = filterByPeriod(sessions, 'thisMonth', now)
+    const weekSessions = filterByPeriod(sessions, 'thisWeek', now)
+    const todaySessions = filterByPeriod(sessions, 'today', now)
 
     const totalTrades = monthKPIs.totalTrades
     const totalWins = monthKPIs.totalWins
     const totalLosses = monthKPIs.totalLosses
     const monthPnl = monthKPIs.totalPnl
-    const weekPnl = weekSessions.reduce(
-      (s, x) => s + Number(x.net_pnl || 0),
-      0
-    )
-    const todayPnl = todaySessions.reduce(
-      (s, x) => s + Number(x.net_pnl || 0),
-      0
-    )
+    const weekPnl = weekKPIs.totalPnl
+    const todayPnl = todayKPIs.totalPnl
 
     const equityCurve = sessions
       .slice(0, 20)
@@ -328,11 +324,12 @@ export async function GET(req: NextRequest) {
     const actualMonthPnl = allTimeKPIs.totalPnl
     const counterfactualPnl = actualMonthPnl + totalMistakeCost
 
-    // Best all-time session P&L
-    const allTimeBestPnl = sessions.reduce((best, s) => {
-      const p = Number(s.net_pnl || 0)
-      return p > best ? p : best
-    }, 0)
+    // Best all-time session P&L comes from computeKPIs — do not recompute here.
+    const allTimeBestPnl = allTimeKPIs.bestSessionPnl
+
+    // Discipline score: shared formula in computeKPIs module, prefers DQS then falls back to a proxy
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sessions rows carry optional dqs_score
+    const disciplineScore = computeDisciplineScore(sessions as any, allTimeKPIs)
 
     const responseData = {
       hasData: true,
@@ -345,11 +342,17 @@ export async function GET(req: NextRequest) {
         wins: allTimeKPIs.totalWins,
         losses: allTimeKPIs.totalLosses,
         winRate: allTimeKPIs.winRate,
+        successRate: allTimeKPIs.successRate,
         bestSessionPnl: allTimeBestPnl,
+        bestSessionDate: allTimeKPIs.bestSessionDate,
+        worstSessionPnl: allTimeKPIs.worstSessionPnl,
+        worstSessionDate: allTimeKPIs.worstSessionDate,
         avgWin: allTimeKPIs.avgWinAmount,
         avgLoss: allTimeKPIs.avgLossAmount,
         profitFactor: allTimeKPIs.profitFactor,
         riskReward: String(allTimeKPIs.riskReward),
+        maxDrawdown: allTimeKPIs.maxDrawdown,
+        disciplineScore,
       },
       month: {
         pnl: monthPnl,
