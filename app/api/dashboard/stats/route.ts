@@ -5,7 +5,6 @@ import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
 import { statsCache } from '@/lib/dashboardCache'
 import {
-  computeKPIs,
   computeAllPeriodKPIs,
   filterByPeriod,
   computeDisciplineScore,
@@ -373,7 +372,7 @@ export async function GET(req: NextRequest) {
       week: {
         pnl: weekPnl,
         sessions: weekSessions.length,
-        trades: weekSessions.reduce((s, x) => s + (x.trade_count || 0), 0),
+        trades: weekSessions.reduce((s, x) => s + Number(x.trade_count || 0), 0),
       },
       today: {
         pnl: todayPnl,
