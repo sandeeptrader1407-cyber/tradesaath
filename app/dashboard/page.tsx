@@ -24,6 +24,19 @@ interface DashStats {
   hasData: boolean
   sessionCount: number
   totalTrades: number
+  allTime?: {
+    pnl: number
+    sessions: number
+    trades: number
+    wins: number
+    losses: number
+    winRate: number
+    bestSessionPnl: number
+    avgWin: number
+    avgLoss: number
+    profitFactor: number
+    riskReward: string
+  }
   month: {
     pnl: number
     sessions: number
@@ -276,7 +289,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-xs mb-3" style={{ color: "var(--text2)", lineHeight: 1.6 }}>
                         Cost you <strong style={{ color: "var(--red)" }}>{fmtPnl(-topMistake.cost)}</strong> across{" "}
-                        <strong>{topMistake.count}</strong> trades this month
+                        <strong>{topMistake.count}</strong> trades all-time
                       </div>
                     </>
                   ) : lowest ? (
@@ -318,10 +331,10 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { label: "This Month Gross P&L", value: fmtPnl(stats.month.pnl), pos: stats.month.pnl >= 0 },
-                { label: "Win Rate", value: `${stats.month.winRate}%`, pos: stats.month.winRate >= 50 },
-                { label: "Sessions", value: String(stats.month.sessions), pos: true },
-                { label: stats.month.sessions === 1 ? "Last Session" : "Best Day", value: fmtPnl(stats.month.bestSessionPnl || 0), pos: (stats.month.bestSessionPnl || 0) >= 0 },
+                { label: "All-Time Gross P&L", value: fmtPnl(stats.allTime?.pnl ?? stats.month.pnl), pos: (stats.allTime?.pnl ?? stats.month.pnl) >= 0 },
+                { label: "All-Time Win Rate", value: `${stats.allTime?.winRate ?? stats.month.winRate}%`, pos: (stats.allTime?.winRate ?? stats.month.winRate) >= 50 },
+                { label: "Total Sessions", value: String(stats.allTime?.sessions ?? stats.sessionCount), pos: true },
+                { label: "Best Day Gross P&L", value: fmtPnl(stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0), pos: (stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0) >= 0 },
                 { label: "Discipline", value: `${score} ${streakDir}`, pos: score >= 50 },
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border px-3 py-2.5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>

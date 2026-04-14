@@ -21,9 +21,12 @@ const SLOTS = [
 
 function getSlot(time: string): string | null {
   try {
-    const d = new Date(time)
-    const h = d.getHours()
-    const m = d.getMinutes()
+    // Parse HH:MM directly from the string to avoid timezone drift
+    // Format expected: "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DDTHH:MM"
+    const timeMatch = time.match(/T(\d{1,2}):(\d{2})/)
+    if (!timeMatch) return null
+    const h = Number(timeMatch[1])
+    const m = Number(timeMatch[2])
     if (h < 9 || h > 15) return null
     if (h === 15 && m > 30) return null
     const slotMin = m < 30 ? 0 : 30
@@ -35,8 +38,14 @@ function getSlot(time: string): string | null {
 
 function getDayIndex(time: string): number {
   try {
-    const d = new Date(time)
-    const day = d.getDay() // 0=Sun
+    // Extract just the date part (YYYY-MM-DD) to avoid timezone shifts
+    // Format expected: "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DD"
+    const dateMatch = time.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (!dateMatch) return -1
+    const [, y, m, d] = dateMatch
+    // Use noon UTC for the given calendar date — timezone-independent weekday
+    const dt = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12, 0, 0))
+    const day = dt.getUTCDay() // 0=Sun
     if (day === 0 || day === 6) return -1
     return day - 1 // 0=Mon
   } catch {
