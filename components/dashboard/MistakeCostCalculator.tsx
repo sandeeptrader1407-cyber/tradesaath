@@ -17,10 +17,8 @@ interface Props {
 const DEFAULT_MISTAKES: MistakeBreakdown[] = []
 
 function formatINR(v: number): string {
-  const abs = Math.abs(v)
-  if (abs >= 100000) return `${(v / 100000).toFixed(1)}L`
-  if (abs >= 1000) return `${(v / 1000).toFixed(1)}K`
-  return v.toLocaleString("en-IN")
+  // #12: show full INR numbers, no L/K abbreviation
+  return Math.round(v).toLocaleString("en-IN")
 }
 
 export default function MistakeCostCalculator({

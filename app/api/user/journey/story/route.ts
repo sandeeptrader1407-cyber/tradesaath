@@ -130,7 +130,7 @@ function buildDataSummary(sessions: SessionRow[]): string {
   const topSymbols = Object.entries(symbolCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([sym]) => sym).join(', ') || 'mixed instruments'
 
-  return `REAL TRADING DATA (use these specific numbers in the story):
+  return `REAL TRADING DATA — Use EXACTLY these numbers. Do not calculate your own. Do not round to thousands or lakhs. Do not estimate:
 - First trading session: ${firstDate}${firstSymbol ? ` (first traded: ${firstSymbol})` : ''}
 - Most recent session: ${latestDate}
 - Total trading days logged: ${totalSessions}
@@ -195,6 +195,10 @@ export async function POST(request: Request) {
       : `NO PERSONAL NARRATIVE PROVIDED. Build the entire story from the data above. Make it feel personal by interpreting the patterns — what the streaks, drawdowns, and patterns reveal about this trader's mindset.`
 
     const prompt = `Write a cinematic, motivating trading journey story in second person ("You...") based on this trader's REAL trading data. Be honest about struggles but celebrate growth.
+
+ABSOLUTE RULE: You MUST ONLY reference facts derivable from the trading data provided below or from THE TRADER'S OWN WORDS. NEVER invent or assume: the trader's age, education, year they started, location, early life, devices used (phone/laptop/desktop), jobs, family members, relationships, or any biographical detail not explicitly given. If you don't know something, don't mention it — write around it. Do not use phrases like "back in 2016", "you were just a student", "phone-only trading days", or any other fabricated context. Stick to what the numbers and narrative literally say.
+
+ABSOLUTE RULE: Use the EXACT numbers provided. Do not round ₹1,72,523 to "₹1.7L" or "₹1,72,000". Do not calculate your own drawdown, win rate, or P&L — use the values in the data block verbatim.
 
 ${dataSummary}
 

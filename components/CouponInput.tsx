@@ -21,11 +21,13 @@ export default function CouponInput({ onSuccess, compact = false, className }: C
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   async function submit(e?: React.FormEvent) {
     if (e) e.preventDefault()
     if (loading) return
     setError(null)
+    setSuccess(null)
 
     if (!isSignedIn) {
       window.location.href = '/sign-in'
@@ -55,7 +57,9 @@ export default function CouponInput({ onSuccess, compact = false, className }: C
       }
 
       const days = Number(data.durationDays) || 0
-      showToast.success(`🎉 Pro plan activated for ${days} days!`)
+      const okMsg = `Pro plan activated for ${days} days!`
+      showToast.success(`\uD83C\uDF89 ${okMsg}`)
+      setSuccess(okMsg)
       setCode('')
       refreshPlan()
       if (onSuccess) onSuccess({ plan: String(data.plan), durationDays: days })
@@ -136,6 +140,11 @@ export default function CouponInput({ onSuccess, compact = false, className }: C
       </div>
       {error && (
         <div style={{ fontSize: 11, color: 'var(--red)' }}>{error}</div>
+      )}
+      {success && (
+        <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+          {'\u2713 '}{success}
+        </div>
       )}
     </form>
   )
