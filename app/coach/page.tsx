@@ -423,9 +423,11 @@ export default function CoachPage() {
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <Link href="/pricing" className="btn btn-ghost">View Pricing Plans &rarr;</Link>
-        </div>
+        {!isPro && (
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <Link href="/pricing" className="btn btn-ghost">View Pricing Plans &rarr;</Link>
+          </div>
+        )}
       </div>
     </section>
   )
