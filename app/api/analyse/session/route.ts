@@ -268,10 +268,13 @@ export async function POST(request: Request) {
       chunks.push({ startIdx: i, trades: trades.slice(i, i + CHUNK_SIZE) })
     }
 
-    // Call Claude for each chunk in parallel. First chunk gets the full prompt
-    // (session-level + per-trade for its slice). Remaining chunks get only the
-    // compact per-trade prompt.
-    const chunkPromises = chunks.map((chunk, chunkIdx) => {
+    // Call Claude for each chunk SERIALLY to avoid tripping per-minute rate limits.
+    // First chunk gets the full prompt (session-level + per-trade for its slice).
+    // Remaining chunks get only the compact per-trade prompt.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chunkResults: AIResult[] = []
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx]
       const isFirst = chunkIdx === 0
       // Inject absolute _trade_index into each trade so Claude returns correct indices
       const stampedTrades = chunk.trades.map((t, i) => ({ _trade_index: chunk.startIdx + i, ...t }))
@@ -291,7 +294,7 @@ export async function POST(request: Request) {
             trade_index_offset: chunk.startIdx,
             trades: stampedTrades,
           }
-      return callClaude(
+      const res = await callClaude(
         apiKey,
         isFirst ? systemPromptFull : systemPromptPerTrade,
         [{ type: 'text', text: isFirst
@@ -301,17 +304,18 @@ export async function POST(request: Request) {
         isFirst ? 8192 : 5000,
         55000,
       )
-    })
-
-    const chunkResults = await Promise.all(chunkPromises)
-
-    // If any chunk is rate-limited, surface 429 so the batch runner can retry whole session
-    const anyRateLimited = chunkResults.find(r => !r.ok && (r.code === 'RATE_LIMIT' || r.code === 'OVERLOADED'))
-    if (anyRateLimited) {
-      return NextResponse.json(
-        { error: 'rate_limited', retryAfter: 10, code: 'RATE_LIMIT' },
-        { status: 429 },
-      )
+      chunkResults.push(res)
+      // If first chunk is rate-limited, fail fast so the batch runner can retry the whole session with backoff
+      if (isFirst && !res.ok && (res.code === 'RATE_LIMIT' || res.code === 'OVERLOADED')) {
+        return NextResponse.json(
+          { error: 'rate_limited', retryAfter: 30, code: 'RATE_LIMIT' },
+          { status: 429 },
+        )
+      }
+      // Small gap between chunks to spread token usage across the minute
+      if (chunkIdx < chunks.length - 1) {
+        await new Promise(r => setTimeout(r, 1000))
+      }
     }
 
     // If the FIRST chunk fails (we need its session-level analysis), abort
