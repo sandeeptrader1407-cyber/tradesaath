@@ -29,7 +29,9 @@ interface Row {
 }
 
 const SESSION_DELAY_MS = 5000
-const MAX_RETRIES = 3
+const MAX_RETRIES = 5
+// Exponential backoff schedule for rate-limit retries (seconds)
+const RETRY_WAIT_SCHEDULE_SECONDS = [10, 30, 60, 90, 120]
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -112,12 +114,15 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
       const result = await runOne(sessionId)
       if (result.ok) return result
       if (!result.rateLimited) return result
-      // Rate-limited: show waiting status, sleep, retry
-      const waitMs = (result.retryAfter || 10) * 1000
+      if (attempt === MAX_RETRIES) break
+      // Rate-limited: exponential backoff — prefer server's retryAfter, else schedule
+      const scheduledSeconds = RETRY_WAIT_SCHEDULE_SECONDS[attempt - 1] ?? 120
+      const waitSeconds = Math.max(result.retryAfter || 0, scheduledSeconds)
+      const waitMs = waitSeconds * 1000
       setRows((prev) =>
         prev.map((r) =>
           r.session.id === sessionId
-            ? { ...r, status: 'waiting', error: `API busy — retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})` }
+            ? { ...r, status: 'waiting', error: `API busy — retrying in ${waitSeconds}s (attempt ${attempt + 1}/${MAX_RETRIES})` }
             : r,
         ),
       )
@@ -126,7 +131,7 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
         prev.map((r) => (r.session.id === sessionId ? { ...r, status: 'running', error: undefined } : r)),
       )
     }
-    return { ok: false, error: 'Still rate limited after 3 retries — try again later' }
+    return { ok: false, error: `Still rate limited after ${MAX_RETRIES} retries — try again later` }
   }
 
   const runBatch = useCallback(async () => {
