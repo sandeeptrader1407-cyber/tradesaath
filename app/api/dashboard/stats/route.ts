@@ -328,10 +328,29 @@ export async function GET(req: NextRequest) {
     const actualMonthPnl = allTimeKPIs.totalPnl
     const counterfactualPnl = actualMonthPnl + totalMistakeCost
 
+    // Best all-time session P&L
+    const allTimeBestPnl = sessions.reduce((best, s) => {
+      const p = Number(s.net_pnl || 0)
+      return p > best ? p : best
+    }, 0)
+
     const responseData = {
       hasData: true,
       sessionCount: sessions.length,
       totalTrades: sessions.reduce((s, x) => s + (x.trade_count || 0), 0),
+      allTime: {
+        pnl: allTimeKPIs.totalPnl,
+        sessions: sessions.length,
+        trades: allTimeKPIs.totalTrades,
+        wins: allTimeKPIs.totalWins,
+        losses: allTimeKPIs.totalLosses,
+        winRate: allTimeKPIs.winRate,
+        bestSessionPnl: allTimeBestPnl,
+        avgWin: allTimeKPIs.avgWinAmount,
+        avgLoss: allTimeKPIs.avgLossAmount,
+        profitFactor: allTimeKPIs.profitFactor,
+        riskReward: String(allTimeKPIs.riskReward),
+      },
       month: {
         pnl: monthPnl,
         sessions: monthSessions.length,
