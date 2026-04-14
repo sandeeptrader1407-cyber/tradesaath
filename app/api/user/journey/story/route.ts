@@ -135,16 +135,18 @@ function buildDataSummary(sessions: SessionRow[]): string {
 - Most recent session: ${latestDate}
 - Total trading days logged: ${totalSessions}
 - Total trades executed: ${totalTrades}
-- Net P&L across journey: ${fmtINR(totalPnl)}
+- Total Net P&L (cumulative sum of daily P&Ls): ${fmtINR(totalPnl)}
 - Overall win rate: ${overallWinRate}% (${totalWins} wins, ${totalLosses} losses)
 - Best day: ${fmtINR(bestDay.net_pnl || 0)} on ${fmtDate(bestDay.trade_date || bestDay.created_at)}
 - Worst day: ${fmtINR(worstDay.net_pnl || 0)} on ${fmtDate(worstDay.trade_date || worstDay.created_at)}
 - Longest winning streak: ${longestWin} days
 - Longest losing streak: ${longestLoss} days
-- Maximum drawdown from peak: ${fmtINR(maxDrawdown)}
+- Maximum Drawdown from peak (largest fall from a running high — a SEPARATE number from Total P&L): ${fmtINR(maxDrawdown)}
 - Most traded instruments: ${topSymbols}
 - Behavioral patterns: ${topTags}
-- Recent trajectory: ${trajectory}`
+- Recent trajectory: ${trajectory}
+
+CRITICAL DISAMBIGUATION: "Total Net P&L" and "Maximum Drawdown" are DIFFERENT numbers with DIFFERENT meanings. Total P&L is the sum of all daily P&Ls. Max Drawdown is the worst peak-to-trough equity fall. If you mention the drawdown, use the Maximum Drawdown line above — NEVER substitute Total P&L for drawdown.`
 }
 
 export async function POST(request: Request) {
@@ -254,54 +256,56 @@ Return ONLY the story text. No JSON, no markdown headers, no backticks. Just the
       (step3Shift || '') + ' ' + (step4Today || '') + ' ' + (step5Truth || '')
     ).toLowerCase()
 
-    const BANNED_PATTERNS: RegExp[] = [
-      /\bstudent\b/i,
-      /\bcollege\b/i,
-      /\buniversity\b/i,
-      /\bschool\b/i,
-      /\bphone[- ]only\b/i,
-      /\byour phone\b/i,
-      /\bmobile phone\b/i,
-      /\blaptop\b/i,
-      /\bdesktop computer\b/i,
-      /\bparents?'?\b/i,
-      /\bfresh out of\b/i,
-      /\bquit your job\b/i,
-      /\byour job\b/i,
-      /\byour office\b/i,
-      /\bhometown\b/i,
-      /\b(back in|it was) (19|20)\d{2}\b/i,
-      /\b(19|20)\d{2}[- ](19|20)\d{2}\b/i,
+    const BANNED_WORDS: string[] = [
+      'student', 'college', 'university', 'school',
+      'phone-only', 'phone only', 'your phone', 'mobile phone', 'on your laptop',
+      'your parents', "parents'", 'your family', 'family members',
+      'childhood', 'grew up', 'hometown', 'village', 'small town',
+      'fresh out of', 'quit your job', 'your job', 'your office', 'day job',
+      'in school', 'in college', 'after school', 'after college',
     ]
 
+    // Build allowed year set from actual trading data
     const allowedYears = new Set<string>()
+    let earliestYear = 9999
     for (const s of sessionRows) {
       const d = s.trade_date || s.created_at
       if (d) {
         const yr = String(d).slice(0, 4)
-        if (/^\d{4}$/.test(yr)) allowedYears.add(yr)
+        if (/^\d{4}$/.test(yr)) {
+          allowedYears.add(yr)
+          const n = Number(yr)
+          if (n < earliestYear) earliestYear = n
+        }
       }
     }
 
-    const splitSentences = (text: string): string[] => text.split(/(?<=[.!?])\s+/)
+    const splitSentences = (text: string): string[] => {
+      // Split on sentence boundaries AND on newlines so a paragraph with no periods still splits
+      return text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(Boolean)
+    }
 
     const sentenceIsSafe = (sentence: string): boolean => {
-      for (const re of BANNED_PATTERNS) {
-        const match = sentence.match(re)
-        if (match) {
-          if (allowedNarrative.includes(match[0].toLowerCase())) continue
-          return false
-        }
+      const lower = sentence.toLowerCase()
+      for (const word of BANNED_WORDS) {
+        if (lower.includes(word) && !allowedNarrative.includes(word)) return false
       }
+      // Flag any 4-digit year that's not in the actual trade data
       const years = sentence.match(/\b(19|20)\d{2}\b/g) || []
       for (const yr of years) {
         if (!allowedYears.has(yr) && !allowedNarrative.includes(yr)) return false
+        // Extra guard: any year before the earliest trade year is banned
+        if (Number(yr) < earliestYear) return false
       }
       return true
     }
 
     let story = splitSentences(rawStory).filter(sentenceIsSafe).join(' ').trim()
-    if (!story) story = rawStory
+    // If the sanitizer stripped everything (model went fully off the rails), return a deterministic
+    // data-only fallback rather than leaking the unsanitized story.
+    if (!story || story.length < 60) {
+      story = dataSummary ? `Your journey so far:\n\n${dataSummary}` : 'Upload more sessions to see your story.'
+    }
 
     await supabaseAdmin
       .from('user_journeys')
