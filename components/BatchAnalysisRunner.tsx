@@ -20,12 +20,20 @@ interface PendingResponse {
 }
 
 type RunnerState = 'idle' | 'loading' | 'running' | 'done' | 'error'
-type SessionStatus = 'queued' | 'running' | 'done' | 'failed' | 'skipped'
+type SessionStatus = 'queued' | 'running' | 'waiting' | 'done' | 'failed' | 'skipped'
 
 interface Row {
   session: PendingSession
   status: SessionStatus
   error?: string
+}
+
+const SESSION_DELAY_MS = 5000
+const RATE_LIMIT_WAIT_MS = 10_000
+const MAX_RETRIES = 3
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function fmtDate(s: string | null): string {
@@ -75,7 +83,9 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     }
   }, [])
 
-  const runOne = async (sessionId: string): Promise<{ ok: boolean; skipped?: boolean; error?: string }> => {
+  const runOne = async (
+    sessionId: string,
+  ): Promise<{ ok: boolean; skipped?: boolean; rateLimited?: boolean; retryAfter?: number; error?: string }> => {
     try {
       const res = await fetch('/api/analyse/session', {
         method: 'POST',
@@ -83,6 +93,10 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
         body: JSON.stringify({ sessionId }),
       })
       const data = await res.json().catch(() => ({}))
+      if (res.status === 429 || data?.error === 'rate_limited' || data?.code === 'RATE_LIMIT') {
+        const retryAfter = Number(data?.retryAfter) || 10
+        return { ok: false, rateLimited: true, retryAfter, error: 'Rate limited' }
+      }
       if (!res.ok) {
         return { ok: false, error: data?.error || `HTTP ${res.status}` }
       }
@@ -90,6 +104,30 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Network error' }
     }
+  }
+
+  const runWithRetry = async (
+    sessionId: string,
+  ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> => {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const result = await runOne(sessionId)
+      if (result.ok) return result
+      if (!result.rateLimited) return result
+      // Rate-limited: show waiting status, sleep, retry
+      const waitMs = (result.retryAfter || 10) * 1000
+      setRows((prev) =>
+        prev.map((r) =>
+          r.session.id === sessionId
+            ? { ...r, status: 'waiting', error: `API busy — retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})` }
+            : r,
+        ),
+      )
+      await sleep(waitMs)
+      setRows((prev) =>
+        prev.map((r) => (r.session.id === sessionId ? { ...r, status: 'running', error: undefined } : r)),
+      )
+    }
+    return { ok: false, error: 'Still rate limited after 3 retries — try again later' }
   }
 
   const runBatch = useCallback(async () => {
@@ -113,7 +151,7 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
       const s = queue[i]
       setRows((prev) => prev.map((r) => (r.session.id === s.id ? { ...r, status: 'running' } : r)))
 
-      const result = await runOne(s.id)
+      const result = await runWithRetry(s.id)
 
       setRows((prev) =>
         prev.map((r) =>
@@ -129,6 +167,11 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
 
       if (result.ok) done++
       else failed++
+
+      // Rate-limit friendly delay between sessions
+      if (i < queue.length - 1 && !cancelledRef.current) {
+        await sleep(SESSION_DELAY_MS)
+      }
     }
 
     setState('done')
@@ -274,6 +317,8 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
                 <span style={{ color: '#fca5a5' }}>{'\u2717'}</span>
               ) : r.status === 'running' ? (
                 <span style={{ color: 'var(--accent)' }}>{'\u22EF'}</span>
+              ) : r.status === 'waiting' ? (
+                <span style={{ color: '#fbbf24' }}>{'\u29D6'}</span>
               ) : (
                 <span style={{ color: 'var(--muted)' }}>{'\u25CB'}</span>
               )}
@@ -285,6 +330,7 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
             </span>
             <span style={{ flex: 1, color: 'var(--muted)', fontSize: 11 }}>
               {r.status === 'running' && 'Analysing...'}
+              {r.status === 'waiting' && (r.error || 'Waiting (API busy) \u2014 retrying...')}
               {r.status === 'failed' && (r.error || 'Failed')}
               {r.status === 'done' && 'Analysed'}
               {r.status === 'skipped' && 'Already analysed'}
