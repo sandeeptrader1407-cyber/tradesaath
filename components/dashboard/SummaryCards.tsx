@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/format/money"
+
 interface Props {
   today: { pnl: number; sessions: number }
   week: { pnl: number; sessions: number }
@@ -7,10 +9,7 @@ interface Props {
 }
 
 export default function SummaryCards({ today, week, month }: Props) {
-  const fmt = (v: number) => {
-    const sign = v >= 0 ? "+" : "-"
-    return sign + "₹" + Math.abs(Math.round(v)).toLocaleString("en-IN")
-  }
+  const fmt = formatPnl
 
   const cards = [
     { label: "Today (Gross P&L)", pnl: today.pnl, sessions: today.sessions, empty: "No session yet" },

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatPnl } from "@/lib/format/money"
 
 interface Session {
   id: string
@@ -30,10 +31,7 @@ export default function SessionList({ sessions, activeId, onSelect }: Props) {
     )
   })
 
-  const fmt = (v: number) => {
-    const sign = v >= 0 ? "+" : ""
-    return `${sign}\u20B9${Math.abs(Math.round(v)).toLocaleString("en-IN")}`
-  }
+  const fmt = formatPnl
 
   return (
     <div className="flex flex-col h-full">

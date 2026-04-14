@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePlan } from '@/lib/planStore'
-import { computeKPIs } from '@/lib/kpi/computeKPIs'
+import { computeKPIs, computeDisciplineScore } from '@/lib/kpi/computeKPIs'
+import { formatPnlPlain } from '@/lib/format/money'
 
 interface Session {
   id: string
@@ -23,9 +24,7 @@ interface Session {
   } | null
 }
 
-function fmtPnl(n: number) {
-  return (n >= 0 ? '+' : '') + '\u20B9' + Math.abs(n).toLocaleString('en-IN')
-}
+const fmtPnl = formatPnlPlain
 
 type CoachTab = 'tomorrow' | 'thisweek' | 'learning_path' | 'patterns' | 'monthly_goals'
 
@@ -155,15 +154,17 @@ export default function CoachPage() {
     win_count: s.win_count,
     loss_count: s.loss_count,
     win_rate: s.win_rate,
+    dqs_score: s.dqs_score,
   }))
   const kpis = computeKPIs(kpiSessions)
   const totalTrades = kpis.totalTrades
   const totalPnl = kpis.totalPnl
   const avgWr = kpis.winRate
-  // Only average sessions that actually have a DQS (>0); avoid zero-padding the mean
-  const dqsScores = sessions.map(x => x.dqs_score || 0).filter(v => v > 0)
-  const avgDqs = dqsScores.length > 0 ? Math.round(dqsScores.reduce((a, b) => a + b, 0) / dqsScores.length) : 0
+  // Unified with Dashboard: uses AI DQS when available, falls back to wr/pf proxy
+  const hasAnyDqs = sessions.some(x => (x.dqs_score || 0) > 0)
+  const avgDqs = computeDisciplineScore(kpiSessions, kpis)
   const dqsDisplay = avgDqs > 0 ? String(avgDqs) : 'N/A'
+  const dqsLabel = hasAnyDqs ? 'Avg DQS' : 'Discipline*'
   const dqsColor = avgDqs === 0 ? 'var(--muted)' : avgDqs >= 70 ? 'var(--green)' : avgDqs >= 50 ? 'var(--gold)' : avgDqs >= 30 ? 'var(--orange)' : 'var(--red)'
 
   const activeTabConfig = TAB_CONFIG.find(t => t.key === tab)
@@ -195,7 +196,7 @@ export default function CoachPage() {
             {' '}sessions{' \u00B7 '}
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text)', fontWeight: 600 }}>{totalTrades}</span>
             {' '}trades{' \u00B7 '}
-            Net{' '}
+            Gross P&amp;L{' '}
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{fmtPnl(totalPnl)}</span>
             {' \u2014 your actual data'}
           </span>
@@ -217,7 +218,7 @@ export default function CoachPage() {
             <div className="kpi-val">{avgWr}%</div>
           </div>
           <div className="kpi-item">
-            <div className="kpi-label">Avg DQS</div>
+            <div className="kpi-label">{dqsLabel}</div>
             <div className="kpi-val" style={{ color: dqsColor }}>{dqsDisplay}</div>
           </div>
         </div>

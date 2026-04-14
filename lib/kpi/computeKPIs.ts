@@ -1,7 +1,4 @@
 // SINGLE SOURCE OF TRUTH for every trading KPI.
-// Every page (dashboard, journal, coach, chat) and every API route
-// must compute metrics through this module. Do not add per-page math.
-
 export interface KPISession {
   net_pnl?: number | string | null
   trade_count?: number | string | null
@@ -10,6 +7,9 @@ export interface KPISession {
   win_rate?: number | string | null
   trade_date?: string | null
   created_at?: string | null
+  dqs_score?: number | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trades?: any
 }
 
 export interface KPIResult {
@@ -30,6 +30,10 @@ export interface KPIResult {
   riskReward: number
   profitFactor: number
   maxDrawdown: number
+  winnersCount: number
+  losersCount: number
+  avgWin: number
+  avgLoss: number
 }
 
 function defaultKPIs(): KPIResult {
@@ -40,6 +44,7 @@ function defaultKPIs(): KPIResult {
     worstSessionPnl: 0, worstSessionDate: '',
     avgWinAmount: 0, avgLossAmount: 0,
     riskReward: 0, profitFactor: 0, maxDrawdown: 0,
+    winnersCount: 0, losersCount: 0, avgWin: 0, avgLoss: 0,
   }
 }
 
@@ -61,6 +66,11 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
   let maxDrawdown = 0
   let runningPnl = 0
   let peak = 0
+
+  let perTradeWinSum = 0
+  let perTradeLossSum = 0
+  let winnersCount = 0
+  let losersCount = 0
 
   for (const s of sessions) {
     const pnl = Number(s.net_pnl) || 0
@@ -95,6 +105,19 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     if (runningPnl > peak) peak = runningPnl
     const dd = peak - runningPnl
     if (dd > maxDrawdown) maxDrawdown = dd
+
+    if (s.trades && Array.isArray(s.trades)) {
+      for (const trade of s.trades) {
+        const tradePnl = Number(trade.pnl) || 0
+        if (tradePnl > 0) {
+          perTradeWinSum += tradePnl
+          winnersCount++
+        } else if (tradePnl < 0) {
+          perTradeLossSum += Math.abs(tradePnl)
+          losersCount++
+        }
+      }
+    }
   }
 
   const winRate = totalTrades > 0
@@ -119,6 +142,9 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     ? Math.round((totalWinSessionPnl / totalLossSessionPnl) * 100) / 100
     : 0
 
+  const avgWin = winnersCount > 0 ? Math.round(perTradeWinSum / winnersCount) : 0
+  const avgLoss = losersCount > 0 ? Math.round(perTradeLossSum / losersCount) : 0
+
   return {
     totalPnl,
     totalTrades,
@@ -137,18 +163,15 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     riskReward,
     profitFactor,
     maxDrawdown,
+    winnersCount,
+    losersCount,
+    avgWin,
+    avgLoss,
   }
 }
 
-// ---------- Period filtering (single source for week/month/today) ----------
-
 export type Period = 'allTime' | 'thisMonth' | 'thisWeek' | 'today'
 
-/**
- * Filter sessions by trade_date for a given period.
- * Uses trade_date (the actual trading day), never created_at (upload time).
- * Falls back to created_at split only if trade_date is missing.
- */
 export function filterByPeriod(sessions: KPISession[], period: Period, now: Date = new Date()): KPISession[] {
   if (period === 'allTime') return sessions
 
@@ -167,7 +190,6 @@ export function filterByPeriod(sessions: KPISession[], period: Period, now: Date
     })
   }
 
-  // thisMonth
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
   return sessions.filter(s => {
     const d = s.trade_date
@@ -182,10 +204,6 @@ export interface AllPeriodKPIs {
   today: KPIResult
 }
 
-/**
- * Compute KPIs for every period in one pass. Use this as the
- * canonical entry point when rendering dashboards with multiple time windows.
- */
 export function computeAllPeriodKPIs(sessions: KPISession[], now: Date = new Date()): AllPeriodKPIs {
   return {
     allTime: computeKPIs(sessions),
@@ -195,16 +213,6 @@ export function computeAllPeriodKPIs(sessions: KPISession[], now: Date = new Dat
   }
 }
 
-// ---------- Discipline score (unified formula) ----------
-
-/**
- * Discipline score derivation.
- * Preference order:
- *  1. Average of non-zero DQS scores across sessions (the source of truth if AI analysis exists).
- *  2. Rule-based proxy from win-rate + profit-factor so that users with no AI analysis still see something.
- *
- * Returns 0 when there is no data at all.
- */
 export function computeDisciplineScore(
   sessions: { dqs_score?: number | null }[],
   kpis: KPIResult,
@@ -215,7 +223,6 @@ export function computeDisciplineScore(
     return Math.round(avg)
   }
   if (kpis.totalSessions === 0) return 0
-  // Proxy: weighted blend of win-rate and profit factor
   const wr = Math.min(100, Math.max(0, kpis.winRate))
   const pf = Math.min(3, Math.max(0, kpis.profitFactor))
   const score = wr * 0.6 + (pf / 3) * 100 * 0.4

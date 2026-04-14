@@ -32,7 +32,8 @@ const BASE_SYSTEM_PROMPT = `You are Saathi — the trader's companion, confidant
 === HARD RULES ===
 - NEVER predict markets, recommend stocks, or give buy/sell signals
 - Focus on PROCESS over OUTCOME
-- Use INR currency and Indian market context (NIFTY, BANKNIFTY, Sensex, VIX India)
+- ALWAYS write currency as ₹ symbol (never "INR", never "Rs"). Example: ₹1,72,523.95
+- Use Indian market context (NIFTY, BANKNIFTY, Sensex, VIX India)
 - Acknowledge emotions without judgment
 - If question is NOT about trading/psychology, gently redirect
 - NEVER give generic advice. If you can't make it specific to their data, ask them for more context instead.`
@@ -102,12 +103,12 @@ export async function POST(req: NextRequest) {
     const recent10 = (sessions || []).slice(0, 10)
     const sessionSummary = recent10.length > 0
       ? recent10.map(s =>
-          `${s.trade_date || 'Unknown'}: ${s.detected_market || 'Market'} | ${s.trade_count} trades | P&L: INR${s.net_pnl} | WR: ${s.win_rate}% | PF: ${s.profit_factor}`
+          `${s.trade_date || 'Unknown'}: ${s.detected_market || 'Market'} | ${s.trade_count} trades | P&L: ₹${s.net_pnl} | WR: ${s.win_rate}% | PF: ${s.profit_factor}`
         ).join('\n')
       : 'No sessions uploaded yet'
 
     const allTimeLine = allTimeKpis
-      ? `ALL-TIME TOTALS (across ${allTimeKpis.totalSessions} sessions): Net P&L INR${allTimeKpis.totalPnl}, ${allTimeKpis.totalTrades} trades, WR ${allTimeKpis.winRate}%, Profit Factor ${allTimeKpis.profitFactor}, Best Day INR${allTimeKpis.bestSessionPnl}, Worst Day INR${allTimeKpis.worstSessionPnl}`
+      ? `ALL-TIME TOTALS (across ${allTimeKpis.totalSessions} sessions): Net P&L ₹${allTimeKpis.totalPnl}, ${allTimeKpis.totalTrades} trades, WR ${allTimeKpis.winRate}%, Profit Factor ${allTimeKpis.profitFactor}, Best Day ₹${allTimeKpis.bestSessionPnl}, Worst Day ₹${allTimeKpis.worstSessionPnl}`
       : 'No all-time data yet'
 
     const journeyContext = journey
@@ -169,7 +170,7 @@ ${journeyContext}`
       )
     }
     return NextResponse.json(
-      { error: 'Saathi couldn’t respond. Please try again.' },
+      { error: 'Saathi could not respond. Please try again.' },
       { status: 500 }
     )
   }

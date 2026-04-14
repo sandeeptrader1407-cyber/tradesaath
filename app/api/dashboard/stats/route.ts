@@ -318,10 +318,11 @@ export async function GET(req: NextRequest) {
       score: Math.round(v.total / v.count),
     }))
 
-    // Counterfactual uses ALL-TIME actual P&L (mistakes tagged across all sessions, not just this month)
-    // Formula: if you hadn't lost money on tagged mistakes, your P&L would be better by |mistake cost|
-    const actualMonthPnl = allTimeKPIs.totalPnl
-    const counterfactualPnl = actualMonthPnl + totalMistakeCost
+    // Counterfactual: if you hadn't lost money on tagged mistakes, your P&L would be better by |mistake cost|
+    // Formula (per audit #12): totalPnl + Math.abs(totalMistakeCost)
+    // Note: totalMistakeCost is already a positive sum of absolute losses (see the Math.abs accumulation above).
+    const actualAllTimePnl = allTimeKPIs.totalPnl
+    const counterfactualPnl = actualAllTimePnl + Math.abs(totalMistakeCost)
 
     // Best all-time session P&L comes from computeKPIs — do not recompute here.
     const allTimeBestPnl = allTimeKPIs.bestSessionPnl
@@ -346,8 +347,14 @@ export async function GET(req: NextRequest) {
         bestSessionDate: allTimeKPIs.bestSessionDate,
         worstSessionPnl: allTimeKPIs.worstSessionPnl,
         worstSessionDate: allTimeKPIs.worstSessionDate,
-        avgWin: allTimeKPIs.avgWinAmount,
-        avgLoss: allTimeKPIs.avgLossAmount,
+        // Session-level averages (kept for backwards compat)
+        avgWinSession: allTimeKPIs.avgWinAmount,
+        avgLossSession: allTimeKPIs.avgLossAmount,
+        // Per-trade averages (#13) — derived from trades JSONB
+        avgWin: allTimeKPIs.avgWin,
+        avgLoss: allTimeKPIs.avgLoss,
+        winnersCount: allTimeKPIs.winnersCount,
+        losersCount: allTimeKPIs.losersCount,
         profitFactor: allTimeKPIs.profitFactor,
         riskReward: String(allTimeKPIs.riskReward),
         maxDrawdown: allTimeKPIs.maxDrawdown,
@@ -393,14 +400,14 @@ export async function GET(req: NextRequest) {
       mistakeTrades,
       totalMistakeCost,
       counterfactualPnl,
-      actualMonthPnl,
+      actualAllTimePnl,
+      actualMonthPnl: actualAllTimePnl,
       tradesByTimeDay,
       dqsScore,
       dqsFactors,
     }
 
     statsCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + 60_000 })
-
     const statsResponse = NextResponse.json(responseData)
 
     if (anonId) {
