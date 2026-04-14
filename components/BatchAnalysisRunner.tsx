@@ -29,7 +29,6 @@ interface Row {
 }
 
 const SESSION_DELAY_MS = 5000
-const RATE_LIMIT_WAIT_MS = 10_000
 const MAX_RETRIES = 3
 
 function sleep(ms: number) {
