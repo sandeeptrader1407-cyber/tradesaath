@@ -259,10 +259,14 @@ export async function POST(request: Request) {
     )
 
     if (!claudeRes.ok) {
-      const status = claudeRes.code === 'OVERLOADED' ? 503
-        : claudeRes.code === 'RATE_LIMIT' ? 429
-        : claudeRes.code === 'TIMEOUT' ? 504
-        : 500
+      // Structured response so the batch runner can auto-retry rate-limit errors
+      if (claudeRes.code === 'RATE_LIMIT' || claudeRes.code === 'OVERLOADED') {
+        return NextResponse.json(
+          { error: 'rate_limited', retryAfter: 10, code: 'RATE_LIMIT' },
+          { status: 429 },
+        )
+      }
+      const status = claudeRes.code === 'TIMEOUT' ? 504 : 500
       return NextResponse.json(
         { error: claudeRes.error || 'Claude call failed', code: claudeRes.code },
         { status },
@@ -301,6 +305,7 @@ export async function POST(request: Request) {
       totalTrades: allTrades.length,
       truncated,
     })
+
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('analyse/session error:', msg)
