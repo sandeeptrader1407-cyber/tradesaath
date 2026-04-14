@@ -295,7 +295,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-xs mb-3" style={{ color: "var(--text2)", lineHeight: 1.6 }}>
                         Cost you <strong style={{ color: "var(--red)" }}>{fmtPnl(-topMistake.cost)}</strong> across{" "}
-                        <strong>{topMistake.count}</strong> trades all-time
+                        <strong>{topMistake.count}</strong> {topMistake.count === 1 ? 'trade' : 'trades'} all-time
                       </div>
                     </>
                   ) : lowest ? (

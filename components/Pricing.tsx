@@ -136,13 +136,9 @@ export default function Pricing() {
               {payLoading ? 'Processing...' : 'Get Pro Plan'}
             </button>
             <ul className="plan-feats">
-              <li>Everything in Free + Single Report</li>
+              <li>Everything in Single Report</li>
               <li>Unlimited sessions + history</li>
-              <li>Saathi AI coaching (daily/weekly/monthly)</li>
-              <li>Counterfactual scenarios</li>
-              <li>Trade notes (per section)</li>
-              <li>Premium journal + history</li>
-              <li>Trading Journey profiling</li>
+              <li>Premium journal &amp; Trading Journey</li>
               <li>Pattern intelligence alerts</li>
               <li><strong style={{ color: 'var(--accent)' }}>Pro Dashboard</strong></li>
               <li><strong style={{ color: 'var(--accent)' }}>Saathi (daily/weekly/monthly plans)</strong></li>

@@ -260,7 +260,9 @@ export async function POST(req: NextRequest) {
 - Trade patterns: ${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}x`).join(', ') || 'No patterns yet'}
 - Cycle stages: ${Object.entries(cycleStages).sort((a, b) => b[1] - a[1]).map(([s, c]) => `${s}: ${c}x`).join(', ') || 'No cycle data yet'}
 - Mistake costs: ${Object.entries(costs).sort((a, b) => a[1] - b[1]).map(([n, c]) => `${n}: ₹${c.toLocaleString('en-IN')}`).join(', ') || 'No mistake data yet'}
-- Last session: ${new Date(sessions[0].created_at).toLocaleDateString('en-IN')} — P&L ₹${(sessions[0].total_pnl || 0).toLocaleString('en-IN')}, WR ${sessions[0].win_rate || 0}%, DQS ${sessions[0].dqs_score || 0}${tradeInsightsSummary}`
+- Last session: ${new Date(sessions[0].created_at).toLocaleDateString('en-IN')} — P&L ₹${(sessions[0].total_pnl || 0).toLocaleString('en-IN')}, DQS ${sessions[0].dqs_score || 0}
+
+CRITICAL: When you reference win rate anywhere in the plan, you MUST use ONLY the ALL-TIME WIN RATE shown above (${Math.round(avgWr)}%). NEVER cite a per-session win rate, a single day's win rate, or any other win-rate number. Per-session win rates are unreliable and misleading.${tradeInsightsSummary}`
 
     const client = getClient()
     const message = await client.messages.create({
