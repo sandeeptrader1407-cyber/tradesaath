@@ -55,7 +55,6 @@ function NavLinks() {
     return (
       <>
         <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>{'\uD83D\uDCCA'} Dashboard</Link>
-        <Link href="/upload" className={`nav-app-link${pathname === '/upload' ? ' nav-active' : ''}`}>{'\uD83D\uDCE4'} Upload</Link>
         <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
           {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
         </Link>
@@ -89,7 +88,6 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
     return (
       <>
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCCA'} Dashboard</Link>
-        <Link href="/upload" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCE4'} Upload</Link>
         <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
           {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
         </Link>
