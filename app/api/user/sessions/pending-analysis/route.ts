@@ -6,13 +6,9 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 
 /**
  * GET /api/user/sessions/pending-analysis
- * Returns this user's sessions that have NOT yet been analysed, ordered newest
- * first. Powers the batch-analysis UI and the dashboard CTA.
- *
- * Analysed detection: reads trade_sessions.analysis (JSONB, one row per
- * session). Previously we scanned trade_analysis and hit Supabase's default
- * 1000-row cap once users had many analysed sessions, which caused already-
- * analysed sessions to re-analyse on refresh.
+ * Returns this user's sessions that still need per-trade analysis.
+ * Analysed detection: a session counts as analysed only when its
+ * analysis.trade_analyses array covers (nearly) every trade.
  */
 export async function GET() {
   try {
@@ -21,8 +17,6 @@ export async function GET() {
 
     const supabase = getSupabaseAdmin()
 
-    // Pull recent sessions for this user — include the analysis JSONB so we can
-    // classify pending vs analysed in-memory without a second query.
     const { data: sessions, error } = await supabase
       .from('trade_sessions')
       .select('id, trade_date, created_at, trade_count, net_pnl, analysis')
@@ -36,22 +30,24 @@ export async function GET() {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isAnalysed = (a: any) =>
-      !!a &&
-      typeof a === 'object' &&
-      (typeof a.session_summary === 'string' ||
-        (Array.isArray(a.trade_analyses) && a.trade_analyses.length > 0))
+    const isAnalysed = (a: any, tradeCount: number) => {
+      if (!a || typeof a !== 'object') return false
+      if (!Array.isArray(a.trade_analyses)) return false
+      if (a.trade_analyses.length === 0) return false
+      const expected = Math.max(1, Number(tradeCount) || 0)
+      return a.trade_analyses.length >= expected - 2
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stripAnalysis = ({ analysis: _a, ...rest }: any) => rest
+    const strip = ({ analysis: _a, ...rest }: any) => rest
 
     const all = sessions || []
     if (all.length === 0) {
       return NextResponse.json({ pending: [], analysed: [], total: 0, analysedCount: 0, pendingCount: 0 })
     }
 
-    const pending = all.filter(s => !isAnalysed(s.analysis)).map(stripAnalysis)
-    const analysed = all.filter(s => isAnalysed(s.analysis)).map(stripAnalysis)
+    const pending = all.filter(s => !isAnalysed(s.analysis, s.trade_count || 0)).map(strip)
+    const analysed = all.filter(s => isAnalysed(s.analysis, s.trade_count || 0)).map(strip)
 
     return NextResponse.json({
       pending,
