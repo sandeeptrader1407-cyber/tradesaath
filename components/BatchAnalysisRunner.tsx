@@ -161,7 +161,6 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, rows.length])
 
-  const pendingCount = rows.filter((r) => r.status === 'queued' || r.status === 'running').length
   const doneCount = rows.filter((r) => r.status === 'done' || r.status === 'skipped').length
   const failedCount = rows.filter((r) => r.status === 'failed').length
 
