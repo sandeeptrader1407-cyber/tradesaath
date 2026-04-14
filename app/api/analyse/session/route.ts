@@ -231,6 +231,21 @@ export async function POST(request: Request) {
         .select('id', { count: 'exact', head: true })
         .eq('session_id', sessionId)
       if ((count || 0) > 0) {
+        // Stamp the marker so pending-analysis recognises this session as done
+        // even though we didn't re-run the pipeline.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const existing = (session.analysis && typeof session.analysis === 'object') ? session.analysis as any : {}
+          if (!existing.analysed_at) {
+            await updateSessionAnalysis(sessionId, {
+              ...existing,
+              analysed_at: new Date().toISOString(),
+              analysed_version: 2,
+            })
+          }
+        } catch (e) {
+          console.warn('skip-path marker update failed:', e)
+        }
         return NextResponse.json({
           success: true,
           skipped: true,
