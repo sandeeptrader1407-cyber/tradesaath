@@ -196,7 +196,20 @@ export async function POST(request: Request) {
 
     const prompt = `Write a cinematic, motivating trading journey story in second person ("You...") based on this trader's REAL trading data. Be honest about struggles but celebrate growth.
 
-ABSOLUTE RULE: You MUST ONLY reference facts derivable from the trading data provided below or from THE TRADER'S OWN WORDS. NEVER invent or assume: the trader's age, education, year they started, location, early life, devices used (phone/laptop/desktop), jobs, family members, relationships, or any biographical detail not explicitly given. If you don't know something, don't mention it — write around it. Do not use phrases like "back in 2016", "you were just a student", "phone-only trading days", or any other fabricated context. Stick to what the numbers and narrative literally say.
+ABSOLUTE RULE: You MUST ONLY reference facts derivable from the trading data provided below or from THE TRADER'S OWN WORDS. NEVER invent or assume: the trader's age, education, year they started, location, early life, devices used (phone/laptop/desktop), jobs, family members, relationships, or any biographical detail not explicitly given. If you don't know something, don't mention it — write around it.
+
+FORBIDDEN EXAMPLES — do NOT write sentences like any of these (they are fabricated context):
+- "Back in 2016, you were just a student staring at charts on your phone"
+- "Your phone-only trading days"
+- "As a college student with borrowed capital"
+- "Fresh out of school"
+- "When you first quit your job to trade"
+- "In those early days on your parents' laptop"
+- Any year reference (2016, 2018, 2020, etc.) that is NOT present in the trading data dates below
+- Any mention of school, college, university, student, job, office, parents, family, hometown, city, village
+- Any device mention (phone, mobile, laptop, desktop) unless the trader wrote about it
+
+If the first trading session is "12 March 2024", you may say "your journey began in March 2024" — you may NOT say "back in 2024 as a fresh trader" or add any context around who the trader was then.
 
 ABSOLUTE RULE: Use the EXACT numbers provided. Do not round ₹1,72,523 to "₹1.7L" or "₹1,72,000". Do not calculate your own drawdown, win rate, or P&L — use the values in the data block verbatim.
 
@@ -231,7 +244,64 @@ Return ONLY the story text. No JSON, no markdown headers, no backticks. Just the
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const story = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
+    const rawStory = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
+
+    // Post-generation sanitizer: strip any sentence that contains fabricated biographical keywords
+    // that are NOT derivable from the trading data. This is a hard safety net for when the model
+    // ignores the ABSOLUTE RULE in the prompt.
+    const allowedNarrative = (
+      (step1Beginning || '') + ' ' + (step2DarkDays || '') + ' ' +
+      (step3Shift || '') + ' ' + (step4Today || '') + ' ' + (step5Truth || '')
+    ).toLowerCase()
+
+    const BANNED_PATTERNS: RegExp[] = [
+      /\bstudent\b/i,
+      /\bcollege\b/i,
+      /\buniversity\b/i,
+      /\bschool\b/i,
+      /\bphone[- ]only\b/i,
+      /\byour phone\b/i,
+      /\bmobile phone\b/i,
+      /\blaptop\b/i,
+      /\bdesktop computer\b/i,
+      /\bparents?'?\b/i,
+      /\bfresh out of\b/i,
+      /\bquit your job\b/i,
+      /\byour job\b/i,
+      /\byour office\b/i,
+      /\bhometown\b/i,
+      /\b(back in|it was) (19|20)\d{2}\b/i,
+      /\b(19|20)\d{2}[- ](19|20)\d{2}\b/i,
+    ]
+
+    const allowedYears = new Set<string>()
+    for (const s of sessionRows) {
+      const d = s.trade_date || s.created_at
+      if (d) {
+        const yr = String(d).slice(0, 4)
+        if (/^\d{4}$/.test(yr)) allowedYears.add(yr)
+      }
+    }
+
+    const splitSentences = (text: string): string[] => text.split(/(?<=[.!?])\s+/)
+
+    const sentenceIsSafe = (sentence: string): boolean => {
+      for (const re of BANNED_PATTERNS) {
+        const match = sentence.match(re)
+        if (match) {
+          if (allowedNarrative.includes(match[0].toLowerCase())) continue
+          return false
+        }
+      }
+      const years = sentence.match(/\b(19|20)\d{2}\b/g) || []
+      for (const yr of years) {
+        if (!allowedYears.has(yr) && !allowedNarrative.includes(yr)) return false
+      }
+      return true
+    }
+
+    let story = splitSentences(rawStory).filter(sentenceIsSafe).join(' ').trim()
+    if (!story) story = rawStory
 
     await supabaseAdmin
       .from('user_journeys')
