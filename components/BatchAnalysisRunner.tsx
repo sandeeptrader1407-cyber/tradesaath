@@ -183,6 +183,16 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     setState('done')
     if (done > 0) showToast.success(`Analysed ${done} session${done === 1 ? '' : 's'}`)
     if (failed > 0) showToast.warning(`${failed} session${failed === 1 ? '' : 's'} failed — you can retry`)
+
+    // Bust server-side dashboard cache so fresh aggregated stats appear immediately.
+    if (done > 0) {
+      try {
+        await fetch('/api/dashboard/stats?refresh=true', { cache: 'no-store' })
+      } catch {
+        /* non-blocking */
+      }
+    }
+
     onComplete?.({ analysed: done, failed })
   }, [load, onComplete])
 

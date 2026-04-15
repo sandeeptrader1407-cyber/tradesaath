@@ -305,19 +305,24 @@ export async function GET(req: NextRequest) {
       }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
     }
 
+    // DQS: average across ALL analysed sessions (not just the most recent 10)
+    // Each session row carries its own analysis JSONB written by the algorithmic pattern detector.
     let dqsTotal = 0
     let dqsCount = 0
     const factorTotals: Record<string, { total: number; count: number }> = {}
-    for (const sess of sessions.slice(0, 10)) {
+    for (const sess of sessions) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const analysis = (sess as any).analysis
-      if (analysis?.dqs?.score) {
-        dqsTotal += analysis.dqs.score
+      const score = Number(analysis?.dqs?.score)
+      if (Number.isFinite(score) && score > 0) {
+        dqsTotal += score
         dqsCount++
-        if (analysis.dqs.factors) {
+        if (Array.isArray(analysis?.dqs?.factors)) {
           for (const f of analysis.dqs.factors) {
+            const fScore = Number(f?.score)
+            if (!f?.name || !Number.isFinite(fScore)) continue
             if (!factorTotals[f.name]) factorTotals[f.name] = { total: 0, count: 0 }
-            factorTotals[f.name].total += f.score
+            factorTotals[f.name].total += fScore
             factorTotals[f.name].count++
           }
         }
