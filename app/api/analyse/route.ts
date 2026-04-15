@@ -9,6 +9,8 @@ import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 import { bustDashboardCache } from '@/lib/dashboardCache';
 import { getOrCreateAnonId } from '@/lib/anonId';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
+import { detectPatterns } from '@/lib/analysis/patternDetector';
+import { buildAnalysisJSON, generateAICoaching } from '@/lib/analysis/sessionSummarizer';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
 
@@ -87,7 +89,10 @@ For each trade return EXACTLY this JSON:
 Rules: P&L for BUY=(exit-entry)*qty, SELL=(entry-exit)*qty. If only one leg, set missing to null. Parse ALL trades. 24h times. IMPORTANT: include trade_date on EACH trade if the file contains trades from multiple days. Return ONLY valid JSON.`
 }
 
-function buildAnalysePrompt(context: Record<string, string | number | null | undefined>): string {
+// Retained only as historical reference — no longer invoked.
+// The pure-code pattern detector (lib/analysis) replaced this AI prompt.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _buildAnalysePromptLegacy(context: Record<string, string | number | null | undefined>): string {
   const ctxLines = context ? Object.entries(context).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join('\n') : 'No additional context.';
   return `You are TradeSaath --- a brutally honest yet deeply empathetic AI trading psychology coach. You talk like a senior trader mentoring a junior: direct, specific, no sugarcoating, but always rooting for them. Think of yourself as the trader's inner voice that tells the truth they already know but avoid.
 
@@ -417,25 +422,25 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     return NextResponse.json({ error: 'No trades found in the uploaded file(s).' }, { status: 422 });
   }
 
-  console.log(`Call 2: Analysing ${trades.length} trades...`);
+  console.log(`Call 2: Code-analysing ${trades.length} trades (pattern detector)...`);
   const c2Start = Date.now();
-  const elapsed = Date.now() - startTime;
-  const c2Timeout = Math.min(Math.max(70000 - elapsed, 10000) - 2000, 55000);
   const netPnl = trades.reduce((s: number, t: { pnl?: number }) => s + (t.pnl || 0), 0);
 
-  const analyseResult = await callClaude(
-    apiKey, buildAnalysePrompt(context),
-    [{ type: 'text', text: `Extracted trades:\n${JSON.stringify(trades, null, 2)}\nTotal: ${trades.length}, Net P&L: ${netPnl}` }],
-    8192, c2Timeout,
-  );
-  console.log(`Call 2 took ${Date.now() - c2Start}ms`);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape varies
-  let analysis: any = null;
-  if (analyseResult.ok) {
-    const ap = safeParseJSON(analyseResult.data as string);
-    if (ap.ok && ap.data) analysis = ap.data;
+  // Run pure-code pattern detection — instant, free, deterministic.
+  const detection = detectPatterns(trades);
+  // Optional tiny Haiku coaching line (~₹0.10). Non-blocking on failure.
+  const coaching = await generateAICoaching(apiKey, detection).catch(() => undefined);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- analysis JSONB shape
+  const analysis: any = buildAnalysisJSON({ trades, trade_date: extracted.trade_date }, detection, coaching);
+  // Stamp per-trade tags onto trades so the client-side UI can render immediately.
+  for (const ta of analysis.trade_analyses || []) {
+    const i = typeof ta.trade_index === 'number' ? ta.trade_index : -1;
+    if (i >= 0 && trades[i]) {
+      trades[i].tag = ta.tag;
+      trades[i].label = ta.tag_label;
+    }
   }
+  console.log(`Call 2 took ${Date.now() - c2Start}ms (code analysis)`);
 
   const response = {
     success: true, trades,
@@ -489,19 +494,16 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     contextStr = Object.entries(context).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
   }
 
-  console.log(`=== ANALYSE: ${trades.length} pre-parsed trades via JSON ===`);
+  console.log(`=== ANALYSE: ${trades.length} pre-parsed trades via JSON (code analysis) ===`);
 
-  const promptText = `Trade data: Broker=${broker || 'Unknown'}, Market=${market || 'NSE'}, Date=${trade_date || ''}, Currency=${currency || 'INR'}
-${contextStr ? `Context: ${contextStr}` : ''}
-KPIs: ${JSON.stringify(kpis || {})}
-Time: ${JSON.stringify(time_analysis || {})}
-Trades: ${JSON.stringify(trades)}
-Analyse EVERY trade.`;
+  // Silence unused warnings while keeping back-compat signature.
+  void contextStr; void kpis; void time_analysis;
 
-  const elapsed = Date.now() - startTime;
-  const claudeTimeout = Math.min(Math.max(60000 - elapsed, 8000) - 2000, 55000);
-
-  const aiResult = await callClaude(apiKey, buildAnalysePrompt(context || {}), [{ type: 'text', text: promptText }], 8192, claudeTimeout);
+  // Run pure-code analysis — instant, free.
+  const detection = detectPatterns(trades);
+  const coaching = await generateAICoaching(apiKey, detection).catch(() => undefined);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- full analysis JSONB
+  const codeAnalysis: any = buildAnalysisJSON({ trades, trade_date }, detection, coaching);
 
   const buildResponse = (aiAnalysis?: Record<string, unknown>, aiError?: string) => ({
     success: true,
@@ -556,43 +558,18 @@ Analyse EVERY trade.`;
     }
   };
 
-  if (!aiResult.ok) {
-    console.warn('AI failed:', aiResult.error);
-    const resp = buildResponse(undefined, aiResult.error);
-    await saveSession(resp);
-    return NextResponse.json(resp);
-  }
-
-  const aiParsed = safeParseJSON(aiResult.data as string);
-  if (!aiParsed.ok || !aiParsed.data) {
-    const resp = buildResponse(undefined, 'Failed to parse AI response');
-    await saveSession(resp);
-    return NextResponse.json(resp);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape
-  const analysis = aiParsed.data as any;
-
-  if (analysis.trade_tags) {
-    for (const [idx, tag] of Object.entries(analysis.trade_tags)) {
-      const i = parseInt(idx);
-
-      if (trades[i]) { trades[i].tag = tag as string; trades[i].label = (tag as string).replace(/_/g, ' '); }
+  // Stamp per-trade tags onto each trade (legacy UI expects trade.tag + trade.label)
+  for (const ta of codeAnalysis.trade_analyses || []) {
+    const i = typeof ta.trade_index === 'number' ? ta.trade_index : -1;
+    if (i >= 0 && trades[i]) {
+      trades[i].tag = ta.tag;
+      trades[i].label = ta.tag_label;
     }
   }
-  if (Array.isArray(analysis.trades_deep)) {
-    for (const deep of analysis.trades_deep) {
-      const i = typeof deep?.index === 'number' ? deep.index : -1;
-      if (i >= 0 && trades[i]) trades[i] = { ...trades[i], ...deep };
-    }
-  }
-  if (analysis.first_trade_detail && trades.length > 0) {
-    trades[0] = { ...trades[0], ...analysis.first_trade_detail };
-  }
 
-  const finalResponse = buildResponse(analysis);
+  const finalResponse = buildResponse(codeAnalysis);
   await saveSession(finalResponse);
 
-  console.log(`Analysis complete: ${Date.now() - startTime}ms`);
+  console.log(`Analysis complete: ${Date.now() - startTime}ms (code)`);
   return NextResponse.json(finalResponse);
 }

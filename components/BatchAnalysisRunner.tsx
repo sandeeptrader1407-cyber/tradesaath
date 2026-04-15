@@ -28,7 +28,9 @@ interface Row {
   error?: string
 }
 
-const SESSION_DELAY_MS = 5000
+// Code-based pattern analysis is essentially free — no per-session throttle needed.
+// Tiny delay only to let the browser repaint progress between rapid completions.
+const SESSION_DELAY_MS = 100
 const MAX_RETRIES = 5
 // Exponential backoff schedule for rate-limit retries (seconds)
 const RETRY_WAIT_SCHEDULE_SECONDS = [10, 30, 60, 90, 120]
