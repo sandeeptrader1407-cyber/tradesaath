@@ -105,7 +105,7 @@ function timeToMinutes(t: unknown): number | null {
   return h * 60 + mn
 }
 
-function median(xs: number[]): number {
+function _median(xs: number[]): number {
   if (!xs.length) return 0
   const s = [...xs].sort((a, b) => a - b)
   const mid = Math.floor(s.length / 2)
