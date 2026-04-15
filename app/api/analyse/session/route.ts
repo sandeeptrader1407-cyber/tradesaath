@@ -69,12 +69,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No trades on this session', tradesAnalysed: 0 }, { status: 400 })
     }
 
-    /* 3. Skip if already analysed — saves a DB write even though code analysis is cheap */
+    /* 3. Skip only if already analysed by the CURRENT pipeline version (3).
+     *    Sessions stamped by older AI pipelines (version undefined / 1 / 2) must re-process
+     *    so their stale tag='loss' rows and old DQS factor names get overwritten.            */
+    const CURRENT_ANALYSIS_VERSION = 3
     if (!force) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing: any = (session.analysis && typeof session.analysis === 'object') ? session.analysis : null
-      const alreadyDone = existing && typeof existing.analysed_at === 'string' && existing.analysed_at.length > 0
-      if (alreadyDone) {
+      const existingVersion = Number(existing?.analysed_version)
+      const alreadyCurrent = existing
+        && typeof existing.analysed_at === 'string'
+        && existing.analysed_at.length > 0
+        && Number.isFinite(existingVersion)
+        && existingVersion >= CURRENT_ANALYSIS_VERSION
+      if (alreadyCurrent) {
         return NextResponse.json({
           success: true,
           skipped: true,
@@ -82,9 +90,10 @@ export async function POST(request: Request) {
           tradesAnalysed: allTrades.length,
         })
       }
-    } else {
-      await supabase.from('trade_analysis').delete().eq('session_id', sessionId)
     }
+    // ALWAYS clear prior trade_analysis rows before writing new ones — prevents stale
+    // legacy tags (e.g. tag='loss' from the old AI pipeline) from contaminating dashboard aggregates.
+    await supabase.from('trade_analysis').delete().eq('session_id', sessionId)
 
     /* 4. Pull user-level baselines (typical qty, avg daily trades) for better detection */
     let userTypicalQty = 0
@@ -155,6 +164,21 @@ export async function POST(request: Request) {
     /* 9. Persist — both tables */
     await saveTradeAnalysis(sessionId, merged, session.anon_id || undefined)
     await updateSessionAnalysis(sessionId, analysis)
+
+    /* 9b. Mirror DQS into the dedicated column so disciplineScore reflects the new pipeline.
+     *     computeDisciplineScore reads trade_sessions.dqs_score (column), not the JSONB,
+     *     so without this update the discipline number lags behind dqsScore.                */
+    try {
+      const dqsScoreVal = Number(analysis?.dqs?.score)
+      if (Number.isFinite(dqsScoreVal)) {
+        await supabase
+          .from('trade_sessions')
+          .update({ dqs_score: dqsScoreVal })
+          .eq('id', sessionId)
+      }
+    } catch (e) {
+      console.warn('dqs_score column sync failed (non-blocking):', e)
+    }
 
     /* 10. Bust dashboard cache for this user */
     bustDashboardCache(userId)
