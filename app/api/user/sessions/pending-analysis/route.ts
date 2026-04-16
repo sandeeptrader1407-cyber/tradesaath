@@ -28,7 +28,7 @@ export async function GET() {
     }
 
     // Must match the CURRENT pipeline version (same constant as in analyse/session route).
-    const CURRENT_ANALYSIS_VERSION = 3
+    const CURRENT_ANALYSIS_VERSION = 4
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isAnalysed = (a: any, _tradeCount: number) => {

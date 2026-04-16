@@ -310,7 +310,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Count how many sessions need (re-)analysis — lets the dashboard show a prominent CTA.
-    const CURRENT_ANALYSIS_VERSION = 3
+    const CURRENT_ANALYSIS_VERSION = 4
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const analysedSessions = sessions.filter((s: any) => {
       const a = s.analysis
