@@ -130,22 +130,28 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
                   {SLOTS.map((_, si) => {
                     const cell = grid[di][si]
                     const wr = cell.total > 0 ? (cell.wins / cell.total) * 100 : null
+                    const lowConfidence = cell.total > 0 && cell.total < 3
                     return (
                       <div
                         key={`${day}-${si}`}
-                        title={wr !== null ? `${Math.round(wr)}% win rate (${cell.total} trades)` : "No data"}
+                        title={wr !== null
+                          ? `${Math.round(wr)}% win rate (${cell.total} trade${cell.total === 1 ? '' : 's'})${lowConfidence ? ' — low sample' : ''}`
+                          : "No trades in this slot"}
                         style={{
                           background: cellColor(wr),
                           borderRadius: 4,
                           height: 28,
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 9, color: wr !== null ? "rgba(255,255,255,.8)" : "transparent",
+                          fontSize: 9,
+                          color: wr !== null
+                            ? (lowConfidence ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.8)")
+                            : "rgba(255,255,255,.15)",
                           fontFamily: "'JetBrains Mono', monospace",
                           cursor: "default",
                           transition: "transform .15s",
                         }}
                       >
-                        {wr !== null ? `${Math.round(wr)}%` : ""}
+                        {wr !== null ? `${Math.round(wr)}%` : "\u2014"}
                       </div>
                     )
                   })}
