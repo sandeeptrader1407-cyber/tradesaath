@@ -13,7 +13,7 @@ import { bustDashboardCache } from '@/lib/dashboardCache'
 import { detectPatterns } from '@/lib/analysis/patternDetector'
 import { buildAnalysisJSON, generateAICoaching } from '@/lib/analysis/sessionSummarizer'
 
-export const CURRENT_ANALYSIS_VERSION = 3
+export const CURRENT_ANALYSIS_VERSION = 4
 
 export function parseTrades(raw: unknown): any[] {
   if (!raw) return []

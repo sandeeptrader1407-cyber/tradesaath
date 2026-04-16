@@ -261,7 +261,7 @@ export function buildAnalysisJSON(session: any, r: PatternResult, aiCoaching?: s
     trade_analyses: buildLegacyTradeAnalyses(session.trades || [], r),
     coaching_points: r.coachingPoints,
     analysed_at: new Date().toISOString(),
-    analysed_version: 3,
+    analysed_version: 4,
     ai_coaching: aiCoaching,
     validation: r.validation,
   }
