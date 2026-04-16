@@ -28,12 +28,8 @@ interface Row {
   error?: string
 }
 
-// Code-based pattern analysis is essentially free — no per-session throttle needed.
-// Tiny delay only to let the browser repaint progress between rapid completions.
-const SESSION_DELAY_MS = 100
-const MAX_RETRIES = 5
-// Exponential backoff schedule for rate-limit retries (seconds)
-const RETRY_WAIT_SCHEDULE_SECONDS = [10, 30, 60, 90, 120]
+// Polling interval for batch status checks
+const POLL_INTERVAL_MS = 1500
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -86,9 +82,10 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     }
   }, [])
 
+  /** Fallback: analyse a single session directly (used for retry) */
   const runOne = async (
     sessionId: string,
-  ): Promise<{ ok: boolean; skipped?: boolean; rateLimited?: boolean; retryAfter?: number; error?: string }> => {
+  ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/analyse/session', {
         method: 'POST',
@@ -96,54 +93,17 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
         body: JSON.stringify({ sessionId }),
       })
       const data = await res.json().catch(() => ({}))
-      if (res.status === 429 || data?.error === 'rate_limited' || data?.code === 'RATE_LIMIT') {
-        const retryAfter = Number(data?.retryAfter) || 10
-        return { ok: false, rateLimited: true, retryAfter, error: 'Rate limited' }
-      }
-      if (!res.ok) {
-        return { ok: false, error: data?.error || `HTTP ${res.status}` }
-      }
+      if (!res.ok) return { ok: false, error: data?.error || `HTTP ${res.status}` }
       return { ok: true, skipped: !!data?.skipped }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Network error' }
     }
   }
 
-  const runWithRetry = async (
-    sessionId: string,
-  ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> => {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const result = await runOne(sessionId)
-      if (result.ok) return result
-      if (!result.rateLimited) return result
-      if (attempt === MAX_RETRIES) break
-      // Rate-limited: exponential backoff — prefer server's retryAfter, else schedule
-      const scheduledSeconds = RETRY_WAIT_SCHEDULE_SECONDS[attempt - 1] ?? 120
-      const waitSeconds = Math.max(result.retryAfter || 0, scheduledSeconds)
-      const waitMs = waitSeconds * 1000
-      setRows((prev) =>
-        prev.map((r) =>
-          r.session.id === sessionId
-            ? { ...r, status: 'waiting', error: `API busy — retrying in ${waitSeconds}s (attempt ${attempt + 1}/${MAX_RETRIES})` }
-            : r,
-        ),
-      )
-      await sleep(waitMs)
-      setRows((prev) =>
-        prev.map((r) => (r.session.id === sessionId ? { ...r, status: 'running', error: undefined } : r)),
-      )
-    }
-    return { ok: false, error: `Still rate limited after ${MAX_RETRIES} retries — try again later` }
-  }
-
   const runBatch = useCallback(async () => {
     cancelledRef.current = false
     setState('running')
 
-    let done = 0
-    let failed = 0
-
-    // Work through the queue sequentially to respect Vercel 60s function limits
     const snapshot = await load()
     const queue = snapshot?.pending || []
     if (queue.length === 0) {
@@ -152,31 +112,61 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
       return
     }
 
-    for (let i = 0; i < queue.length; i++) {
-      if (cancelledRef.current) break
-      const s = queue[i]
-      setRows((prev) => prev.map((r) => (r.session.id === s.id ? { ...r, status: 'running' } : r)))
+    // Start batch via the new parallel endpoint
+    const sessionIds = queue.map(s => s.id)
+    let batchId: string | null = null
 
-      const result = await runWithRetry(s.id)
+    try {
+      const startRes = await fetch('/api/analyse/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionIds }),
+      })
+      const startData = await startRes.json().catch(() => ({}))
+      if (!startRes.ok || !startData.batchId) {
+        throw new Error(startData?.error || 'Failed to start batch')
+      }
+      batchId = startData.batchId
 
-      setRows((prev) =>
-        prev.map((r) =>
-          r.session.id === s.id
-            ? {
-                ...r,
-                status: result.ok ? (result.skipped ? 'skipped' : 'done') : 'failed',
-                error: result.error,
-              }
-            : r,
-        ),
-      )
+      // Mark all rows as running
+      setRows(prev => prev.map(r => ({ ...r, status: 'running' as SessionStatus })))
+    } catch (_err) {
+      setState('error')
+      showToast.warning('Failed to start batch analysis')
+      return
+    }
 
-      if (result.ok) done++
-      else failed++
+    // Poll for status
+    let done = 0
+    let failed = 0
 
-      // Rate-limit friendly delay between sessions
-      if (i < queue.length - 1 && !cancelledRef.current) {
-        await sleep(SESSION_DELAY_MS)
+    while (!cancelledRef.current) {
+      await sleep(POLL_INTERVAL_MS)
+      try {
+        const pollRes = await fetch(`/api/analyse/batch?batchId=${encodeURIComponent(batchId!)}`)
+        const pollData = await pollRes.json().catch(() => ({}))
+        if (!pollRes.ok) break
+
+        // Update row statuses from server
+        if (Array.isArray(pollData.jobs)) {
+          setRows(prev => prev.map(r => {
+            const job = pollData.jobs.find((j: { sessionId: string }) => j.sessionId === r.session.id)
+            if (!job) return r
+            let status: SessionStatus = 'queued'
+            if (job.status === 'done') status = job.skipped ? 'skipped' : 'done'
+            else if (job.status === 'error') status = 'failed'
+            else if (job.status === 'running') status = 'running'
+            else if (job.status === 'pending') status = 'queued'
+            return { ...r, status, error: job.error || undefined }
+          }))
+        }
+
+        done = pollData.done ?? 0
+        failed = pollData.errors ?? 0
+
+        if (pollData.finished) break
+      } catch {
+        // Network hiccup — keep polling
       }
     }
 
@@ -184,13 +174,10 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     if (done > 0) showToast.success(`Analysed ${done} session${done === 1 ? '' : 's'}`)
     if (failed > 0) showToast.warning(`${failed} session${failed === 1 ? '' : 's'} failed — you can retry`)
 
-    // Bust server-side dashboard cache so fresh aggregated stats appear immediately.
     if (done > 0) {
       try {
         await fetch('/api/dashboard/stats?refresh=true', { cache: 'no-store' })
-      } catch {
-        /* non-blocking */
-      }
+      } catch { /* non-blocking */ }
     }
 
     onComplete?.({ analysed: done, failed })

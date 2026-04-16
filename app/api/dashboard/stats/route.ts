@@ -508,6 +508,18 @@ export async function GET(req: NextRequest) {
     console.log('[stats] user=%s sessions=%d analysed=%d pending=%d mistakeCost=%d patterns=%d',
       userId, sessions.length, dqsCount, pendingAnalysisCount, totalMistakeCost, patternsByTagArr.length)
 
+    // PATTERN_VALIDATION: detailed logging for pattern detector V2 monitoring
+    {
+      const totalTrades = sessions.reduce((s, x) => s + (x.trade_count || 0), 0)
+      const tagRate = totalTrades > 0 ? patternsTotalCount / totalTrades : 0
+      const grossLossAllTime = Math.abs(allTimeKPIs.totalPnl < 0 ? allTimeKPIs.totalPnl : 0)
+        + sessions.reduce((s, x) => s + Math.abs(Math.min(0, Number(x.net_pnl) || 0)), 0)
+      const costRatio = grossLossAllTime > 0 ? patternsTotalCost / grossLossAllTime : 0
+      console.log('[PATTERN_VALIDATION] tagRate=%.2f costRatio=%.2f costExceedsLoss=%s totalMistakeCost=%d grossLoss=%d byTag=%j',
+        tagRate, costRatio, costRatio > 0.85 ? 'YES' : 'no', patternsTotalCost, grossLossAllTime,
+        patternsByTagArr.map(p => ({ tag: p.label, count: p.count, cost: Math.round(p.cost) })))
+    }
+
     statsCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + 60_000 })
     const statsResponse = NextResponse.json(responseData)
 

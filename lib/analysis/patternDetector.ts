@@ -1,6 +1,7 @@
 /**
- * TradeSaath — Algorithmic pattern detector (v3.1)
+ * TradeSaath — Algorithmic pattern detector (v4.0)
  * -------------------------------------------------
+ * Multi-signal weighted scoring with cost/tag-rate capping.
  * Pure-code analysis. No AI. Takes a session's trades and computes:
  *   - Per-trade behavioural tags (ONE per trade, by strict priority)
  *   - Session-level pattern counts
@@ -14,11 +15,16 @@
  *
  * COST MODEL (per-trade mistake attribution):
  *   For losing trades with a mistake tag:
- *     cost = max(0, abs(trade.pnl) - sessionAvgLoss)
+ *     cost = max(0, abs(trade.pnl) - sessionAvgLoss) * confidenceMultiplier
+ *     where confidenceMultiplier: high=1.0, medium=0.7
  *   For all other trades (winners, neutral losses, disciplined):
  *     cost = 0
  *   This isolates the EXCESS loss caused by the mistake — not the full loss.
  *   Eliminates double-counting with totalPnl.
+ *
+ * CAPPING RULES:
+ *   1. Total mistake cost ≤ 85% of gross loss
+ *   2. Tag rate ≤ 20% of trades (keep highest-scored, untag rest)
  *
  * Deterministic, instant, free.
  */
@@ -47,12 +53,17 @@ const TAG_PRIORITY: TradeTag[] = [
 
 export type Severity = 'low' | 'medium' | 'high'
 
+export type Confidence = 'high' | 'medium' | 'low'
+
 export interface DetectedTrade {
   index: number
   tag: TradeTag
   tagLabel: string
   reason: string
   severity: Severity
+  confidence: Confidence
+  /** Composite score from multi-signal detection (0-1). 0 for non-mistake tags. */
+  score: number
   pnl: number
   /** Attributed cost of this trade's mistake (0 for non-mistakes or non-excess losses). */
   cost: number
@@ -151,6 +162,25 @@ function stddev(xs: number[]): number {
   return Math.sqrt(v)
 }
 
+function median(xs: number[]): number {
+  if (!xs.length) return 0
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid]
+}
+
+/** Map confidence label to cost multiplier */
+function confidenceMultiplier(c: Confidence): number {
+  return c === 'high' ? 1.0 : c === 'medium' ? 0.7 : 0.4
+}
+
+/** Derive confidence from score */
+function scoreToConfidence(s: number): Confidence {
+  if (s >= 0.75) return 'high'
+  if (s >= 0.55) return 'medium'
+  return 'low'
+}
+
 function clamp(n: number, lo = 0, hi = 100): number {
   return Math.max(lo, Math.min(hi, n))
 }
@@ -202,6 +232,8 @@ interface Candidate {
   tag: TradeTag
   reason: string
   severity: Severity
+  score: number       // composite weighted score (0-1)
+  confidence: Confidence
 }
 
 export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): PatternResult {
@@ -239,8 +271,11 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
   const lastLossBySymbol = new Map<string, { minutes: number | null; pnl: number; qty: number }>()
   const prevBuySamePrice = new Map<string, number>() // lastPrice per symbol for averaging streak
 
-  // Pre-compute big-win cutoff for FOMO-chase detection
-  const winsSorted = pnls.filter(p => p > 0).sort((a, b) => b - a)
+  // Pre-compute baselines for multi-signal scoring
+  const winAmounts = pnls.filter(p => p > 0)
+  const _avgWin = mean(winAmounts)
+  const _medianLoss = median(losingAbs)
+  const winsSorted = [...winAmounts].sort((a, b) => b - a)
   const bigWinCutoff = winsSorted.length
     ? winsSorted[Math.max(0, Math.floor(winsSorted.length * 0.25) - 1)]
     : Infinity
@@ -251,11 +286,12 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
 
   const detected: DetectedTrade[] = new Array(n)
   let prevWasBigWin = false
+  let consecutiveLosses = 0          // running count of consecutive losses
+  let sessionLossesSoFar = 0         // cumulative losses up to current trade
   let avgDownStreak: { symbol: string; lastPrice: number; startIndex: number; indices: number[] } | null = null
-  // Collect indices that are part of an averaging-down run (2+ consecutive)
   const averagingIndices = new Set<number>()
 
-  // First pass: gather candidates per trade
+  // First pass: gather candidates per trade with multi-signal scoring
   const candidates: Candidate[][] = Array.from({ length: n }, () => [])
 
   for (let i = 0; i < n; i++) {
@@ -267,23 +303,37 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
     const m = mins[i]
     const price = toNum(t.entry ?? t.entry_price ?? t.price)
 
-    // REVENGE
+    /* ── REVENGE — 5 signals, threshold 0.55 ── */
     const lastLoss = lastLossBySymbol.get(symbol)
     if (lastLoss && pnl <= 0) {
-      const withinTime = m !== null && lastLoss.minutes !== null && (m - lastLoss.minutes) <= 5 && (m - lastLoss.minutes) >= 0
-      const biggerSize = qty > lastLoss.qty * 1.25 && qty > 0
-      if (withinTime || biggerSize) {
+      let revengeScore = 0
+      const timeSinceLoss = (m !== null && lastLoss.minutes !== null) ? (m - lastLoss.minutes) : Infinity
+      // S1: Re-entry within 5 min of same-symbol loss (w=0.30)
+      if (timeSinceLoss >= 0 && timeSinceLoss <= 5) revengeScore += 0.30
+      // S2: Increased size vs the losing trade (w=0.25)
+      if (qty > lastLoss.qty * 1.15 && qty > 0) revengeScore += 0.25
+      // S3: Currently on a losing streak ≥2 (w=0.20)
+      if (consecutiveLosses >= 2) revengeScore += 0.20
+      // S4: Loss on this trade exceeds session avg loss (w=0.15)
+      if (Math.abs(pnl) > sessionAvgLoss * 1.2 && sessionAvgLoss > 0) revengeScore += 0.15
+      // S5: Same symbol re-entry (already implied by lastLoss check) (w=0.10)
+      revengeScore += 0.10
+
+      if (revengeScore >= 0.55) {
+        const conf = scoreToConfidence(revengeScore)
         candidates[i].push({
           tag: 'revenge',
-          reason: withinTime
-            ? `Re-entered ${symbol} within ${Math.max(0, (m as number) - (lastLoss.minutes as number))} min of a ${fmtINR(lastLoss.pnl)} loss`
-            : `Increased size on ${symbol} after a ${fmtINR(lastLoss.pnl)} loss (${lastLoss.qty} → ${qty})`,
-          severity: Math.abs(pnl) > 1000 ? 'high' : Math.abs(pnl) > 300 ? 'medium' : 'low',
+          reason: timeSinceLoss <= 5
+            ? `Re-entered ${symbol} within ${Math.max(0, Math.round(timeSinceLoss))} min of a ${fmtINR(lastLoss.pnl)} loss (score: ${revengeScore.toFixed(2)})`
+            : `Increased size on ${symbol} after a ${fmtINR(lastLoss.pnl)} loss — ${consecutiveLosses} consecutive losses (score: ${revengeScore.toFixed(2)})`,
+          severity: revengeScore >= 0.75 ? 'high' : revengeScore >= 0.55 ? 'medium' : 'low',
+          score: revengeScore,
+          confidence: conf,
         })
       }
     }
 
-    // AVERAGING-DOWN (tracked across consecutive BUYs on same symbol at lower price)
+    /* ── AVERAGING-DOWN — streak detection + scoring, threshold 0.60 ── */
     if (side === 'BUY' && price > 0) {
       if (avgDownStreak && avgDownStreak.symbol === symbol && price < avgDownStreak.lastPrice) {
         avgDownStreak.indices.push(i)
@@ -298,80 +348,168 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
       avgDownStreak = null
     }
     if (averagingIndices.has(i)) {
-      candidates[i].push({
-        tag: 'averaging',
-        reason: `Consecutive buy on ${symbol} at a lower price — doubling down on a losing thesis`,
-        severity: pnl < -500 ? 'high' : 'medium',
-      })
+      let avgScore = 0.40  // base: in a confirmed averaging streak
+      // S1: Streak length ≥ 3 (w=0.20)
+      if (avgDownStreak && avgDownStreak.indices.length >= 3) avgScore += 0.20
+      // S2: Trade is a loser (w=0.20)
+      if (pnl < 0) avgScore += 0.20
+      // S3: Position larger than session avg (w=0.20)
+      if (sessionAvgQty > 0 && qty > sessionAvgQty * 1.3) avgScore += 0.20
+
+      if (avgScore >= 0.60) {
+        candidates[i].push({
+          tag: 'averaging',
+          reason: `Consecutive buy on ${symbol} at a lower price — doubling down on a losing thesis (score: ${avgScore.toFixed(2)})`,
+          severity: avgScore >= 0.75 ? 'high' : 'medium',
+          score: avgScore,
+          confidence: scoreToConfidence(avgScore),
+        })
+      }
     }
 
-    // FOMO
-    const earlyOpen = m !== null && m >= marketOpen && m <= marketOpen + 3
-    const oversizeVsSession = sessionAvgQty > 0 && qty > sessionAvgQty * 2
-    const chaseAfterWin = prevWasBigWin
-    if (earlyOpen || oversizeVsSession || chaseAfterWin) {
-      candidates[i].push({
-        tag: 'fomo',
-        reason: earlyOpen
-          ? `Entered at ${t.time} — within the first 3 min of the open (emotion > plan)`
-          : oversizeVsSession
-            ? `Quantity ${qty} is ${(qty / Math.max(1, sessionAvgQty)).toFixed(1)}× your session average`
-            : `Chased momentum right after a big win of ${fmtINR(pnls[i - 1] || 0)}`,
-        severity: pnl < -500 ? 'high' : pnl < 0 ? 'medium' : 'low',
-      })
+    /* ── FOMO — 5 signals, threshold 0.55 ── */
+    {
+      let fomoScore = 0
+      // S1: Entry in first 3 min of market open (w=0.25)
+      if (m !== null && m >= marketOpen && m <= marketOpen + 3) fomoScore += 0.25
+      // S2: Oversized vs session average (w=0.25)
+      if (sessionAvgQty > 0 && qty > sessionAvgQty * 1.8) fomoScore += 0.25
+      // S3: Chasing after a big win (w=0.20)
+      if (prevWasBigWin) fomoScore += 0.20
+      // S4: Loss on this trade (w=0.15)
+      if (pnl < 0) fomoScore += 0.15
+      // S5: Bigger loss than session average (w=0.15)
+      if (pnl < 0 && sessionAvgLoss > 0 && Math.abs(pnl) > sessionAvgLoss * 1.5) fomoScore += 0.15
+
+      if (fomoScore >= 0.55) {
+        const earlyOpen = m !== null && m >= marketOpen && m <= marketOpen + 3
+        const conf = scoreToConfidence(fomoScore)
+        candidates[i].push({
+          tag: 'fomo',
+          reason: earlyOpen
+            ? `Entered at ${t.time} — within the first 3 min of the open (score: ${fomoScore.toFixed(2)})`
+            : prevWasBigWin
+              ? `Chased momentum right after a big win of ${fmtINR(pnls[i - 1] || 0)} (score: ${fomoScore.toFixed(2)})`
+              : `Quantity ${qty} is ${(qty / Math.max(1, sessionAvgQty)).toFixed(1)}× your session average (score: ${fomoScore.toFixed(2)})`,
+          severity: fomoScore >= 0.75 ? 'high' : fomoScore >= 0.55 ? 'medium' : 'low',
+          score: fomoScore,
+          confidence: conf,
+        })
+      }
     }
 
-    // PANIC (short hold + loss)
+    /* ── PANIC — 5 signals, threshold 0.55 ── */
     if (pnl < 0) {
       const nextGap = toNum(trades[i]?.time_gap_minutes, NaN)
       const nextMin = i + 1 < n ? mins[i + 1] : null
       const durApprox = Number.isFinite(nextGap) && nextGap > 0
         ? nextGap
         : (nextMin !== null && m !== null ? (nextMin as number) - (m as number) : NaN)
-      if (Number.isFinite(durApprox) && durApprox < 2) {
+
+      if (Number.isFinite(durApprox)) {
+        let panicScore = 0
+        // S1: Held < 2 min (w=0.30)
+        if (durApprox < 2) panicScore += 0.30
+        // S2: Held < 1 min (extra w=0.10)
+        if (durApprox < 1) panicScore += 0.10
+        // S3: On a losing streak ≥ 2 (w=0.20)
+        if (consecutiveLosses >= 2) panicScore += 0.20
+        // S4: Loss is smaller than session avg (premature exit before stop hit) (w=0.20)
+        if (sessionAvgLoss > 0 && Math.abs(pnl) < sessionAvgLoss * 0.6) panicScore += 0.20
+        // S5: Session has been net negative so far (emotional state) (w=0.20)
+        if (sessionLossesSoFar < 0) panicScore += 0.20
+
+        if (panicScore >= 0.55) {
+          candidates[i].push({
+            tag: 'panic',
+            reason: `Exited within ~${Math.max(0, Math.round(durApprox))} min — no time for the thesis to play out (score: ${panicScore.toFixed(2)})`,
+            severity: panicScore >= 0.75 ? 'high' : 'medium',
+            score: panicScore,
+            confidence: scoreToConfidence(panicScore),
+          })
+        }
+      }
+    }
+
+    /* ── OVERTRADING — 4 signals, threshold 0.50 ── */
+    if (overtradingDetected && i >= overtradingThreshold) {
+      let otScore = 0
+      // S1: Beyond 1.5x daily norm (w=0.30)
+      otScore += 0.30
+      // S2: Beyond 2x daily norm (w=0.20)
+      if (i >= Math.ceil(avgDailyTrades * 2)) otScore += 0.20
+      // S3: Trade is a loser (w=0.25)
+      if (pnl < 0) otScore += 0.25
+      // S4: Declining P&L in the overtrade zone (w=0.25)
+      if (i >= 2 && pnls[i - 1] < 0 && pnls[i - 2] < 0) otScore += 0.25
+
+      if (otScore >= 0.50) {
         candidates[i].push({
-          tag: 'panic',
-          reason: `Exited within ~${Math.max(0, Math.round(durApprox))} min — no time for the thesis to play out`,
-          severity: Math.abs(pnl) > 500 ? 'high' : 'medium',
+          tag: 'overtrading',
+          reason: `Trade #${i + 1} is beyond your usual daily volume of ${Math.round(avgDailyTrades)} — fatigue zone (score: ${otScore.toFixed(2)})`,
+          severity: otScore >= 0.75 ? 'high' : otScore >= 0.55 ? 'medium' : 'low',
+          score: otScore,
+          confidence: scoreToConfidence(otScore),
         })
       }
     }
 
-    // OVERTRADING (per-trade flag for the trades beyond the session threshold)
-    if (overtradingDetected && i >= overtradingThreshold) {
-      candidates[i].push({
-        tag: 'overtrading',
-        reason: `Trade #${i + 1} is beyond your usual daily volume of ${Math.round(avgDailyTrades)} — fatigue zone`,
-        severity: pnl < 0 ? 'medium' : 'low',
-      })
+    /* ── OVERSIZE — 3 signals, threshold 0.55 ── */
+    if (userTypicalQty > 0 && qty > userTypicalQty * 1.5) {
+      let osScore = 0
+      const sizeMultiple = qty / userTypicalQty
+      // S1: Size > 2x typical (w=0.40)
+      if (sizeMultiple > 2) osScore += 0.40
+      else if (sizeMultiple > 1.5) osScore += 0.20  // partial credit
+      // S2: Trade is a loser (w=0.30)
+      if (pnl < 0) osScore += 0.30
+      // S3: Loss exceeds session avg loss (w=0.30)
+      if (pnl < 0 && sessionAvgLoss > 0 && Math.abs(pnl) > sessionAvgLoss * 1.5) osScore += 0.30
+
+      if (osScore >= 0.55) {
+        candidates[i].push({
+          tag: 'oversize',
+          reason: `Qty ${qty} is ${sizeMultiple.toFixed(1)}× your typical ${Math.round(userTypicalQty)} (score: ${osScore.toFixed(2)})`,
+          severity: osScore >= 0.75 ? 'high' : osScore >= 0.55 ? 'medium' : 'low',
+          score: osScore,
+          confidence: scoreToConfidence(osScore),
+        })
+      }
     }
 
-    // OVERSIZE
-    if (userTypicalQty > 0 && qty > userTypicalQty * 2) {
-      candidates[i].push({
-        tag: 'oversize',
-        reason: `Qty ${qty} is ${(qty / userTypicalQty).toFixed(1)}× your typical ${Math.round(userTypicalQty)}`,
-        severity: pnl < -1000 ? 'high' : pnl < 0 ? 'medium' : 'low',
-      })
-    }
-
-    // LATE_EXIT — held > 2x avg holding time AND lost > 2x avg loss
+    /* ── LATE_EXIT — 3 signals, threshold 0.60 ── */
     if (pnl < 0 && avgHoldingTime > 0 && sessionAvgLoss > 0) {
       const gap = toNum(trades[i]?.time_gap_minutes, NaN)
       const nextMin = i + 1 < n ? mins[i + 1] : null
       const holdApprox = Number.isFinite(gap) && gap > 0
         ? gap
         : (nextMin !== null && m !== null ? (nextMin as number) - (m as number) : NaN)
-      if (Number.isFinite(holdApprox) && holdApprox > avgHoldingTime * 2 && Math.abs(pnl) > sessionAvgLoss * 2) {
-        candidates[i].push({
-          tag: 'late_exit',
-          reason: `Held ${Math.round(holdApprox)} min (${(holdApprox / Math.max(1, avgHoldingTime)).toFixed(1)}× your average) and lost ${fmtINR(pnl)} — hope, not plan`,
-          severity: Math.abs(pnl) > sessionAvgLoss * 3 ? 'high' : 'medium',
-        })
+
+      if (Number.isFinite(holdApprox) && holdApprox > avgHoldingTime * 1.5) {
+        let leScore = 0
+        const holdMultiple = holdApprox / Math.max(1, avgHoldingTime)
+        // S1: Held > 2x avg holding time (w=0.35)
+        if (holdMultiple > 2) leScore += 0.35
+        else if (holdMultiple > 1.5) leScore += 0.18  // partial
+        // S2: Loss > 2x avg loss (w=0.35)
+        if (Math.abs(pnl) > sessionAvgLoss * 2) leScore += 0.35
+        else if (Math.abs(pnl) > sessionAvgLoss * 1.5) leScore += 0.18
+        // S3: This is one of the largest losses in session (w=0.30)
+        if (losingAbs.length >= 3 && Math.abs(pnl) >= [...losingAbs].sort((a, b) => b - a)[Math.min(2, losingAbs.length - 1)]) leScore += 0.30
+
+        if (leScore >= 0.60) {
+          candidates[i].push({
+            tag: 'late_exit',
+            reason: `Held ${Math.round(holdApprox)} min (${holdMultiple.toFixed(1)}× your average) and lost ${fmtINR(pnl)} — hope, not plan (score: ${leScore.toFixed(2)})`,
+            severity: leScore >= 0.75 ? 'high' : 'medium',
+            score: leScore,
+            confidence: scoreToConfidence(leScore),
+          })
+        }
       }
     }
 
-    // DISCIPLINED (only when no mistake candidates)
+    // DISCIPLINED (only relevant when no mistake candidates exist — scored as 0)
     const goodEntryWindow = m !== null && m >= marketOpen + 5 && m <= marketOpen + 45
     const reasonableSize = qty > 0 && qty <= Math.max(1, sessionAvgQty * 1.2)
     if (goodEntryWindow && reasonableSize) {
@@ -379,20 +517,28 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
         tag: 'disciplined',
         reason: `Entered in the high-probability window (${t.time}) with normal size — process > outcome`,
         severity: 'low',
+        score: 0,
+        confidence: 'low',
       })
     }
 
     // Track for next iteration
-    if (pnl < 0) lastLossBySymbol.set(symbol, { minutes: m, pnl, qty })
+    if (pnl < 0) {
+      lastLossBySymbol.set(symbol, { minutes: m, pnl, qty })
+      consecutiveLosses++
+    } else {
+      consecutiveLosses = 0
+    }
+    sessionLossesSoFar += pnl
     prevWasBigWin = pnl > 0 && pnl >= bigWinCutoff && Number.isFinite(bigWinCutoff)
     prevBuySamePrice.set(symbol, price)
   }
 
-  // Second pass: pick ONE tag per trade by priority, then compute cost
+  // Second pass: pick ONE tag per trade by priority, then compute cost with confidence scaling
   for (let i = 0; i < n; i++) {
     const t = trades[i]
     const pnl = pnls[i]
-    let chosen: TradeTag = pnl >= 0 ? 'win' : 'win' // neutral bucket for uncategorised losses
+    let chosen: TradeTag = pnl >= 0 ? 'win' : 'win'
     let chosenCand: Candidate | null = null
     for (const c of candidates[i]) {
       if (!chosenCand) { chosenCand = c; chosen = c.tag; continue }
@@ -400,10 +546,11 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
       if (winner === c.tag) { chosenCand = c; chosen = c.tag }
     }
 
-    // Per-trade cost attribution
+    // Per-trade cost attribution with confidence scaling
     let cost = 0
-    if (MISTAKE_TAGS.has(chosen) && pnl < 0) {
-      cost = Math.max(0, Math.abs(pnl) - sessionAvgLoss)
+    if (MISTAKE_TAGS.has(chosen) && pnl < 0 && chosenCand) {
+      const baseCost = Math.max(0, Math.abs(pnl) - sessionAvgLoss)
+      cost = baseCost * confidenceMultiplier(chosenCand.confidence)
     }
 
     const tagLabel = labelFor(chosen)
@@ -417,13 +564,51 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
       tagLabel,
       reason,
       severity,
+      confidence: chosenCand?.confidence ?? 'low',
+      score: chosenCand?.score ?? 0,
       pnl,
       cost,
       note: buildShortNote(t, chosen, reason, pnl),
     }
   }
 
-  // Aggregate
+  // ── Cost capping: total mistake cost ≤ 85% of gross loss ──
+  const grossLoss = losingAbs.reduce((a, b) => a + b, 0)
+  const maxAllowedCost = grossLoss * 0.85
+  const rawMistakeCost = detected.reduce((a, d) => a + d.cost, 0)
+  if (rawMistakeCost > maxAllowedCost && rawMistakeCost > 0) {
+    const scaleFactor = maxAllowedCost / rawMistakeCost
+    for (let i = 0; i < n; i++) {
+      if (detected[i].cost > 0) {
+        detected[i].cost = Math.round(detected[i].cost * scaleFactor * 100) / 100
+      }
+    }
+  }
+
+  // ── Tag rate capping: max 20% of trades tagged as mistakes ──
+  const maxMistakeTrades = Math.max(1, Math.ceil(n * 0.20))
+  const mistakeTrades = detected
+    .filter(d => MISTAKE_TAGS.has(d.tag))
+    .sort((a, b) => b.score - a.score)  // keep highest-scored
+
+  if (mistakeTrades.length > maxMistakeTrades) {
+    const toUntag = new Set(mistakeTrades.slice(maxMistakeTrades).map(d => d.index))
+    for (let i = 0; i < n; i++) {
+      if (toUntag.has(i)) {
+        detected[i].tag = detected[i].pnl >= 0 ? 'win' : 'win'
+        detected[i].tagLabel = labelFor(detected[i].tag)
+        detected[i].cost = 0
+        detected[i].score = 0
+        detected[i].confidence = 'low'
+        detected[i].reason = detected[i].pnl >= 0
+          ? `Clean win of ${fmtINR(detected[i].pnl)}`
+          : `Loss of ${fmtINR(detected[i].pnl)} — no behavioural flag`
+        detected[i].note = buildShortNote(trades[i], detected[i].tag, detected[i].reason, detected[i].pnl)
+      }
+    }
+  }
+
+  // Aggregate AFTER capping
   const count = (tag: TradeTag) => detected.filter(d => d.tag === tag).length
   const patterns: PatternCounts = {
     revengeTrades:      count('revenge'),
@@ -544,12 +729,13 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
 
   // Validation
   const warnings: string[] = []
-  const grossLossAbs = losingAbs.reduce((a, b) => a + b, 0)
-  if (mistakeTotalCost > grossLossAbs + 0.01) warnings.push(`mistakeTotalCost (${mistakeTotalCost}) exceeds gross losses (${grossLossAbs})`)
+  if (mistakeTotalCost > grossLoss + 0.01) warnings.push(`mistakeTotalCost (${mistakeTotalCost.toFixed(0)}) exceeds gross losses (${grossLoss.toFixed(0)})`)
   const tagCounts = detected.reduce<Record<string, number>>((acc, d) => { acc[d.tag] = (acc[d.tag] || 0) + 1; return acc }, {})
   for (const d of detected) if ((tagCounts[d.tag] || 0) > n) warnings.push(`duplicate tag overflow: ${d.tag}`)
-  const mistakeShare = mistakeCount / n
-  if (mistakeShare > 0.5) warnings.push(`${Math.round(mistakeShare * 100)}% of trades tagged as mistakes — detector may be over-sensitive`)
+  const tagRate = n > 0 ? mistakeCount / n : 0
+  if (tagRate > 0.25) warnings.push(`${Math.round(tagRate * 100)}% of trades tagged as mistakes — detector may be over-sensitive`)
+  const costRatio = grossLoss > 0 ? mistakeTotalCost / grossLoss : 0
+  if (costRatio > 0.85) warnings.push(`Cost ratio ${(costRatio * 100).toFixed(1)}% exceeds 85% cap — capping may have failed`)
   const validation = { ok: warnings.length === 0, warnings }
 
   return {
