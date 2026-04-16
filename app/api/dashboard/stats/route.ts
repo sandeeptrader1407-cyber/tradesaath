@@ -374,7 +374,7 @@ export async function GET(req: NextRequest) {
       const mp = (sess as any)?.analysis?.mistake_patterns
       if (!Array.isArray(mp)) continue
       for (const p of mp) {
-        const label = String(p?.pattern || '').trim()
+        const label = String(p?.name || p?.pattern || '').trim()
         if (!label) continue
         const count = Number(p?.count || 0)
         const cost = Number(p?.cost || 0)
@@ -471,7 +471,17 @@ export async function GET(req: NextRequest) {
       },
       risk: {
         maxDrawdown: allTimeKPIs.maxDrawdown,
-        avgLossAvgWin: monthKPIs.avgWinAmount > 0 ? (monthKPIs.avgLossAmount / monthKPIs.avgWinAmount).toFixed(2) : '0',
+        avgLossAvgWin: (() => {
+          // Prefer trade-level ratio, fall back to session-level, then allTime.
+          const tradeAvgWin = monthKPIs.avgWin || allTimeKPIs.avgWin
+          const tradeAvgLoss = monthKPIs.avgLoss || allTimeKPIs.avgLoss
+          if (tradeAvgWin > 0) return (tradeAvgLoss / tradeAvgWin).toFixed(2)
+          // Session-level fallback
+          const sessAvgWin = monthKPIs.avgWinAmount || allTimeKPIs.avgWinAmount
+          const sessAvgLoss = monthKPIs.avgLossAmount || allTimeKPIs.avgLossAmount
+          if (sessAvgWin > 0) return (sessAvgLoss / sessAvgWin).toFixed(2)
+          return '0'
+        })(),
       },
       recentTrades,
       recentSessions,
