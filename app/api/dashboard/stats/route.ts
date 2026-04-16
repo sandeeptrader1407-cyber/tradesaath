@@ -214,87 +214,63 @@ export async function GET(req: NextRequest) {
           if (s.trade_date) sessionDateMap[s.id] = s.trade_date
         }
 
+        // ── Heatmap: build tradesByTimeDay from BEST available source ──
+        // Priority 1: JSONB trades (actual entry times from uploaded data)
+        // Priority 2: trade_analysis rows (may have entry_time)
+        // Priority 3: session-level fallback (one point per session)
+
         /* eslint-disable @typescript-eslint/no-explicit-any */
-        const taWithTime = allTA
-          .filter((t: any) => t.entry_time)
-          .map((t: any) => {
-            const timeStr = t.entry_time as string
-            const dateStr = sessionDateMap[t.session_id] || ''
-            let fullTime = timeStr
-            // Already full ISO? keep as-is. Time-only ("HH:MM" or "HH:MM:SS")? prepend date.
-            if (!/^\d{4}-\d{2}-\d{2}T/.test(timeStr) && dateStr) {
-              const m = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
-              if (m) {
-                const hh = m[1].padStart(2, '0')
-                const mm = m[2]
-                const ss = (m[3] || '00')
-                fullTime = `${dateStr}T${hh}:${mm}:${ss}`
-              }
-            }
-            return {
-              entry_time: fullTime,
-              pnl: Number(t.pnl || 0),
-            }
-          })
-          .filter((t: any) => /^\d{4}-\d{2}-\d{2}T/.test(t.entry_time))
-        /* eslint-enable @typescript-eslint/no-explicit-any */
 
-        if (taWithTime.length >= 5) {
-          tradesByTimeDay = taWithTime
-        } else {
-          const tradingSlots = [
-            '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '10:45',
-            '11:00', '11:15', '11:30', '11:45', '12:00', '12:30', '13:00',
-            '13:30', '14:00', '14:15', '14:30', '14:45', '15:00', '15:15',
-          ]
-          let slotIdx = 0
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          tradesByTimeDay = allTA.map((t: any) => {
-            const sessionDate = sessionDateMap[t.session_id] || ''
-            if (!sessionDate) return null
-            const slot = tradingSlots[slotIdx % tradingSlots.length]
-            slotIdx++
-            return {
-              entry_time: `${sessionDate}T${slot}:00`,
-              pnl: Number(t.pnl || 0),
-            }
-          }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
+        // Helper: resolve a time string + date string into a full ISO timestamp
+        const resolveTime = (timeStr: string, dateStr: string): string | null => {
+          if (!timeStr) return null
+          // Already full ISO?
+          if (/^\d{4}-\d{2}-\d{2}T/.test(timeStr)) return timeStr
+          // Time-only: prepend date
+          if (!dateStr) return null
+          const m = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+          if (!m) return null
+          const hh = m[1].padStart(2, '0')
+          const mm = m[2]
+          const ss = m[3] || '00'
+          return `${dateStr}T${hh}:${mm}:${ss}`
         }
-      }
-    }
 
-    if (tradesByTimeDay.length < 5) {
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      const sessionDateMap2: Record<string, string> = {}
-      for (const s of sessions) {
-        if (s.trade_date) sessionDateMap2[s.id] = s.trade_date
-      }
-      const jsonbTrades: { entry_time: string; pnl: number }[] = []
-      for (const sess of sessions) {
-        const trades = (sess as any).trades
-        if (!Array.isArray(trades)) continue
-        const dateStr = sessionDateMap2[sess.id]
-        if (!dateStr) continue
-        for (const t of trades) {
-          const timeStr = String(t.entry_time || t.time || '')
-          if (!timeStr) continue
-          let fullTime = timeStr
-          if (!/^\d{4}-\d{2}-\d{2}T/.test(timeStr)) {
-            const m = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
-            if (!m) continue
-            const hh = m[1].padStart(2, '0')
-            const mm = m[2]
-            const ss = (m[3] || '00')
-            fullTime = `${dateStr}T${hh}:${mm}:${ss}`
+        // Source 1: JSONB trades (highest fidelity — actual upload times)
+        const jsonbHeatmap: { entry_time: string; pnl: number }[] = []
+        for (const sess of sessions) {
+          const trades = (sess as any).trades
+          if (!Array.isArray(trades)) continue
+          const dateStr = sessionDateMap[sess.id]
+          if (!dateStr) continue
+          for (const t of trades) {
+            const timeStr = String(t.entry_time || t.time || '')
+            const fullTime = resolveTime(timeStr, dateStr)
+            if (fullTime) jsonbHeatmap.push({ entry_time: fullTime, pnl: Number(t.pnl || 0) })
           }
-          if (!/^\d{4}-\d{2}-\d{2}T/.test(fullTime)) continue
-          jsonbTrades.push({ entry_time: fullTime, pnl: Number(t.pnl || 0) })
         }
+
+        if (jsonbHeatmap.length >= 5) {
+          tradesByTimeDay = jsonbHeatmap
+        } else {
+          // Source 2: trade_analysis rows
+          const taWithTime = allTA
+            .filter((t: any) => t.entry_time)
+            .map((t: any) => {
+              const fullTime = resolveTime(t.entry_time as string, sessionDateMap[t.session_id] || '')
+              return fullTime ? { entry_time: fullTime, pnl: Number(t.pnl || 0) } : null
+            })
+            .filter((t): t is { entry_time: string; pnl: number } => t !== null)
+
+          if (taWithTime.length >= 5) {
+            tradesByTimeDay = taWithTime
+          }
+        }
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
-      if (jsonbTrades.length >= 5) tradesByTimeDay = jsonbTrades
-      /* eslint-enable @typescript-eslint/no-explicit-any */
     }
 
+    // Source 3 (last resort): one data point per session at a synthetic time slot
     if (tradesByTimeDay.length < 5 && sessions.length >= 5) {
       const fallbackSlots = ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '14:00', '14:30', '15:00']
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -392,11 +368,41 @@ export async function GET(req: NextRequest) {
       totalMistakeCost = patternsTotalCost
     }
 
+    // ── GLOBAL COST CAP: total mistake cost ≤ 85% of gross loss ──
+    // Per-session cap exists in patternDetector but cross-session aggregation can still exceed net P&L.
+    const globalGrossLoss = Math.abs(allTimeKPIs.totalPnl)
+    const maxAllowedGlobalCost = globalGrossLoss * 0.85
+    const rawGlobalMistakeCost = totalMistakeCost
+    let globalCapFactor = 1
+    if (totalMistakeCost > maxAllowedGlobalCost && totalMistakeCost > 0 && globalGrossLoss > 0) {
+      globalCapFactor = maxAllowedGlobalCost / totalMistakeCost
+      console.warn(`[GLOBAL_CAP] Scaling mistake costs from ${totalMistakeCost} to ${Math.round(maxAllowedGlobalCost)} (factor: ${globalCapFactor.toFixed(3)})`)
+      // Scale every tag's cost proportionally
+      for (const p of patternsByTagArr) {
+        p.cost = Math.round(p.cost * globalCapFactor)
+      }
+      patternsTotalCost = Math.round(maxAllowedGlobalCost)
+      totalMistakeCost = patternsTotalCost
+      // Also scale the legacy mistakeTrades array
+      for (const m of mistakeTrades) {
+        m.cost = Math.round(m.cost * globalCapFactor)
+      }
+    }
+
     // Counterfactual: if you hadn't lost money on tagged mistakes, your P&L would be better by |mistake cost|
     // Formula (per audit #12): totalPnl + Math.abs(totalMistakeCost)
     // Note: totalMistakeCost is already a positive sum of absolute losses (see the Math.abs accumulation above).
     const actualAllTimePnl = allTimeKPIs.totalPnl
     const counterfactualPnl = actualAllTimePnl + Math.abs(totalMistakeCost)
+
+    console.log('[COST_VALIDATION]', {
+      totalPnl: allTimeKPIs.totalPnl,
+      rawMistakeCost: rawGlobalMistakeCost,
+      cappedMistakeCost: totalMistakeCost,
+      capApplied: globalCapFactor < 1,
+      costRatio: globalGrossLoss > 0 ? (totalMistakeCost / globalGrossLoss * 100).toFixed(1) + '%' : 'N/A',
+      counterfactualPnl,
+    })
 
     // Best all-time session P&L comes from computeKPIs — do not recompute here.
     const allTimeBestPnl = allTimeKPIs.bestSessionPnl
