@@ -23,6 +23,7 @@ import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
 
 interface DashStats {
   hasData: boolean
+  pendingAnalysisCount?: number
   sessionCount: number
   totalTrades: number
   allTime?: {
@@ -71,9 +72,21 @@ interface DashStats {
   totalMistakeCost?: number
   counterfactualPnl?: number
   actualMonthPnl?: number
+  actualAllTimePnl?: number
   tradesByTimeDay?: { entry_time: string; pnl: number }[]
   dqsScore?: number
   dqsFactors?: { name: string; score: number }[]
+  hasMonthData?: boolean
+  dqs?: {
+    overall: number
+    grade: string | null
+    subScores: Record<string, number>
+  }
+  patterns?: {
+    byTag: { label: string; count: number; cost: number }[]
+    totalMistakeCost: number
+    totalMistakeCount: number
+  }
 }
 
 function getGreeting(): string {
@@ -162,23 +175,28 @@ export default function DashboardPage() {
     )
   }
 
-  const score = stats?.allTime?.disciplineScore ?? stats?.dqsScore ?? (stats?.hasData ? 45 : 0)
+  // Single source of truth: stats.dqs.overall -> dqsScore -> allTime discipline -> 0.
+  const score = stats?.dqs?.overall ?? stats?.dqsScore ?? stats?.allTime?.disciplineScore ?? (stats?.hasData ? 45 : 0)
   const factors = stats?.dqsFactors?.length ? stats.dqsFactors.map(f => ({ name: f.name, value: f.score })) : (stats?.hasData ? [
-    { name: "Entry Quality", value: 52 },
-    { name: "Exit Timing", value: 38 },
-    { name: "Position Sizing", value: 61 },
-    { name: "Rule Following", value: 44 },
-    { name: "Emotional Control", value: 30 },
+    { name: "Risk Management", value: 50 },
+    { name: "Emotional Control", value: 50 },
+    { name: "Position Sizing", value: 50 },
+    { name: "Exit Discipline", value: 50 },
+    { name: "Entry Quality", value: 50 },
+    { name: "Exit Timing", value: 50 },
+    { name: "Rule Following", value: 50 },
   ] : [])
 
   const TAG_LABELS: Record<string, string> = {
-    loss: "Taking Losses Poorly",
     rvg: "Revenge Trading",
     fomo: "FOMO Entries",
     vs: "Vicious Cycle",
     avg: "Averaging Down",
     pnc: "Panic Exits",
     win: "Overconfidence After Wins",
+    over: "Overtrading",
+    size: "Oversized Position",
+    late: "Late Exit",
     revenge_trading: "Revenge Trading",
     fomo_entry: "FOMO Entries",
     overtrading: "Overtrading",
@@ -186,6 +204,28 @@ export default function DashboardPage() {
 
   const topMistake = stats?.mistakeTrades?.length ? stats.mistakeTrades[0] : null
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
+
+  // Build behavioral insight cards from real pattern data (no AI required).
+  const INSIGHT_META: Record<string, { icon: string; color: string }> = {
+    "Revenge Trading": { icon: "⚔️", color: "var(--red)" },
+    "FOMO Entries": { icon: "🔥", color: "var(--red)" },
+    "Panic Exits": { icon: "💨", color: "var(--gold)" },
+    "Averaging Down": { icon: "📉", color: "var(--red)" },
+    "Overtrading": { icon: "📈", color: "var(--gold)" },
+    "Oversized Position": { icon: "🏋️", color: "var(--red)" },
+    "Late Exit": { icon: "🕑", color: "var(--gold)" },
+    "Vicious Cycle": { icon: "🔄", color: "var(--red)" },
+    "Decision Fatigue": { icon: "😵", color: "var(--gold)" },
+  }
+  const insights = (stats?.patterns?.byTag || []).slice(0, 4).map(p => {
+    const meta = INSIGHT_META[p.label] || { icon: "⚠️", color: "var(--gold)" }
+    return {
+      icon: meta.icon,
+      title: p.label,
+      color: meta.color,
+      desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost ₹${Math.round(p.cost).toLocaleString('en-IN')}.`,
+    }
+  })
 
   const streakDir = stats?.streaks?.current
     ? stats.streaks.current > 0 ? "↑" : "↓"
@@ -231,7 +271,29 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {stats?.hasData && (
+        {stats?.hasData && (stats?.pendingAnalysisCount ?? 0) > 0 && (
+          <div className="rounded-xl border-2 p-5 md:p-6" style={{
+            background: "rgba(251,191,36,.06)",
+            borderColor: "#f59e0b",
+          }}>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">{"⚡"}</span>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: "var(--text)" }}>
+                  {stats.pendingAnalysisCount} session{stats.pendingAnalysisCount === 1 ? "" : "s"} need analysis
+                </h2>
+                <p className="text-xs" style={{ color: "var(--text2)" }}>
+                  Your dashboard shows incomplete data until all sessions are analysed with the latest engine.
+                </p>
+              </div>
+            </div>
+            <ErrorBoundary name="BatchAnalysisRunner">
+              <BatchAnalysisRunner onComplete={() => window.location.reload()} />
+            </ErrorBoundary>
+          </div>
+        )}
+
+        {stats?.hasData && (stats?.pendingAnalysisCount ?? 0) === 0 && (
           <ErrorBoundary name="BatchAnalysisRunner">
             <BatchAnalysisRunner />
           </ErrorBoundary>
@@ -370,24 +432,29 @@ export default function DashboardPage() {
             {showDetailed && (
               <div className="flex flex-col gap-5">
                 <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
-                <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} /></ErrorBoundary>
+                <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} hasMonthData={stats.hasMonthData ?? (stats.month.sessions > 0)} allTime={stats.allTime} /></ErrorBoundary>
                 <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
                 <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} /></ErrorBoundary>
                 <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>
                 <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
-                    totalCost={stats.totalMistakeCost || 0}
+                    totalCost={stats.patterns?.totalMistakeCost ?? stats.totalMistakeCost ?? 0}
                     counterfactualPnl={stats.counterfactualPnl || 0}
-                    actualPnl={stats.actualMonthPnl || 0}
-                    mistakes={stats.mistakeTrades || []}
+                    actualPnl={stats.actualAllTimePnl ?? stats.actualMonthPnl ?? 0}
+                    mistakes={(stats.patterns?.byTag || []).map(p => ({ type: p.label, icon: INSIGHT_META[p.label]?.icon || '⚠️', count: p.count, cost: p.cost })).length > 0
+                      ? (stats.patterns?.byTag || []).map(p => ({ type: p.label, icon: INSIGHT_META[p.label]?.icon || '⚠️', count: p.count, cost: p.cost }))
+                      : (stats.mistakeTrades || [])}
+                    pendingCount={stats.pendingAnalysisCount ?? 0}
                   /></ErrorBoundary>
                   <ErrorBoundary name="DQS"><DecisionQualityScore
-                    score={stats.dqsScore || 0}
+                    score={stats.dqs?.overall ?? stats.dqsScore ?? 0}
+                    grade={stats.dqs?.grade ?? null}
                     factors={stats.dqsFactors || []}
+                    pendingCount={stats.pendingAnalysisCount ?? 0}
                   /></ErrorBoundary>
                 </div>
-                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} /></ErrorBoundary>
+                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} insights={insights} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
                 <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
               </div>
             )}

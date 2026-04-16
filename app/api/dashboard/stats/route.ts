@@ -173,6 +173,9 @@ export async function GET(req: NextRequest) {
           avg: String.fromCodePoint(0x1F4C9),
           vs: String.fromCodePoint(0x1F504),
           fatigue: String.fromCodePoint(0x1F635),
+          over: String.fromCodePoint(0x1F4C8),
+          size: String.fromCodePoint(0x1F3CB, 0xFE0F),
+          late: String.fromCodePoint(0x1F551),
         }
         const defaultIcon = String.fromCodePoint(0x26A0, 0xFE0F)
 
@@ -192,8 +195,9 @@ export async function GET(req: NextRequest) {
         const tagLabels: Record<string, string> = {
           rvg: 'Revenge Trading', fomo: 'FOMO Entries', pnc: 'Panic Exits',
           avg: 'Averaging Down', vs: 'Vicious Cycle', fatigue: 'Decision Fatigue',
-          loss: 'Taking Losses Poorly', hope: 'Hope Trading', tilt: 'On Tilt',
-          over: 'Overtrading', hold: 'Holding Losers', cut: 'Cutting Winners Early',
+          hope: 'Hope Trading', tilt: 'On Tilt',
+          over: 'Overtrading', size: 'Oversized Position', late: 'Late Exit',
+          hold: 'Holding Losers', cut: 'Cutting Winners Early',
         }
 
         mistakeTrades = Object.entries(mistakeMap)
@@ -305,6 +309,18 @@ export async function GET(req: NextRequest) {
       }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
     }
 
+    // Count how many sessions need (re-)analysis — lets the dashboard show a prominent CTA.
+    const CURRENT_ANALYSIS_VERSION = 3
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const analysedSessions = sessions.filter((s: any) => {
+      const a = s.analysis
+      if (!a || typeof a !== 'object') return false
+      const hasTs = typeof a.analysed_at === 'string' && a.analysed_at.length > 0
+      const v = Number(a.analysed_version)
+      return hasTs && Number.isFinite(v) && v >= CURRENT_ANALYSIS_VERSION
+    })
+    const pendingAnalysisCount = sessions.length - analysedSessions.length
+
     // DQS: average across ALL analysed sessions (not just the most recent 10)
     // Each session row carries its own analysis JSONB written by the algorithmic pattern detector.
     let dqsTotal = 0
@@ -334,6 +350,48 @@ export async function GET(req: NextRequest) {
       score: Math.round(v.total / v.count),
     }))
 
+    // Aggregate the most recent analysis grade (A/B/C/D/F) and subScores.
+    let dqsGrade: string | null = null
+    const dqsSubScores: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latestAnalysedSession: any = sessions.find((s: any) => {
+      const sc = Number(s?.analysis?.dqs?.score)
+      return Number.isFinite(sc) && sc > 0
+    })
+    if (latestAnalysedSession?.analysis?.dqs?.grade) {
+      dqsGrade = String(latestAnalysedSession.analysis.dqs.grade)
+    }
+    if (dqsFactors.length > 0) {
+      for (const f of dqsFactors) dqsSubScores[f.name] = f.score
+    }
+
+    // Aggregate patterns from analysis JSONB (new excess-over-baseline costs).
+    const patternsByTag: Record<string, { label: string; count: number; cost: number }> = {}
+    let patternsTotalCost = 0
+    let patternsTotalCount = 0
+    for (const sess of sessions) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mp = (sess as any)?.analysis?.mistake_patterns
+      if (!Array.isArray(mp)) continue
+      for (const p of mp) {
+        const label = String(p?.pattern || '').trim()
+        if (!label) continue
+        const count = Number(p?.count || 0)
+        const cost = Number(p?.cost || 0)
+        if (!patternsByTag[label]) patternsByTag[label] = { label, count: 0, cost: 0 }
+        patternsByTag[label].count += count
+        patternsByTag[label].cost += Math.max(0, cost)
+        patternsTotalCount += count
+        patternsTotalCost += Math.max(0, cost)
+      }
+    }
+    const patternsByTagArr = Object.values(patternsByTag).sort((a, b) => b.cost - a.cost)
+
+    // Prefer the accurate excess-cost aggregate when available.
+    if (patternsTotalCost > 0) {
+      totalMistakeCost = patternsTotalCost
+    }
+
     // Counterfactual: if you hadn't lost money on tagged mistakes, your P&L would be better by |mistake cost|
     // Formula (per audit #12): totalPnl + Math.abs(totalMistakeCost)
     // Note: totalMistakeCost is already a positive sum of absolute losses (see the Math.abs accumulation above).
@@ -347,8 +405,12 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sessions rows carry optional dqs_score
     const disciplineScore = computeDisciplineScore(sessions as any, allTimeKPIs)
 
+    const hasMonthData = monthSessions.length > 0
+
     const responseData = {
       hasData: true,
+      hasMonthData,
+      pendingAnalysisCount,
       sessionCount: sessions.length,
       totalTrades: sessions.reduce((s, x) => s + (x.trade_count || 0), 0),
       allTime: {
@@ -421,7 +483,20 @@ export async function GET(req: NextRequest) {
       tradesByTimeDay,
       dqsScore,
       dqsFactors,
+      dqs: {
+        overall: dqsScore,
+        grade: dqsGrade,
+        subScores: dqsSubScores,
+      },
+      patterns: {
+        byTag: patternsByTagArr,
+        totalMistakeCost: patternsTotalCost,
+        totalMistakeCount: patternsTotalCount,
+      },
     }
+
+    console.log('[stats] user=%s sessions=%d analysed=%d pending=%d mistakeCost=%d patterns=%d',
+      userId, sessions.length, dqsCount, pendingAnalysisCount, totalMistakeCost, patternsByTagArr.length)
 
     statsCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + 60_000 })
     const statsResponse = NextResponse.json(responseData)

@@ -10,31 +10,37 @@ interface Factor {
 
 interface Props {
   score?: number
+  grade?: string | null
   factors?: Factor[]
+  pendingCount?: number
 }
 
 const DEFAULT_FACTORS: Factor[] = [
-  { name: "Entry Timing", score: 0 },
+  { name: "Risk Management", score: 0 },
+  { name: "Emotional Control", score: 0 },
+  { name: "Position Sizing", score: 0 },
+  { name: "Exit Discipline", score: 0 },
+  { name: "Entry Quality", score: 0 },
   { name: "Exit Timing", score: 0 },
-  { name: "Size Management", score: 0 },
-  { name: "Rule Adherence", score: 0 },
+  { name: "Rule Following", score: 0 },
 ]
 
 function getColor(v: number): string {
-  if (v >= 60) return "var(--green, #22c55e)"
-  if (v >= 40) return "var(--gold, #eab308)"
+  if (v >= 80) return "var(--green, #22c55e)"
+  if (v >= 65) return "var(--gold, #eab308)"
+  if (v >= 45) return "#f59e0b"
   return "var(--red, #ef4444)"
 }
 
 function getGrade(v: number): string {
   if (v >= 80) return "A"
-  if (v >= 60) return "B"
-  if (v >= 40) return "C"
-  if (v >= 20) return "D"
+  if (v >= 65) return "B"
+  if (v >= 45) return "C"
+  if (v >= 25) return "D"
   return "F"
 }
 
-export default function DecisionQualityScore({ score = 0, factors = DEFAULT_FACTORS }: Props) {
+export default function DecisionQualityScore({ score = 0, grade = null, factors = DEFAULT_FACTORS, pendingCount = 0 }: Props) {
   const [animated, setAnimated] = useState(0)
   const hasData = score > 0
 
@@ -62,12 +68,14 @@ export default function DecisionQualityScore({ score = 0, factors = DEFAULT_FACT
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">🎯</div>
-          <p className="text-sm" style={{ color: "var(--text2)" }}>
-            Requires AI analysis.
+          <div className="text-3xl mb-3">{pendingCount > 0 ? "⏳" : "🎯"}</div>
+          <p className="text-sm font-semibold" style={{ color: pendingCount > 0 ? "#f59e0b" : "var(--text2)" }}>
+            {pendingCount > 0 ? "Analysis pending" : "Upload sessions to get your Decision Quality Score."}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Run AI analysis on your sessions to get scored on entry timing, exit timing, position sizing, and rule adherence.
+            {pendingCount > 0
+              ? `${pendingCount} session${pendingCount === 1 ? '' : 's'} awaiting analysis — click "Run AI analysis" above to process them.`
+              : "We score every session across 7 factors including Risk Management, Emotional Control, Position Sizing, and Exit Discipline."}
           </p>
         </div>
       ) : (
@@ -101,7 +109,7 @@ export default function DecisionQualityScore({ score = 0, factors = DEFAULT_FACT
                 padding: "1px 8px", borderRadius: 4,
                 background: `${getColor(score)}22`, color: getColor(score),
               }}>
-                Grade {getGrade(score)}
+                Grade {grade || getGrade(score)}
               </div>
             </div>
           </div>

@@ -12,6 +12,7 @@ interface Props {
   counterfactualPnl?: number
   actualPnl?: number
   mistakes?: MistakeBreakdown[]
+  pendingCount?: number
 }
 
 const DEFAULT_MISTAKES: MistakeBreakdown[] = []
@@ -26,6 +27,7 @@ export default function MistakeCostCalculator({
   counterfactualPnl = 0,
   actualPnl = 0,
   mistakes = DEFAULT_MISTAKES,
+  pendingCount = 0,
 }: Props) {
   const hasData = mistakes.length > 0 && totalCost !== 0
 
@@ -46,12 +48,14 @@ export default function MistakeCostCalculator({
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">💡</div>
-          <p className="text-sm" style={{ color: "var(--text2)" }}>
-            No mistake data available yet.
+          <div className="text-3xl mb-3">{pendingCount > 0 ? "⏳" : "💡"}</div>
+          <p className="text-sm font-semibold" style={{ color: pendingCount > 0 ? "#f59e0b" : "var(--text2)" }}>
+            {pendingCount > 0 ? "Analysis pending" : "No mistake data available yet."}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            As you upload sessions, TradeSaath tags revenge trades, FOMO entries, and overtrading — then shows you their real cost.
+            {pendingCount > 0
+              ? `${pendingCount} session${pendingCount === 1 ? '' : 's'} awaiting analysis — click "Run AI analysis" above to see your mistake costs.`
+              : "As you upload sessions, TradeSaath tags revenge trades, FOMO entries, and overtrading — then shows you their real cost."}
           </p>
         </div>
       ) : (
@@ -59,7 +63,7 @@ export default function MistakeCostCalculator({
           {/* Main number */}
           <div className="rounded-lg p-4 mb-4" style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.15)" }}>
             <div className="text-xs uppercase tracking-wider mb-1" style={{ color: "var(--text2)" }}>
-              Total Learning Cost (All Time)
+              Excess Loss from Mistakes (All Time)
             </div>
             <div className="text-2xl md:text-[32px]" style={{
               fontWeight: 800, color: "var(--red, #ef4444)",
@@ -108,7 +112,7 @@ export default function MistakeCostCalculator({
               <span style={{ fontSize: 14 }}>✨</span>
               <div>
                 <div className="text-xs" style={{ color: "var(--text2)" }}>
-                  Without these mistakes, your P&L would be
+                  Without the excess from these mistakes, your P&L would be
                 </div>
                 <div className="text-sm font-bold" style={{
                   color: counterfactualPnl >= 0 ? "var(--green, #22c55e)" : "var(--red, #ef4444)",

@@ -145,22 +145,26 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     ? Math.round((profitableSessions / sessions.length) * 100)
     : 0
 
+  // Session-level averages retained for backwards compatibility only.
   const avgWinAmount = profitableSessions > 0
     ? totalWinSessionPnl / profitableSessions
     : 0
   const avgLossAmount = losingSessions > 0
     ? totalLossSessionPnl / losingSessions
     : 0
-  const riskReward = avgLossAmount > 0
-    ? Math.round((avgWinAmount / avgLossAmount) * 100) / 100
-    : 0
 
   const profitFactor = totalLossSessionPnl > 0
     ? Math.round((totalWinSessionPnl / totalLossSessionPnl) * 100) / 100
     : 0
 
+  // Per-trade averages (authoritative for R:R).
   const avgWin = winnersCount > 0 ? Math.round(perTradeWinSum / winnersCount) : 0
   const avgLoss = losersCount > 0 ? Math.round(perTradeLossSum / losersCount) : 0
+
+  // Risk:Reward is a TRADE-level ratio, not a session-level one.
+  const riskReward = avgLoss > 0
+    ? Math.round((avgWin / avgLoss) * 100) / 100
+    : 0
 
   return {
     totalPnl,
