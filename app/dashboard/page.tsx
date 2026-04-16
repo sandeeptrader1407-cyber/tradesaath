@@ -206,17 +206,38 @@ export default function DashboardPage() {
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
 
   // Build behavioral insight cards from real pattern data (no AI required).
+  // Keys cover BOTH the tagLabels names (from trade_analysis) and sessionSummarizer names (from analysis JSONB).
   const INSIGHT_META: Record<string, { icon: string; color: string }> = {
     "Revenge Trading": { icon: "⚔️", color: "var(--red)" },
+    "Revenge Trade": { icon: "⚔️", color: "var(--red)" },
     "FOMO Entries": { icon: "🔥", color: "var(--red)" },
+    "FOMO Entry": { icon: "🔥", color: "var(--red)" },
     "Panic Exits": { icon: "💨", color: "var(--gold)" },
+    "Panic Exit": { icon: "💨", color: "var(--gold)" },
     "Averaging Down": { icon: "📉", color: "var(--red)" },
     "Overtrading": { icon: "📈", color: "var(--gold)" },
     "Oversized Position": { icon: "🏋️", color: "var(--red)" },
+    "Oversized": { icon: "🏋️", color: "var(--red)" },
     "Late Exit": { icon: "🕑", color: "var(--gold)" },
     "Vicious Cycle": { icon: "🔄", color: "var(--red)" },
     "Decision Fatigue": { icon: "😵", color: "var(--gold)" },
   }
+
+  // Compute mistake data for MistakeCostCalculator.
+  // Prefer patterns.byTag (excess-over-baseline from analysis JSONB) when it has real data,
+  // otherwise fall back to mistakeTrades (raw |pnl| from trade_analysis table).
+  const patternMistakes = (stats?.patterns?.byTag || []).map(p => ({
+    type: p.label,
+    icon: INSIGHT_META[p.label]?.icon || "⚠️",
+    count: p.count,
+    cost: p.cost,
+  }))
+  const hasPatternData = patternMistakes.length > 0 && patternMistakes.some(m => m.cost > 0)
+  const mistakesForCalc = hasPatternData ? patternMistakes : (stats?.mistakeTrades || [])
+  const totalCostForCalc = hasPatternData
+    ? (stats?.patterns?.totalMistakeCost || 0)
+    : (stats?.totalMistakeCost || 0)
+
   const insights = (stats?.patterns?.byTag || []).slice(0, 4).map(p => {
     const meta = INSIGHT_META[p.label] || { icon: "⚠️", color: "var(--gold)" }
     return {
@@ -224,6 +245,16 @@ export default function DashboardPage() {
       title: p.label,
       color: meta.color,
       desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost ₹${Math.round(p.cost).toLocaleString('en-IN')}.`,
+    }
+  })
+  // If no insights from patterns, build from mistakeTrades fallback
+  const insightsForBI = insights.length > 0 ? insights : (stats?.mistakeTrades || []).slice(0, 4).map(m => {
+    const meta = INSIGHT_META[m.type] || { icon: m.icon || "⚠️", color: "var(--gold)" }
+    return {
+      icon: meta.icon,
+      title: m.type,
+      color: meta.color,
+      desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged — cost ₹${Math.round(m.cost).toLocaleString('en-IN')}.`,
     }
   })
 
@@ -439,12 +470,10 @@ export default function DashboardPage() {
                 <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
-                    totalCost={stats.patterns?.totalMistakeCost ?? stats.totalMistakeCost ?? 0}
+                    totalCost={totalCostForCalc}
                     counterfactualPnl={stats.counterfactualPnl || 0}
                     actualPnl={stats.actualAllTimePnl ?? stats.actualMonthPnl ?? 0}
-                    mistakes={(stats.patterns?.byTag || []).map(p => ({ type: p.label, icon: INSIGHT_META[p.label]?.icon || '⚠️', count: p.count, cost: p.cost })).length > 0
-                      ? (stats.patterns?.byTag || []).map(p => ({ type: p.label, icon: INSIGHT_META[p.label]?.icon || '⚠️', count: p.count, cost: p.cost }))
-                      : (stats.mistakeTrades || [])}
+                    mistakes={mistakesForCalc}
                     pendingCount={stats.pendingAnalysisCount ?? 0}
                   /></ErrorBoundary>
                   <ErrorBoundary name="DQS"><DecisionQualityScore
@@ -454,7 +483,7 @@ export default function DashboardPage() {
                     pendingCount={stats.pendingAnalysisCount ?? 0}
                   /></ErrorBoundary>
                 </div>
-                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} insights={insights} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
+                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} insights={insightsForBI} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
                 <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
               </div>
             )}
