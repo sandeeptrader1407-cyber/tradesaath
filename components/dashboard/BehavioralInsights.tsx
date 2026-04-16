@@ -10,9 +10,10 @@ interface Insight {
 interface Props {
   sessionCount: number
   insights?: Insight[]
+  pendingCount?: number
 }
 
-export default function BehavioralInsights({ sessionCount, insights }: Props) {
+export default function BehavioralInsights({ sessionCount, insights, pendingCount = 0 }: Props) {
   if (sessionCount < 3) {
     return (
       <div className="rounded-xl border p-5 md:p-8 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
@@ -26,10 +27,14 @@ export default function BehavioralInsights({ sessionCount, insights }: Props) {
   if (!insights || insights.length === 0) {
     return (
       <div className="rounded-xl border p-5 md:p-8 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-        <div className="text-3xl mb-3">🧠</div>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Behavioral Insights</h3>
+        <div className="text-3xl mb-3">{pendingCount > 0 ? "⏳" : "🧠"}</div>
+        <h3 className="text-sm font-semibold mb-2" style={{ color: pendingCount > 0 ? "#f59e0b" : "var(--text)" }}>
+          {pendingCount > 0 ? "Analysis pending" : "Behavioral Insights"}
+        </h3>
         <p className="text-xs" style={{ color: "var(--text2)" }}>
-          Run AI analysis on your sessions to unlock personalised behavioral insights from your real trading patterns.
+          {pendingCount > 0
+            ? `${pendingCount} session${pendingCount === 1 ? '' : 's'} awaiting analysis — click "Run AI analysis" above to unlock behavioral insights.`
+            : "Analyse your sessions to unlock personalised behavioral insights from your real trading patterns."}
         </p>
       </div>
     )

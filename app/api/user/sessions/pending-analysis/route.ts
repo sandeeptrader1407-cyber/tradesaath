@@ -27,16 +27,19 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Must match the CURRENT pipeline version (same constant as in analyse/session route).
+    const CURRENT_ANALYSIS_VERSION = 3
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isAnalysed = (a: any, tradeCount: number) => {
+    const isAnalysed = (a: any, _tradeCount: number) => {
       if (!a || typeof a !== 'object') return false
-      // Primary: explicit marker set by /api/analyse/session on success
-      if (typeof a.analysed_at === 'string' && a.analysed_at.length > 0) return true
-      // Fallback for older sessions: require trade_analyses covers trade_count
-      if (!Array.isArray(a.trade_analyses)) return false
-      if (a.trade_analyses.length === 0) return false
-      const expected = Math.max(1, Number(tradeCount) || 0)
-      return a.trade_analyses.length >= expected - 2
+      // Primary gate: must have analysed_at AND version >= CURRENT.
+      // If the version was reset to 0 in Supabase, old sessions must re-process.
+      const hasTimestamp = typeof a.analysed_at === 'string' && a.analysed_at.length > 0
+      const version = Number(a.analysed_version)
+      if (hasTimestamp && Number.isFinite(version) && version >= CURRENT_ANALYSIS_VERSION) return true
+      // Everything else is pending — old pipeline, partial analysis, missing fields.
+      return false
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
