@@ -76,6 +76,11 @@ export default function SessionDetail({ session }: Props) {
       case "fomo": return { bg: "rgba(255,193,7,.15)", color: "var(--gold)" }
       case "rvg": return { bg: "rgba(245,151,192,.15)", color: "#f597c0" }
       case "avg": return { bg: "rgba(240,93,108,.15)", color: "var(--red)" }
+      case "pnc": return { bg: "rgba(240,93,108,.15)", color: "var(--red)" }
+      case "vs": return { bg: "rgba(157,122,247,.15)", color: "var(--purple, #9d7af7)" }
+      case "over": return { bg: "rgba(245,166,35,.15)", color: "var(--orange, #f5a623)" }
+      case "size": return { bg: "rgba(245,166,35,.15)", color: "var(--orange, #f5a623)" }
+      case "late": return { bg: "rgba(91,141,239,.15)", color: "var(--blue, #5b8def)" }
       default: return { bg: "var(--s3)", color: "var(--text2)" }
     }
   }
