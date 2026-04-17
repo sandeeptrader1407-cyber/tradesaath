@@ -95,7 +95,8 @@ export function detectCurrency(text: string): string {
   if (t.includes('usd') || t.includes('$')) return 'USD';
   if (t.includes('eur')) return 'EUR';
   if (t.includes('gbp')) return 'GBP';
-  return 'INR';
+  if (t.includes('jpy') || t.includes('yen') || t.includes('¥')) return 'JPY';
+  return '';  // Let downstream infer from detected market
 }
 
 // Date detection

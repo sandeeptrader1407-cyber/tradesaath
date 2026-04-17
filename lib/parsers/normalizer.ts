@@ -66,7 +66,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
 
       paired.push({
         index: 0,
-        time: closingTime || '09:15',
+        time: closingTime || '',
         date: groupDate,
         symbol: buy.symbol || sell.symbol,
         side: 'BUY',
@@ -75,7 +75,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
         exit,
         pnl,
         cum_pnl: 0,
-        session: classifySession(closingTime || '09:15'),
+        session: classifySession(closingTime || ''),
         time_gap_minutes: null,
         tag: pnl >= 0 ? 'win' : 'loss',
         label: pnl >= 0 ? 'Winner' : 'Loser',
@@ -96,7 +96,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
       if (t.pnl !== undefined) {
         paired.push({
           index: 0,
-          time: t.time || '09:15',
+          time: t.time || '',
           date: dateOf(t),
           symbol: t.symbol,
           side: t.side || 'BUY',
@@ -105,7 +105,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
           exit: 0,
           pnl: t.pnl,
           cum_pnl: 0,
-          session: classifySession(t.time || '09:15'),
+          session: classifySession(t.time || ''),
           time_gap_minutes: null,
           tag: t.pnl >= 0 ? 'win' : 'loss',
           label: t.pnl >= 0 ? 'Winner' : 'Loser',
@@ -119,7 +119,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
     for (const t of rawTrades) {
       paired.push({
         index: 0,
-        time: t.time || '09:15',
+        time: t.time || '',
         date: dateOf(t),
         symbol: t.symbol,
         side: t.side || 'BUY',
@@ -128,7 +128,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
         exit: 0,
         pnl: t.pnl || 0,
         cum_pnl: 0,
-        session: classifySession(t.time || '09:15'),
+        session: classifySession(t.time || ''),
         time_gap_minutes: null,
         tag: (t.pnl || 0) >= 0 ? 'win' : 'loss',
         label: (t.pnl || 0) >= 0 ? 'Winner' : 'Loser',

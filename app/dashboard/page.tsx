@@ -74,6 +74,7 @@ interface DashStats {
   actualMonthPnl?: number
   actualAllTimePnl?: number
   tradesByTimeDay?: { entry_time: string; pnl: number }[]
+  hasRealTimeData?: boolean
   bestTimeSlot?: { slot: string; winRate: number; trades: number } | null
   maxDailyTrades?: number
   revengeTradeCount?: number
@@ -461,7 +462,7 @@ export default function DashboardPage() {
                 <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
                 <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} hasMonthData={stats.hasMonthData ?? (stats.month.sessions > 0)} allTime={stats.allTime} bestTimeSlot={stats.bestTimeSlot} /></ErrorBoundary>
                 <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
-                <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} /></ErrorBoundary>
+                <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} hasRealTimeData={stats.hasRealTimeData ?? true} /></ErrorBoundary>
                 <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>
                 <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={stats.revengeTradeCount ?? 0} maxDailyTrades={stats.maxDailyTrades ?? 0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

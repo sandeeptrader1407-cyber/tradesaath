@@ -242,7 +242,10 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
 
   if (n === 0) return emptyResult()
 
-  const marketOpen = opts.marketOpenMinutes ?? (9 * 60 + 15)
+  // Compute session start from actual trade data instead of hardcoding market open
+  const validMins = trades.map(t => timeToMinutes(t.time ?? t.entry_time)).filter((m): m is number => m !== null)
+  const sessionStartMinutes = validMins.length > 0 ? Math.min(...validMins) : (9 * 60 + 15)
+  // opts.marketOpenMinutes available for future per-market override
   const pnls = trades.map(t => toNum(t.pnl))
   const qtys = trades.map(t => toNum(t.qty ?? t.quantity))
   const mins = trades.map(t => timeToMinutes(t.time ?? t.entry_time))
@@ -370,8 +373,8 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
     /* ── FOMO — 5 signals, threshold 0.55 ── */
     {
       let fomoScore = 0
-      // S1: Entry in first 3 min of market open (w=0.25)
-      if (m !== null && m >= marketOpen && m <= marketOpen + 3) fomoScore += 0.25
+      // S1: Entry in first 3 min of session (w=0.25)
+      if (m !== null && m >= sessionStartMinutes && m <= sessionStartMinutes + 3) fomoScore += 0.25
       // S2: Oversized vs session average (w=0.25)
       if (sessionAvgQty > 0 && qty > sessionAvgQty * 1.8) fomoScore += 0.25
       // S3: Chasing after a big win (w=0.20)
@@ -382,12 +385,12 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
       if (pnl < 0 && sessionAvgLoss > 0 && Math.abs(pnl) > sessionAvgLoss * 1.5) fomoScore += 0.15
 
       if (fomoScore >= 0.55) {
-        const earlyOpen = m !== null && m >= marketOpen && m <= marketOpen + 3
+        const earlyOpen = m !== null && m >= sessionStartMinutes && m <= sessionStartMinutes + 3
         const conf = scoreToConfidence(fomoScore)
         candidates[i].push({
           tag: 'fomo',
           reason: earlyOpen
-            ? `Entered at ${t.time} — within the first 3 min of the open (score: ${fomoScore.toFixed(2)})`
+            ? `Entered at ${t.time} — within the first 3 min of the session (score: ${fomoScore.toFixed(2)})`
             : prevWasBigWin
               ? `Chased momentum right after a big win of ${fmtINR(pnls[i - 1] || 0)} (score: ${fomoScore.toFixed(2)})`
               : `Quantity ${qty} is ${(qty / Math.max(1, sessionAvgQty)).toFixed(1)}× your session average (score: ${fomoScore.toFixed(2)})`,
@@ -510,7 +513,8 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
     }
 
     // DISCIPLINED (only relevant when no mistake candidates exist — scored as 0)
-    const goodEntryWindow = m !== null && m >= marketOpen + 5 && m <= marketOpen + 45
+    // Session-relative: entered 3-45 min into session (works for any market)
+    const goodEntryWindow = m !== null && m >= sessionStartMinutes + 3 && m <= sessionStartMinutes + 45
     const reasonableSize = qty > 0 && qty <= Math.max(1, sessionAvgQty * 1.2)
     if (goodEntryWindow && reasonableSize) {
       candidates[i].push({
@@ -674,7 +678,7 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
   const exitDiscipline = clamp(((n - badExits) / n) * 100)
 
   // Entry Quality (10%): share of entries in high-probability window
-  const goodEntries = mins.reduce<number>((acc, m) => acc + ((m !== null && m >= marketOpen + 5 && m <= marketOpen + 45) ? 1 : 0), 0)
+  const goodEntries = mins.reduce<number>((acc, m) => acc + ((m !== null && m >= sessionStartMinutes + 3 && m <= sessionStartMinutes + 45) ? 1 : 0), 0)
   const entryQuality = clamp((goodEntries / n) * 100)
 
   // Exit Timing (10%): share of non-panic, non-late exits
@@ -717,7 +721,7 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
 
   // Coaching points
   const coachingPoints: string[] = []
-  if (patterns.revengeTrades > 0) coachingPoints.push(`${patterns.revengeTrades} revenge trade${patterns.revengeTrades > 1 ? 's' : ''} cost you ${fmtINR(revengeCost)} in excess losses — walk away for 15 min after any loss > ₹500.`)
+  if (patterns.revengeTrades > 0) coachingPoints.push(`${patterns.revengeTrades} revenge trade${patterns.revengeTrades > 1 ? 's' : ''} cost you ${fmtINR(revengeCost)} in excess losses — walk away for 15 min after any loss exceeding your session average.`)
   if (overtradingDetected) coachingPoints.push(`You took ${n} trades today — ${Math.round((n / Math.max(1, avgDailyTrades) - 1) * 100)}% above your norm. Cap daily trades to ${Math.round(avgDailyTrades * 1.2)}.`)
   if (patterns.panicExits > 2) coachingPoints.push(`${patterns.panicExits} panic exits bled ${fmtINR(panicCost)} in excess. Hold every trade at least 2 min unless structure invalidates.`)
   if (patterns.averagingDown > 0) coachingPoints.push(`Averaging-down cost ${fmtINR(averagingCost)} beyond baseline losses. Add ONLY when the original thesis strengthens.`)

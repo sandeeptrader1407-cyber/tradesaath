@@ -9,6 +9,7 @@ import {
   filterByPeriod,
   computeDisciplineScore,
 } from '@/lib/kpi/computeKPIs'
+import { marketToCurrency } from '@/lib/utils/currency'
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,6 +48,15 @@ export async function GET(req: NextRequest) {
         totalTrades: 0,
       })
     }
+
+    // Detect dominant market/currency from sessions
+    const marketCounts: Record<string, number> = {}
+    for (const s of sessions) {
+      const m = (s.detected_market || 'Unknown').toUpperCase()
+      marketCounts[m] = (marketCounts[m] || 0) + 1
+    }
+    const dominantMarket = Object.entries(marketCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown'
+    const currency = marketToCurrency(dominantMarket)
 
     // SINGLE SOURCE OF TRUTH: every period-level metric comes from computeAllPeriodKPIs.
     // No per-period math lives in this file anymore.
@@ -296,14 +306,26 @@ export async function GET(req: NextRequest) {
       }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
     }
 
+    // ── hasRealTimeData: detect when all trade times are identical (position report artifacts) ──
+    const heatmapTimeSet = new Set(tradesByTimeDay.map(t => {
+      const tm = t.entry_time.match(/T(\d{2}):(\d{2})/)
+      return tm ? tm[1] + ':' + tm[2] : ''
+    }))
+    const hasRealTimeData = heatmapTimeSet.size > 1
+
     // ── Best Time Slot: slot with highest win rate (minimum 5 trades) ──
     let bestTimeSlot: { slot: string; winRate: number; trades: number } | null = null
     {
-      const HEATMAP_SLOTS = [
-        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-        '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-        '15:00', '15:30',
-      ]
+      // Discover slots from actual data instead of hardcoding
+      const slotSet = new Set<string>()
+      for (const t of tradesByTimeDay) {
+        const tm = t.entry_time.match(/T(\d{2}):(\d{2})/)
+        if (tm) {
+          const m = Number(tm[2])
+          slotSet.add(tm[1] + ':' + (m < 30 ? '00' : '30'))
+        }
+      }
+      const HEATMAP_SLOTS = Array.from(slotSet).sort()
       const slotStats: Record<string, { wins: number; total: number }> = {}
       for (const slot of HEATMAP_SLOTS) slotStats[slot] = { wins: 0, total: 0 }
 
@@ -312,8 +334,7 @@ export async function GET(req: NextRequest) {
         if (!timeMatch) continue
         const h = Number(timeMatch[1])
         const m = Number(timeMatch[2])
-        if (h < 9 || h > 15) continue
-        if (h === 15 && m > 30) continue
+
         const slotMin = m < 30 ? 0 : 30
         const slotKey = `${String(h).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`
         if (!slotStats[slotKey]) continue
@@ -556,6 +577,9 @@ export async function GET(req: NextRequest) {
       actualAllTimePnl,
       actualMonthPnl: actualAllTimePnl,
       tradesByTimeDay,
+      hasRealTimeData,
+      currency,
+      detectedMarket: dominantMarket,
       bestTimeSlot,
       dqsScore,
       dqsFactors,
