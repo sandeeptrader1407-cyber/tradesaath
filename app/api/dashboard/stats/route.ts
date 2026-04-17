@@ -35,9 +35,10 @@ export async function GET(req: NextRequest) {
 
     const { data: sessions } = await supabaseAdmin
       .from('trade_sessions')
-      .select('*')
+      .select('id, created_at, trade_date, detected_market, trade_count, net_pnl, win_count, loss_count, win_rate, profit_factor, trades, analysis')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+      .limit(500)
 
     if (!sessions || sessions.length === 0) {
       return NextResponse.json({

@@ -43,8 +43,7 @@ export async function POST(request: Request) {
     })
 
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('analyse/session error:', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    console.error('analyse/session error:', err)
+    return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 })
   }
 }

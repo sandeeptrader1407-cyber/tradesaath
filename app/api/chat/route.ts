@@ -169,8 +169,9 @@ ${journeyContext}`
     const messages: { role: 'user' | 'assistant'; content: string }[] = []
     if (history && Array.isArray(history)) {
       for (const h of history.slice(-8)) {
-        if (h.role === 'user' || h.role === 'assistant') {
-          messages.push({ role: h.role, content: h.content })
+        if ((h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string') {
+          // Cap each history message to prevent token abuse
+          messages.push({ role: h.role, content: h.content.slice(0, 2000) })
         }
       }
     }
