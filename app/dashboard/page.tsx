@@ -75,6 +75,8 @@ interface DashStats {
   actualAllTimePnl?: number
   tradesByTimeDay?: { entry_time: string; pnl: number }[]
   bestTimeSlot?: { slot: string; winRate: number; trades: number } | null
+  maxDailyTrades?: number
+  revengeTradeCount?: number
   dqsScore?: number
   dqsFactors?: { name: string; score: number }[]
   hasMonthData?: boolean
@@ -177,16 +179,9 @@ export default function DashboardPage() {
   }
 
   // Single source of truth: stats.dqs.overall -> dqsScore -> allTime discipline -> 0.
-  const score = stats?.dqs?.overall ?? stats?.dqsScore ?? stats?.allTime?.disciplineScore ?? (stats?.hasData ? 45 : 0)
-  const factors = stats?.dqsFactors?.length ? stats.dqsFactors.map(f => ({ name: f.name, value: f.score })) : (stats?.hasData ? [
-    { name: "Risk Management", value: 50 },
-    { name: "Emotional Control", value: 50 },
-    { name: "Position Sizing", value: 50 },
-    { name: "Exit Discipline", value: 50 },
-    { name: "Entry Quality", value: 50 },
-    { name: "Exit Timing", value: 50 },
-    { name: "Rule Following", value: 50 },
-  ] : [])
+  // Never show a fake number — 0 triggers the "no data" empty state in widgets.
+  const score = stats?.dqs?.overall ?? stats?.dqsScore ?? stats?.allTime?.disciplineScore ?? 0
+  const factors = stats?.dqsFactors?.length ? stats.dqsFactors.map(f => ({ name: f.name, value: f.score })) : []
 
   const TAG_LABELS: Record<string, string> = {
     rvg: "Revenge Trading",
@@ -468,7 +463,7 @@ export default function DashboardPage() {
                 <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
                 <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} /></ErrorBoundary>
                 <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>
-                <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={0} maxDailyTrades={0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
+                <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={stats.revengeTradeCount ?? 0} maxDailyTrades={stats.maxDailyTrades ?? 0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
                     totalCost={totalCostForCalc}

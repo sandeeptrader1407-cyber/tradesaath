@@ -449,6 +449,16 @@ export async function GET(req: NextRequest) {
 
     const hasMonthData = monthSessions.length > 0
 
+    // Max trades in a single session (for GoalTracking "Max Daily Trades")
+    const maxDailyTrades = monthSessions.length > 0
+      ? Math.max(...monthSessions.map(s => Number(s.trade_count || 0)))
+      : 0
+
+    // Count of revenge trades from pattern data (for GoalTracking)
+    const revengeTradeCount = patternsByTagArr
+      .filter(p => /revenge/i.test(p.label))
+      .reduce((s, p) => s + p.count, 0)
+
     const responseData = {
       hasData: true,
       hasMonthData,
@@ -505,6 +515,8 @@ export async function GET(req: NextRequest) {
         pnl: todayPnl,
         sessions: todaySessions.length,
       },
+      maxDailyTrades,
+      revengeTradeCount,
       equityCurve,
       streaks: {
         current: currentStreak,
