@@ -251,7 +251,13 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        if (jsonbHeatmap.length >= 5) {
+        // Check if times have real variation (not all identical like "09:15" from position reports)
+        const uniqueSlots = new Set(jsonbHeatmap.map(t => {
+          const m = t.entry_time.match(/T(\d{2}):(\d{2})/)
+          return m ? `${m[1]}:${m[2]}` : ''
+        }))
+        const hasTimeVariation = uniqueSlots.size > 1
+        if (jsonbHeatmap.length >= 5 && hasTimeVariation) {
           tradesByTimeDay = jsonbHeatmap
         } else {
           // Source 2: trade_analysis rows
@@ -263,7 +269,11 @@ export async function GET(req: NextRequest) {
             })
             .filter((t): t is { entry_time: string; pnl: number } => t !== null)
 
-          if (taWithTime.length >= 5) {
+          const taUniqueSlots = new Set(taWithTime.map(t => {
+            const m = t.entry_time.match(/T(\d{2}):(\d{2})/)
+            return m ? `${m[1]}:${m[2]}` : ''
+          }))
+          if (taWithTime.length >= 5 && taUniqueSlots.size > 1) {
             tradesByTimeDay = taWithTime
           }
         }
