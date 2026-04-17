@@ -1,42 +1,61 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const now = new Date()
   return [
     {
       url: 'https://tradesaath.com/',
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
       priority: 1.0,
     },
     {
+      url: 'https://tradesaath.com/faq',
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
+      url: 'https://tradesaath.com/glossary',
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
       url: 'https://tradesaath.com/pricing',
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
-      url: 'https://tradesaath.com/upload',
-      lastModified: new Date(),
+      url: 'https://tradesaath.com/sign-in',
+      lastModified: now,
       changeFrequency: 'monthly',
-      priority: 0.7,
+      priority: 0.5,
+    },
+    {
+      url: 'https://tradesaath.com/sign-up',
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
       url: 'https://tradesaath.com/privacy',
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
       url: 'https://tradesaath.com/terms',
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
       url: 'https://tradesaath.com/refund',
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
   ]
 }

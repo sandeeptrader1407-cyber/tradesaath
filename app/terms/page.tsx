@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Terms of Service — TradeSaath',
-  description: 'Terms and conditions for using the TradeSaath platform.',
+  description:
+    'TradeSaath terms of service. Not financial advice. SEBI disclaimer. AI-powered trading psychology analysis platform usage terms.',
+  alternates: { canonical: 'https://tradesaath.com/terms' },
 }
 
 export default function TermsPage() {

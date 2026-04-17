@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — TradeSaath',
-  description: 'How TradeSaath collects, uses, and protects your personal data.',
+  description:
+    'TradeSaath privacy policy. How we handle your trading data under India’s DPDP Act 2023. Data encryption, retention, and your rights.',
+  alternates: { canonical: 'https://tradesaath.com/privacy' },
 }
 
 export default function PrivacyPage() {

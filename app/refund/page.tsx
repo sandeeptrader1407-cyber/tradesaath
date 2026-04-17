@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Refund Policy — TradeSaath',
-  description: 'TradeSaath cancellation and refund policy for all plans.',
+  title: 'Refund & Cancellation Policy — TradeSaath',
+  description:
+    'TradeSaath refund policy. Cancel anytime. Pro-rated refunds within 7 days for yearly plans. UPI, card, and net banking refund timelines.',
+  alternates: { canonical: 'https://tradesaath.com/refund' },
 }
 
 export default function RefundPage() {
