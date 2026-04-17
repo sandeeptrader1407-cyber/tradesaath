@@ -19,6 +19,7 @@
     "razorpay": "^2.9.6",
     "react": "^18",
     "react-dom": "^18",
+    "resend": "^4.8.0",
     "svix": "^1.88.0",
     "tesseract.js": "^7.0.0",
     "unpdf": "^1.4.0",

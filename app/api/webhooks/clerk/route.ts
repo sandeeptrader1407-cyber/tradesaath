@@ -2,6 +2,8 @@ import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { createClient } from '@supabase/supabase-js'
+import { sendEmail } from '@/lib/email'
+import { welcomeEmailHtml, welcomeEmailText } from '@/emails/welcome'
 
 // ─── Supabase admin client (bypasses RLS via service role key) ───────────────
 function getSupabaseAdmin() {
@@ -113,5 +115,17 @@ export async function POST(req: Request) {
   }
 
   console.log(`Upserted Supabase user for Clerk ID: ${clerkId}`)
+
+  // Fire-and-forget welcome email (only on fresh creation, not duplicate update)
+  if (primaryEmail) {
+    const displayName = first_name || primaryEmail.split('@')[0]
+    sendEmail({
+      to: primaryEmail,
+      subject: `Welcome to TradeSaath, ${displayName}!`,
+      html: welcomeEmailHtml(displayName),
+      text: welcomeEmailText(displayName),
+    }).catch(err => console.error('[WELCOME_EMAIL_FAILED]', err))
+  }
+
   return NextResponse.json({ message: 'User created' }, { status: 201 })
 }
