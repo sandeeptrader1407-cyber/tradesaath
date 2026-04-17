@@ -39,10 +39,12 @@ type ClerkWebhookEvent = ClerkUserCreatedEvent | { type: string; data: unknown }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
+  console.log('[CLERK_WEBHOOK] Received request')
+
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET
 
   if (!webhookSecret) {
-    console.error('CLERK_WEBHOOK_SECRET is not set')
+    console.error('[CLERK_WEBHOOK] CLERK_WEBHOOK_SECRET is not set')
     return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
   }
 
@@ -53,6 +55,7 @@ export async function POST(req: Request) {
   const svixSignature = headerPayload.get('svix-signature')
 
   if (!svixId || !svixTimestamp || !svixSignature) {
+    console.error('[CLERK_WEBHOOK] Missing svix headers:', { svixId: !!svixId, svixTimestamp: !!svixTimestamp, svixSignature: !!svixSignature })
     return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 })
   }
 
@@ -67,12 +70,15 @@ export async function POST(req: Request) {
       'svix-signature': svixSignature,
     }) as ClerkWebhookEvent
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    console.error('[CLERK_WEBHOOK] Signature verification failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  console.log('[CLERK_WEBHOOK] Received event:', event.type)
+
   // Only handle user.created — ignore all other event types
   if (event.type !== 'user.created') {
+    console.log('[CLERK_WEBHOOK] Ignoring event type:', event.type)
     return NextResponse.json({ message: 'Event ignored' }, { status: 200 })
   }
 
@@ -96,35 +102,43 @@ export async function POST(req: Request) {
   if (error && error.code === '23505') {
     // Duplicate key — user already exists (Clerk retry or payment-verify created them first)
     // Update name/email but DON'T overwrite their plan
+    console.log(`[CLERK_WEBHOOK] Duplicate user ${clerkId}, updating name/email only (no welcome email)`)
     const { error: updateErr } = await supabase
       .from('users')
       .update({ email: primaryEmail, name })
       .eq('clerk_id', clerkId)
 
     if (updateErr) {
-      console.error('Supabase update on duplicate error:', updateErr.message)
+      console.error('[CLERK_WEBHOOK] Supabase update on duplicate error:', updateErr.message)
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
-    console.log(`Updated existing Supabase user for Clerk ID: ${clerkId} (duplicate handled)`)
     return NextResponse.json({ message: 'User updated' }, { status: 200 })
   }
 
   if (error) {
-    console.error('Supabase insert error:', error.message)
+    console.error('[CLERK_WEBHOOK] Supabase insert error:', error.message)
     return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }
 
-  console.log(`Upserted Supabase user for Clerk ID: ${clerkId}`)
+  console.log(`[CLERK_WEBHOOK] Created Supabase user for Clerk ID: ${clerkId}`)
 
   // Fire-and-forget welcome email (only on fresh creation, not duplicate update)
   if (primaryEmail) {
     const displayName = first_name || primaryEmail.split('@')[0]
-    sendEmail({
-      to: primaryEmail,
-      subject: `Welcome to TradeSaath, ${displayName}!`,
-      html: welcomeEmailHtml(displayName),
-      text: welcomeEmailText(displayName),
-    }).catch(err => console.error('[WELCOME_EMAIL_FAILED]', err))
+    console.log(`[CLERK_WEBHOOK] Sending welcome email to: ${primaryEmail} (name: ${displayName})`)
+    try {
+      const emailResult = await sendEmail({
+        to: primaryEmail,
+        subject: `Welcome to TradeSaath, ${displayName}!`,
+        html: welcomeEmailHtml(displayName),
+        text: welcomeEmailText(displayName),
+      })
+      console.log(`[CLERK_WEBHOOK] Welcome email result: ${emailResult ? 'SUCCESS' : 'FAILED'}`)
+    } catch (err) {
+      console.error('[CLERK_WEBHOOK] Welcome email error:', err)
+    }
+  } else {
+    console.warn('[CLERK_WEBHOOK] No primary email found, skipping welcome email')
   }
 
   return NextResponse.json({ message: 'User created' }, { status: 201 })
