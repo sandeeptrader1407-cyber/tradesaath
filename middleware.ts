@@ -6,6 +6,8 @@ const isPublicRoute = createRouteMatcher([
   '/upload',
   '/results',
   '/pricing',
+  '/faq',
+  '/glossary',
   '/privacy',
   '/terms',
   '/refund',
@@ -17,6 +19,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/health',
   '/api/payments/(.*)',
   '/api/webhooks/(.*)',
+  '/api/og',
   '/api/test-email',
 ])
 
