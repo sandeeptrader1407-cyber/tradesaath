@@ -72,6 +72,19 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
       return { success: false, tradesAnalysed: 0, error: 'No trades on this session' }
     }
 
+    /* 2b. Sanity check: all trades should be from the same date */
+    const tradeDates = new Set(
+      allTrades
+        .map((t: any) => (t.trade_date || t.date || '').substring(0, 10))
+        .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    )
+    if (tradeDates.size > 1) {
+      console.warn(
+        `[ANALYSER] Session ${sessionId} has trades from ${tradeDates.size} dates: ${Array.from(tradeDates).join(', ')}. ` +
+        `Sessions should contain one day each. Proceeding with analysis.`
+      )
+    }
+
     /* 3. Version gate */
     if (!force) {
       const existing: any = (session.analysis && typeof session.analysis === 'object') ? session.analysis : null

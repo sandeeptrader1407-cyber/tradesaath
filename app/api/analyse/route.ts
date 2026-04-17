@@ -11,6 +11,7 @@ import { getOrCreateAnonId } from '@/lib/anonId';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 import { detectPatterns } from '@/lib/analysis/patternDetector';
 import { buildAnalysisJSON, generateAICoaching } from '@/lib/analysis/sessionSummarizer';
+import { createBatch } from '@/lib/analysis/analysisQueue';
 import { sendEmail } from '@/lib/email';
 import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisComplete';
 import { clerkClient } from '@clerk/nextjs/server';
@@ -282,6 +283,7 @@ async function saveSessionsByDay({
   // --- 3. Multi-day: save each date group as its own session ---
   console.log(`Multi-day upload detected: ${dateGroups.length} trading days`)
   let firstSessionId: string | undefined
+  const savedSessionIds: string[] = []
   const tradeAnalyses: any[] = analysis?.trade_analyses || []
 
   for (const [dateKey, group] of dateGroups) {
@@ -294,11 +296,17 @@ async function saveSessionsByDay({
       return ai ? { ...ai, trade_index: newIdx } : undefined
     }).filter(Boolean)
 
-    // Build per-day analysis: keep session-level fields, replace trade_analyses
-    const dayAnalysis = analysis ? {
-      ...analysis,
-      trade_analyses: dayAnalyses,
-    } : undefined
+    // Recompute per-day analysis using code pattern detector on THIS day's trades only
+    const dayDetection = detectPatterns(dayTrades)
+    const dayAnalysis = buildAnalysisJSON(
+      { trades: dayTrades, trade_date: dateKey !== 'unknown' ? dateKey : metadata?.trade_date || '' },
+      dayDetection,
+      undefined // skip AI coaching for multi-day; batch analyser will handle it
+    )
+    // Override trade_analyses with the remapped ones (preserving original tag assignments)
+    if (dayAnalyses.length > 0) {
+      dayAnalysis.trade_analyses = dayAnalyses
+    }
 
     const dayMetadata = {
       ...metadata,
@@ -311,6 +319,7 @@ async function saveSessionsByDay({
     })
     const sid = saved?.id
     if (!firstSessionId) firstSessionId = sid
+    if (sid) savedSessionIds.push(sid)
 
     if (sid && dayAnalyses.length > 0) {
       const merged = dayTrades.map((t: any, i: number) => {
@@ -335,6 +344,17 @@ async function saveSessionsByDay({
         sessionId: firstSessionId, brokerDetected: metadata?.detected_broker || 'Unknown',
         tradesCount: trades.length,
       }).catch(err => console.error('Background file save error:', err))
+    }
+  }
+
+  // Auto-trigger batch re-analysis for multi-day uploads (fire-and-forget).
+  if (userId && savedSessionIds.length > 1) {
+    try {
+      const batchId = `multiday_${userId}_${Date.now()}`
+      createBatch(batchId, userId, savedSessionIds)
+      console.log(`[MULTI_DAY] Auto-queued ${savedSessionIds.length} sessions for batch re-analysis (${batchId})`)
+    } catch (batchErr) {
+      console.error('[MULTI_DAY] Auto-batch queue failed (non-blocking):', batchErr)
     }
   }
 
