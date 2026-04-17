@@ -340,8 +340,22 @@ export default function CoachPage() {
             'ONE SETUP AT A TIME',
             'NO ENTRIES AFTER 14:30',
           ]
+          // Pull AI-generated rules from V2 (coaching_points) and V1 (rulesForNextSession)
+          const aiRules: string[] = []
+          for (const s of sessions) {
+            const a = s.analysis
+            if (!a) continue
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const points = (a as any).coaching_points || (a as any).rules_for_next_session || (a as any).rulesForNextSession
+            if (Array.isArray(points)) {
+              for (const p of points) {
+                const text = typeof p === 'string' ? p : (p?.text || p?.rule || '')
+                if (text && typeof text === 'string') aiRules.push(text.toUpperCase().trim())
+              }
+            }
+          }
           const seen = new Set<string>()
-          const merged = [...DEFAULT_RULES].filter(r => {
+          const merged = [...aiRules, ...DEFAULT_RULES].filter(r => {
             if (seen.has(r)) return false
             seen.add(r); return true
           }).slice(0, 8)

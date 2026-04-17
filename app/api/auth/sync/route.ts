@@ -1,26 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { syncUser } from '@/lib/supabase'
 import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
 export async function POST(req: NextRequest) {
   try {
-    const { clerkId, email, name } = await req.json()
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
 
-    if (!clerkId || !email) {
+    const { email, name } = await req.json()
+
+    if (!email) {
       return NextResponse.json(
-        { error: 'clerkId and email are required' },
+        { error: 'email is required' },
         { status: 400 }
       )
     }
 
-    const user = await syncUser(clerkId, email, name || '')
+    // Always use the server-verified userId, never trust client-provided clerkId
+    const user = await syncUser(userId, email, name || '')
 
     // Migrate anonymous data if anon cookie exists
     const anonId = req.cookies.get('tradesaath_anon_id')?.value
     let migrationResult = null
     if (anonId) {
       try {
-        migrationResult = await migrateAnonToUser(anonId, clerkId)
+        migrationResult = await migrateAnonToUser(anonId, userId)
       } catch (migErr) {
         console.error('Anon migration failed (non-blocking):', migErr)
       }
@@ -40,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     return response
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Sync failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Auth sync error:', err)
+    return NextResponse.json({ error: 'Sync failed' }, { status: 500 })
   }
 }

@@ -24,7 +24,8 @@ export async function GET() {
       .limit(500)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('Pending analysis query error:', error.message)
+      return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 })
     }
 
     // Must match the CURRENT pipeline version (same constant as in analyse/session route).
@@ -61,7 +62,7 @@ export async function GET() {
       pendingCount: pending.length,
     })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    console.error('Pending analysis error:', err)
+    return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 })
   }
 }
