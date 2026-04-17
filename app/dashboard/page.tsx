@@ -74,6 +74,7 @@ interface DashStats {
   actualMonthPnl?: number
   actualAllTimePnl?: number
   tradesByTimeDay?: { entry_time: string; pnl: number }[]
+  bestTimeSlot?: { slot: string; winRate: number; trades: number } | null
   dqsScore?: number
   dqsFactors?: { name: string; score: number }[]
   hasMonthData?: boolean
@@ -463,7 +464,7 @@ export default function DashboardPage() {
             {showDetailed && (
               <div className="flex flex-col gap-5">
                 <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
-                <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} hasMonthData={stats.hasMonthData ?? (stats.month.sessions > 0)} allTime={stats.allTime} /></ErrorBoundary>
+                <ErrorBoundary name="PerformanceKPIs"><PerformanceKPIs month={stats.month} score={score} hasMonthData={stats.hasMonthData ?? (stats.month.sessions > 0)} allTime={stats.allTime} bestTimeSlot={stats.bestTimeSlot} /></ErrorBoundary>
                 <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
                 <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} /></ErrorBoundary>
                 <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>

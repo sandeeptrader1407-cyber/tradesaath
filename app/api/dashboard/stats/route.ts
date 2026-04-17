@@ -285,6 +285,42 @@ export async function GET(req: NextRequest) {
       }).filter((t): t is { entry_time: string; pnl: number } => t !== null)
     }
 
+    // ── Best Time Slot: slot with highest win rate (minimum 5 trades) ──
+    let bestTimeSlot: { slot: string; winRate: number; trades: number } | null = null
+    {
+      const HEATMAP_SLOTS = [
+        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+        '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+        '15:00', '15:30',
+      ]
+      const slotStats: Record<string, { wins: number; total: number }> = {}
+      for (const slot of HEATMAP_SLOTS) slotStats[slot] = { wins: 0, total: 0 }
+
+      for (const t of tradesByTimeDay) {
+        const timeMatch = t.entry_time.match(/T(\d{1,2}):(\d{2})/)
+        if (!timeMatch) continue
+        const h = Number(timeMatch[1])
+        const m = Number(timeMatch[2])
+        if (h < 9 || h > 15) continue
+        if (h === 15 && m > 30) continue
+        const slotMin = m < 30 ? 0 : 30
+        const slotKey = `${String(h).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`
+        if (!slotStats[slotKey]) continue
+        slotStats[slotKey].total++
+        if (t.pnl > 0) slotStats[slotKey].wins++
+      }
+
+      let bestWR = -1
+      for (const [slot, s] of Object.entries(slotStats)) {
+        if (s.total < 5) continue
+        const wr = (s.wins / s.total) * 100
+        if (wr > bestWR) {
+          bestWR = wr
+          bestTimeSlot = { slot, winRate: Math.round(wr), trades: s.total }
+        }
+      }
+    }
+
     // Count how many sessions need (re-)analysis — lets the dashboard show a prominent CTA.
     const CURRENT_ANALYSIS_VERSION = 4
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -497,6 +533,7 @@ export async function GET(req: NextRequest) {
       actualAllTimePnl,
       actualMonthPnl: actualAllTimePnl,
       tradesByTimeDay,
+      bestTimeSlot,
       dqsScore,
       dqsFactors,
       dqs: {
