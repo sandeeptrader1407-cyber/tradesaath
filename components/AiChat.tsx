@@ -76,25 +76,40 @@ export default function AiChat() {
         const dqsScores = sessions.map((s: any) => s.dqs_score || 0).filter((v: number) => v > 0)
         const avgDqs = dqsScores.length > 0 ? dqsScores.reduce((a: number, b: number) => a + b, 0) / dqsScores.length : 0
 
-        // Collect patterns across ALL sessions
+        // Collect patterns across ALL sessions (V2: trade_analyses, V1 fallback: perTrade)
         const patterns: Record<string, number> = {}
         for (const sess of sessions) {
-          const analysis = sess.analysis as { perTrade?: { tag: string }[] } | null
-          if (analysis?.perTrade) {
-            for (const pt of analysis.perTrade) {
-              patterns[pt.tag] = (patterns[pt.tag] || 0) + 1
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const analysis = sess.analysis as any
+          if (!analysis) continue
+          // V2 format: trade_analyses array with per-trade tags
+          const tradeAnalyses = analysis.trade_analyses || []
+          if (tradeAnalyses.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            for (const ta of tradeAnalyses as any[]) {
+              if (ta.tag && ta.tag !== 'win') patterns[ta.tag] = (patterns[ta.tag] || 0) + 1
+            }
+          } else if (analysis.perTrade) {
+            // V1 fallback
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            for (const pt of analysis.perTrade as any[]) {
+              if (pt.tag && pt.tag !== 'win') patterns[pt.tag] = (patterns[pt.tag] || 0) + 1
             }
           }
+        }
+        const TAG_LABELS: Record<string, string> = {
+          rvg: 'Revenge', fomo: 'FOMO', pnc: 'Panic', avg: 'Averaging',
+          vs: 'Vicious Cycle', over: 'Overtrading', size: 'Oversized', late: 'Late Exit',
         }
         const patternEntries = Object.entries(patterns).sort((a, b) => b[1] - a[1])
         setPatternCount(patternEntries.length)
         setMemoryStats({
           pnl: kpis.totalPnl,
           avgDqs: Math.round(avgDqs),
-          topPattern: patternEntries[0]?.[0] || null,
+          topPattern: patternEntries[0] ? (TAG_LABELS[patternEntries[0][0]] || patternEntries[0][0]) : null,
         })
 
-        const ctx = `All ${sessions.length} sessions (all-time): Gross P&L \u20B9${kpis.totalPnl.toLocaleString('en-IN')}, WR ${kpis.winRate}%, ${kpis.totalTrades} trades, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${tag}(${count}x)`).join(', ')}.`
+        const ctx = `All ${sessions.length} sessions (all-time): Gross P&L \u20B9${kpis.totalPnl.toLocaleString('en-IN')}, WR ${kpis.winRate}%, ${kpis.totalTrades} trades, Avg DQS ${Math.round(avgDqs)}/100. Top patterns: ${patternEntries.slice(0, 4).map(([tag, count]) => `${TAG_LABELS[tag] || tag}(${count}x)`).join(', ')}.`
         setTradeContext(ctx)
       })
       .catch(() => { /* silently fail */ })

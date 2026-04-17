@@ -102,6 +102,33 @@ export async function POST(req: NextRequest) {
         })))
       : null
 
+    // Collect V2 pattern data across all sessions
+    const tagCounts: Record<string, number> = {}
+    const tagCosts: Record<string, number> = {}
+    const dqsScores: number[] = []
+    for (const s of (sessions || [])) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const analysis = s.analysis as any
+      if (!analysis) continue
+      const dqs = Number(analysis?.dqs?.score)
+      if (Number.isFinite(dqs) && dqs > 0) dqsScores.push(dqs)
+      // V2 trade_analyses
+      if (analysis.trade_analyses) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const ta of analysis.trade_analyses as any[]) {
+          if (ta.tag && ta.tag !== 'win') tagCounts[ta.tag] = (tagCounts[ta.tag] || 0) + 1
+        }
+      }
+      // V2 mistake_patterns (with costs)
+      if (analysis.mistake_patterns) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const mp of analysis.mistake_patterns as any[]) {
+          if (mp.name) tagCosts[mp.name] = (tagCosts[mp.name] || 0) + (mp.cost || 0)
+        }
+      }
+    }
+    const avgDqs = dqsScores.length > 0 ? Math.round(dqsScores.reduce((a, b) => a + b, 0) / dqsScores.length) : 0
+
     const recent10 = (sessions || []).slice(0, 10)
     const sessionSummary = recent10.length > 0
       ? recent10.map(s =>
@@ -109,8 +136,15 @@ export async function POST(req: NextRequest) {
         ).join('\n')
       : 'No sessions uploaded yet'
 
+    const patternLine = Object.entries(tagCounts).length > 0
+      ? `PATTERNS DETECTED: ${Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}x`).join(', ')}`
+      : 'No patterns detected yet'
+    const costLine = Object.entries(tagCosts).length > 0
+      ? `MISTAKE COSTS: ${Object.entries(tagCosts).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n}: ₹${Math.round(c).toLocaleString('en-IN')}`).join(', ')}`
+      : 'No mistake cost data yet'
+
     const allTimeLine = allTimeKpis
-      ? `ALL-TIME TOTALS (across ${allTimeKpis.totalSessions} sessions): Net P&L ₹${allTimeKpis.totalPnl}, ${allTimeKpis.totalTrades} trades, WR ${allTimeKpis.winRate}%, Profit Factor ${allTimeKpis.profitFactor}, Best Day ₹${allTimeKpis.bestSessionPnl}, Worst Day ₹${allTimeKpis.worstSessionPnl}`
+      ? `ALL-TIME TOTALS (across ${allTimeKpis.totalSessions} sessions): Net P&L ₹${allTimeKpis.totalPnl}, ${allTimeKpis.totalTrades} trades, WR ${allTimeKpis.winRate}%, Profit Factor ${allTimeKpis.profitFactor}, Best Day ₹${allTimeKpis.bestSessionPnl}, Worst Day ₹${allTimeKpis.worstSessionPnl}, Avg DQS ${avgDqs}/100`
       : 'No all-time data yet'
 
     const journeyContext = journey
@@ -122,6 +156,9 @@ export async function POST(req: NextRequest) {
 === THIS TRADER'S DATA ===
 
 ${allTimeLine}
+
+${patternLine}
+${costLine}
 
 RECENT SESSIONS (last 10):
 ${sessionSummary}
