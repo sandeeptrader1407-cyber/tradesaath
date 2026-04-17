@@ -11,6 +11,9 @@ import { getOrCreateAnonId } from '@/lib/anonId';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 import { detectPatterns } from '@/lib/analysis/patternDetector';
 import { buildAnalysisJSON, generateAICoaching } from '@/lib/analysis/sessionSummarizer';
+import { sendEmail } from '@/lib/email';
+import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisComplete';
+import { clerkClient } from '@clerk/nextjs/server';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
 
@@ -472,6 +475,48 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.error('Session save failed (non-blocking):', e);
   }
 
+  // Fire-and-forget: send analysis complete email for fresh uploads
+  try {
+    const { userId: emailUserId } = await auth();
+    if (emailUserId && savedSessionId) {
+      const clerk = await clerkClient();
+      const user = await clerk.users.getUser(emailUserId);
+      const userEmail = user.emailAddresses?.[0]?.emailAddress;
+      if (userEmail) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = response.analysis as any;
+        const patterns = a?.mistake_patterns || a?.patterns_detected || [];
+        const topPattern = patterns.length > 0 ? patterns.reduce((best: { cost?: number }, p: { cost?: number }) => ((p.cost || 0) > (best.cost || 0) ? p : best), patterns[0]) : null;
+        sendEmail({
+          to: userEmail,
+          subject: `Your ${extracted.trade_date || 'trading'} report is ready`,
+          html: analysisCompleteHtml({
+            name: user.firstName || userEmail.split('@')[0],
+            sessionDate: extracted.trade_date || new Date().toISOString().split('T')[0],
+            tradeCount: trades.length,
+            netPnl,
+            dqsScore: Number(a?.dqs?.score) || 0,
+            topIssue: topPattern?.name || topPattern?.label || undefined,
+            topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
+            currency: extracted.detected_currency || 'INR',
+          }),
+          text: analysisCompleteText({
+            name: user.firstName || userEmail.split('@')[0],
+            sessionDate: extracted.trade_date || new Date().toISOString().split('T')[0],
+            tradeCount: trades.length,
+            netPnl,
+            dqsScore: Number(a?.dqs?.score) || 0,
+            topIssue: topPattern?.name || topPattern?.label || undefined,
+            topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
+            currency: extracted.detected_currency || 'INR',
+          }),
+        }).catch(err => console.error('[ANALYSIS_EMAIL_FAILED]', err));
+      }
+    }
+  } catch (emailErr) {
+    console.error('[ANALYSIS_EMAIL] Non-blocking error:', emailErr);
+  }
+
   console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl}`);
   return NextResponse.json({ ...response, sessionId: savedSessionId || null });
 }
@@ -569,6 +614,48 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
 
   const finalResponse = buildResponse(codeAnalysis);
   await saveSession(finalResponse);
+
+  // Fire-and-forget: send analysis complete email for fresh uploads
+  try {
+    const { userId: emailUserId } = await auth();
+    if (emailUserId) {
+      const clerk = await clerkClient();
+      const user = await clerk.users.getUser(emailUserId);
+      const userEmail = user.emailAddresses?.[0]?.emailAddress;
+      if (userEmail) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = codeAnalysis as any;
+        const patterns = a?.mistake_patterns || a?.patterns_detected || [];
+        const topPattern = patterns.length > 0 ? patterns.reduce((best: { cost?: number }, p: { cost?: number }) => ((p.cost || 0) > (best.cost || 0) ? p : best), patterns[0]) : null;
+        sendEmail({
+          to: userEmail,
+          subject: `Your ${trade_date || 'trading'} report is ready`,
+          html: analysisCompleteHtml({
+            name: user.firstName || userEmail.split('@')[0],
+            sessionDate: trade_date || new Date().toISOString().split('T')[0],
+            tradeCount: trades.length,
+            netPnl: trades.reduce((s: number, t: { pnl?: number }) => s + (t.pnl || 0), 0),
+            dqsScore: Number(a?.dqs?.score) || 0,
+            topIssue: topPattern?.name || topPattern?.label || undefined,
+            topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
+            currency: currency || 'INR',
+          }),
+          text: analysisCompleteText({
+            name: user.firstName || userEmail.split('@')[0],
+            sessionDate: trade_date || new Date().toISOString().split('T')[0],
+            tradeCount: trades.length,
+            netPnl: trades.reduce((s: number, t: { pnl?: number }) => s + (t.pnl || 0), 0),
+            dqsScore: Number(a?.dqs?.score) || 0,
+            topIssue: topPattern?.name || topPattern?.label || undefined,
+            topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
+            currency: currency || 'INR',
+          }),
+        }).catch(err => console.error('[ANALYSIS_EMAIL_FAILED]', err));
+      }
+    }
+  } catch (emailErr) {
+    console.error('[ANALYSIS_EMAIL] Non-blocking error:', emailErr);
+  }
 
   console.log(`Analysis complete: ${Date.now() - startTime}ms (code)`);
   return NextResponse.json(finalResponse);
