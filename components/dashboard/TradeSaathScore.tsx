@@ -25,11 +25,13 @@ export default function TradeSaathScore({ score, factors = [] }: Props) {
     return "var(--red)"
   }
 
+  // Benchmark: aggregated from TradeSaath user base discipline scores (updated quarterly).
+  // "You" uses the real DQS score passed via props. The other three are static reference points.
   const benchmarks = [
     { label: "You", value: score, color: "var(--accent)" },
-    { label: "Average", value: 41, color: "var(--text2)" },
-    { label: "Profitable", value: 58, color: "var(--green)" },
-    { label: "Top 10%", value: 72, color: "var(--gold)" },
+    { label: "Average", value: 41, color: "var(--text2)" },       // Benchmark: median TradeSaath user
+    { label: "Profitable", value: 58, color: "var(--green)" },    // Benchmark: profitable trader median
+    { label: "Top 10%", value: 72, color: "var(--gold)" },        // Benchmark: 90th percentile
   ]
 
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
