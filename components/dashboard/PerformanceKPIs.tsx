@@ -15,9 +15,10 @@ interface Props {
     successRate?: number
     riskReward: string
   }
+  bestTimeSlot?: { slot: string; winRate: number; trades: number } | null
 }
 
-export default function PerformanceKPIs({ month, score, hasMonthData, allTime }: Props) {
+export default function PerformanceKPIs({ month, score, hasMonthData, allTime, bestTimeSlot }: Props) {
   const fmt = (v: number) => {
     const sign = v >= 0 ? "+" : ""
     return sign + "₹" + Math.abs(Math.round(v)).toLocaleString("en-IN")
@@ -41,7 +42,7 @@ export default function PerformanceKPIs({ month, score, hasMonthData, allTime }:
     { label: "Success Rate", value: source.successRate + "%", pos: source.successRate >= 50 },
     { label: "Risk:Reward", value: source.riskReward, pos: parseFloat(source.riskReward) >= 1 },
     { label: "Discipline", value: String(score), pos: score >= 50 },
-    { label: "Best Time", value: "09:20–10:15", pos: true },
+    { label: "Best Time", value: bestTimeSlot ? `${bestTimeSlot.slot}–${(() => { const [h, m] = bestTimeSlot.slot.split(':').map(Number); const nm = m + 30; return nm >= 60 ? `${String(h + 1).padStart(2, '0')}:${String(nm - 60).padStart(2, '0')}` : `${String(h).padStart(2, '0')}:${String(nm).padStart(2, '0')}` })()}` : "—", pos: bestTimeSlot ? bestTimeSlot.winRate >= 50 : false },
   ]
 
   return (
