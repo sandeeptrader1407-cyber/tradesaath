@@ -72,7 +72,7 @@ export default function SessionList({ sessions, activeId, onSelect }: Props) {
                 <div>
                   <div className="text-xs font-bold" style={{ color: "var(--text)" }}>{s.trade_date || "Unknown date"}</div>
                   <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>
-                    {s.detected_market || "NSE"} &middot; {s.trade_count || 0} {(s.trade_count || 0) === 1 ? 'trade' : 'trades'}
+                    {s.detected_market || "Market"} &middot; {s.trade_count || 0} {(s.trade_count || 0) === 1 ? 'trade' : 'trades'}
                   </div>
                 </div>
                 <div className="text-right">

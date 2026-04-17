@@ -117,9 +117,9 @@ export default function AnalyseButton() {
       setStatus("Parsing your files locally...")
       let allTrades: unknown[] = []
       let broker = detectedBrokerFromStore || "Unknown"
-      let market = "NSE"
+      let market = "Unknown"
       let tradeDate = ""
-      let currency = "INR"
+      let currency = ""
       const failedFiles: string[] = []
 
       for (const file of files) {

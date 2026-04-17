@@ -93,7 +93,7 @@ export default function SessionDetail({ session }: Props) {
             {session.trade_date || "Session"}
           </h2>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            {session.detected_market || "NSE"} &middot; {session.trade_count || trades.length} {((session.trade_count || trades.length) === 1) ? 'trade' : 'trades'}
+            {session.detected_market || "Market"} &middot; {session.trade_count || trades.length} {((session.trade_count || trades.length) === 1) ? 'trade' : 'trades'}
           </p>
         </div>
         <div className="font-jetbrains-mono font-bold text-xl" style={{ color: Number(session.net_pnl) >= 0 ? "var(--green)" : "var(--red)" }}>

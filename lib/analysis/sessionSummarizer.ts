@@ -81,7 +81,7 @@ function buildTechnical(trade: any, d: DetectedTrade): string {
 
 function buildPsychology(d: DetectedTrade): string {
   switch (d.tag) {
-    case 'revenge':     return `I know losing hurts — loss aversion screams for immediate recovery. Re-entering hot is tilt, not trading. Rule: 15-minute break after any loss over ₹500.`
+    case 'revenge':     return `I know losing hurts — loss aversion screams for immediate recovery. Re-entering hot is tilt, not trading. Rule: 15-minute break after any loss exceeding your session average.`
     case 'averaging':   return `I know 'lowering the average' feels rational — that's sunk-cost fallacy dressed up as strategy. Add only on confirmation, never on hope.`
     case 'fomo':        return `I know watching others make money while you sit out is painful. But chasing after the move has started means you pay premium and eat the reversal. Wait for your setup.`
     case 'panic':       return `I know the red candle felt like the start of a disaster — that's recency bias amplifying a single bar. Set an invalidation level, not a fear level.`
@@ -141,7 +141,7 @@ export function generateSessionSummary(session: any, r: PatternResult): string {
 
 export function generateRules(r: PatternResult): string[] {
   const rules: string[] = []
-  if (r.patterns.revengeTrades > 0 || r.cycleDetected) rules.push('After any loss larger than ₹500, step away for 15 minutes before the next entry.')
+  if (r.patterns.revengeTrades > 0 || r.cycleDetected) rules.push('After any loss exceeding your session average, step away for 15 minutes before the next entry.')
   if (r.patterns.overtradingDetected) rules.push(`Cap total trades today at ${Math.max(10, Math.round(r.meta.totalTrades / 1.5))}; anything more is volume, not edge.`)
   if (r.patterns.fomoEntries > 0) rules.push('No entries in the first 3 minutes of the open; wait for first structure to form.')
   if (r.patterns.panicExits > 1) rules.push('Every trade must be held until either your stop or your target prints — 2-minute exits are banned.')

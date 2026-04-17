@@ -10,25 +10,17 @@ interface Trade {
 
 interface Props {
   trades?: Trade[]
+  hasRealTimeData?: boolean
 }
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const
-const SLOTS = [
-  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-  "15:00", "15:30",
-] as const
+const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
-function getSlot(time: string): string | null {
+function getSlotKey(time: string): string | null {
   try {
-    // Parse HH:MM directly from the string to avoid timezone drift
-    // Format expected: "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DDTHH:MM"
     const timeMatch = time.match(/T(\d{1,2}):(\d{2})/)
     if (!timeMatch) return null
     const h = Number(timeMatch[1])
     const m = Number(timeMatch[2])
-    if (h < 9 || h > 15) return null
-    if (h === 15 && m > 30) return null
     const slotMin = m < 30 ? 0 : 30
     return `${String(h).padStart(2, "0")}:${String(slotMin).padStart(2, "0")}`
   } catch {
@@ -36,20 +28,16 @@ function getSlot(time: string): string | null {
   }
 }
 
-function getDayIndex(time: string): number {
+function getDayName(time: string): string | null {
   try {
-    // Extract just the date part (YYYY-MM-DD) to avoid timezone shifts
-    // Format expected: "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DD"
     const dateMatch = time.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (!dateMatch) return -1
-    const [, y, m, d] = dateMatch
-    // Use noon UTC for the given calendar date — timezone-independent weekday
-    const dt = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12, 0, 0))
+    if (!dateMatch) return null
+    const [, y, mo, d] = dateMatch
+    const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12, 0, 0))
     const day = dt.getUTCDay() // 0=Sun
-    if (day === 0 || day === 6) return -1
-    return day - 1 // 0=Mon
+    return ALL_DAYS[day === 0 ? 6 : day - 1] // remap: 0=Sun->6, 1=Mon->0, etc.
   } catch {
-    return -1
+    return null
   }
 }
 
@@ -60,22 +48,51 @@ function cellColor(winRate: number | null): string {
   return "rgba(239,68,68,.4)"
 }
 
-export default function PerformanceHeatmap({ trades = [] }: Props) {
-  const grid = useMemo(() => {
-    // grid[dayIdx][slotIdx] = { wins, total }
-    const g: { wins: number; total: number }[][] = DAYS.map(() =>
-      SLOTS.map(() => ({ wins: 0, total: 0 }))
-    )
+export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true }: Props) {
+  const { days, slots, grid } = useMemo(() => {
+    // Discover days and time slots from actual data
+    const daySet = new Set<string>()
+    const slotSet = new Set<string>()
+
     for (const t of trades) {
-      const slot = getSlot(t.entry_time)
-      const dayIdx = getDayIndex(t.entry_time)
-      if (!slot || dayIdx < 0) continue
-      const slotIdx = SLOTS.indexOf(slot as typeof SLOTS[number])
-      if (slotIdx < 0) continue
-      g[dayIdx][slotIdx].total++
-      if (t.pnl > 0) g[dayIdx][slotIdx].wins++
+      const day = getDayName(t.entry_time)
+      const slot = getSlotKey(t.entry_time)
+      if (day) daySet.add(day)
+      if (slot) slotSet.add(slot)
     }
-    return g
+
+    // Sort days in Mon-Sun order, only include days with data
+    const dayOrder = ALL_DAYS as readonly string[]
+    const activeDays = dayOrder.filter(d => daySet.has(d))
+    // If no days found, default to Mon-Fri
+    const days = activeDays.length > 0 ? activeDays : ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+    // Sort slots chronologically, only include slots with data
+    const activeSlots = Array.from(slotSet).sort()
+    // If no slots, use sensible defaults
+    const slots = activeSlots.length > 0 ? activeSlots : [
+      "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+      "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+      "15:00", "15:30",
+    ]
+
+    // Build grid: grid[dayIdx][slotIdx] = { wins, total }
+    const g: { wins: number; total: number }[][] = days.map(() =>
+      slots.map(() => ({ wins: 0, total: 0 }))
+    )
+
+    for (const t of trades) {
+      const day = getDayName(t.entry_time)
+      const slot = getSlotKey(t.entry_time)
+      if (!day || !slot) continue
+      const di = days.indexOf(day)
+      const si = slots.indexOf(slot)
+      if (di < 0 || si < 0) continue
+      g[di][si].total++
+      if (t.pnl > 0) g[di][si].wins++
+    }
+
+    return { days, slots, grid: g }
   }, [trades])
 
   const hasData = trades.length >= 5
@@ -95,21 +112,25 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">🗓️</div>
+          <div className="text-3xl mb-3">{"\uD83D\uDDD3\uFE0F"}</div>
           <p className="text-sm" style={{ color: "var(--text2)" }}>
-            Needs at least 5 trades to generate heatmap.
+            {!hasRealTimeData
+              ? "Time data not available in uploaded files."
+              : "Needs at least 5 trades to generate heatmap."}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Upload more sessions to see your best trading windows.
+            {!hasRealTimeData
+              ? "Upload tradebooks with entry/exit times for detailed time analysis."
+              : "Upload more sessions to see your best trading windows."}
           </p>
         </div>
       ) : (
         <>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 600, display: "grid", gridTemplateColumns: `48px repeat(${SLOTS.length}, 1fr)`, gap: 3 }}>
+            <div style={{ minWidth: Math.max(400, slots.length * 44 + 48), display: "grid", gridTemplateColumns: `48px repeat(${slots.length}, 1fr)`, gap: 3 }}>
               {/* Header row */}
               <div />
-              {SLOTS.map((s) => (
+              {slots.map((s) => (
                 <div key={s} style={{
                   fontSize: 9, color: "var(--muted)", textAlign: "center",
                   fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
@@ -119,7 +140,7 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
               ))}
 
               {/* Data rows */}
-              {DAYS.map((day, di) => (
+              {days.map((day, di) => (
                 <>
                   <div key={`label-${day}`} style={{
                     fontSize: 11, color: "var(--text2)", display: "flex",
@@ -127,7 +148,7 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
                   }}>
                     {day}
                   </div>
-                  {SLOTS.map((_, si) => {
+                  {slots.map((_, si) => {
                     const cell = grid[di][si]
                     const wr = cell.total > 0 ? (cell.wins / cell.total) * 100 : null
                     const lowConfidence = cell.total > 0 && cell.total < 3
@@ -135,7 +156,7 @@ export default function PerformanceHeatmap({ trades = [] }: Props) {
                       <div
                         key={`${day}-${si}`}
                         title={wr !== null
-                          ? `${Math.round(wr)}% win rate (${cell.total} trade${cell.total === 1 ? '' : 's'})${lowConfidence ? ' — low sample' : ''}`
+                          ? `${Math.round(wr)}% win rate (${cell.total} trade${cell.total === 1 ? '' : 's'})${lowConfidence ? ' \u2014 low sample' : ''}`
                           : "No trades in this slot"}
                         style={{
                           background: cellColor(wr),
