@@ -25,3 +25,4 @@ export { pairRawTrades } from './tradePairer';
 export { validateTrades } from './tradeValidator';
 export { calculateIntakeKPIs, calculateIntakeTimeAnalysis } from './kpiCalculator';
 export { saveRawData } from './saveRawData';
+export { toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis } from './legacyAdapter';
