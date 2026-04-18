@@ -1,52 +1,54 @@
--- Module 1: Raw-first intake pipeline — DB migration
+-- Module 1: Raw-first intake pipeline — DB migration (v2)
 -- Run this in Supabase SQL Editor before deploying
+-- Safe to re-run: uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS
 
 -- 1. Add raw_file_id column to trade_sessions (links session to its raw file)
 ALTER TABLE trade_sessions
   ADD COLUMN IF NOT EXISTS raw_file_id UUID REFERENCES raw_files(id) ON DELETE SET NULL;
 
--- 2. Ensure raw_files table has all columns needed by Module 1 saveRawData
--- (These columns may already exist from the old saveRawFile — add only if missing)
+-- 2. Add all Module 1 columns to raw_files table
+-- Uses DO $$ block for safe IF NOT EXISTS checks on each column
 DO $$
 BEGIN
+  -- ── Core Module 1 columns ──
+
   -- Structured raw data (JSONB) — the core of raw-first architecture
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'raw_data') THEN
     ALTER TABLE raw_files ADD COLUMN raw_data JSONB;
   END IF;
 
-  -- File hash for dedup
+  -- File hash for dedup (SHA-256)
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'file_hash') THEN
     ALTER TABLE raw_files ADD COLUMN file_hash TEXT;
   END IF;
 
-  -- Filename (may exist as file_name from old schema)
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'filename') THEN
-    ALTER TABLE raw_files ADD COLUMN filename TEXT;
+  -- Broker identification
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'broker_id') THEN
+    ALTER TABLE raw_files ADD COLUMN broker_id TEXT DEFAULT 'unknown';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'broker_name') THEN
+    ALTER TABLE raw_files ADD COLUMN broker_name TEXT DEFAULT 'Unknown';
   END IF;
 
-  -- Market, currency, trade_date metadata
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'broker') THEN
-    ALTER TABLE raw_files ADD COLUMN broker TEXT DEFAULT 'Unknown';
-  END IF;
+  -- Market and currency
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'market') THEN
     ALTER TABLE raw_files ADD COLUMN market TEXT DEFAULT 'Unknown';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'currency') THEN
     ALTER TABLE raw_files ADD COLUMN currency TEXT DEFAULT 'INR';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'trade_date') THEN
-    ALTER TABLE raw_files ADD COLUMN trade_date TEXT;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'row_count') THEN
-    ALTER TABLE raw_files ADD COLUMN row_count INTEGER DEFAULT 0;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'extraction_warnings') THEN
-    ALTER TABLE raw_files ADD COLUMN extraction_warnings JSONB DEFAULT '[]'::jsonb;
-  END IF;
-END $$;
 
--- 3. Index for fast duplicate check
-CREATE INDEX IF NOT EXISTS idx_raw_files_user_hash ON raw_files(user_id, file_hash);
+  -- Column headers from file (JSONB array)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'headers') THEN
+    ALTER TABLE raw_files ADD COLUMN headers JSONB DEFAULT '[]'::jsonb;
+  END IF;
 
--- 4. Index for linking sessions to raw files
-CREATE INDEX IF NOT EXISTS idx_trade_sessions_raw_file_id ON trade_sessions(raw_file_id);
+  -- Row counts
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'total_rows') THEN
+    ALTER TABLE raw_files ADD COLUMN total_rows INTEGER DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'data_rows') THEN
+    ALTER TABLE raw_files ADD COLUMN data_rows INTEGER DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'raw_files' AND column_name = 'skipped_rows') THEN
+    ALTER TABLE raw_files ADD 
