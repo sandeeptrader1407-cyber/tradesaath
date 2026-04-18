@@ -222,8 +222,8 @@ function normalizeIndianDate(dateStr: string): string {
   const parts = dateStr.split(/[\/-]/);
   if (parts.length !== 3) return dateStr;
 
-  let [dd, mm, yyyy] = parts;
-  if (yyyy.length === 2) yyyy = '20' + yyyy;
+  const [dd, mm, yyyyRaw] = parts;
+  const yyyy = yyyyRaw.length === 2 ? '20' + yyyyRaw : yyyyRaw;
 
   // Validate
   const d = parseInt(dd), m = parseInt(mm), y = parseInt(yyyy);
@@ -398,7 +398,4 @@ export function parseContractNote(extraction: PdfExtractionResult): ContractNote
     currency: 'INR',
     headers,
     dataRows,
-    rawText,
-    warnings,
-  };
-}
+    rawTex
