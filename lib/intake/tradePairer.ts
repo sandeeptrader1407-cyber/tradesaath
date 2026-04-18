@@ -7,14 +7,14 @@
  */
 
 import { RawTradeRow, StandardTrade } from './types';
-import { normalizeDate, normalizeTime } from './rawExtractor';
+import { normalizeDate, normalizeTime, cleanNumeric } from './rawExtractor';
 
 const UNKNOWN_DATE = 'unknown';
 
-/** Parse a numeric value from a raw string, handling commas and parens */
+/** Parse a numeric value from a raw string, handling all formats */
 function parseNum(val: string | undefined): number {
   if (!val) return 0;
-  const cleaned = val.replace(/,/g, '').replace(/[()]/g, (m) => m === '(' ? '-' : '');
+  const cleaned = cleanNumeric(val);
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
 }
@@ -66,6 +66,7 @@ interface PreparedRow {
   qty: number;
   price: number;
   pnl: number | undefined;
+  fees: number;
   date: string;
   time: string;
   exchange: string;
@@ -88,8 +89,8 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
     const time = m.time ? normalizeTime(m.time) : '';
     const pnlStr = m.pnl;
     const pnl = pnlStr ? parseNum(pnlStr) : undefined;
+    const fees = parseNum(m.fees);
 
-    // If no side, try to infer from context
     if (!side && qty <= 0 && !pnl) continue;
 
     prepared.push({
@@ -99,6 +100,7 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
       qty: qty || 1,
       price,
       pnl,
+      fees,
       date,
       time,
       exchange: m.exchange || '',
@@ -127,7 +129,6 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
   const paired: StandardTrade[] = [];
 
   for (const [, trades] of Object.entries(groups)) {
-    // Sort by time within group
     trades.sort((a, b) => {
       const ta = (a.time || '00:00').replace(/:/g, '');
       const tb = (b.time || '00:00').replace(/:/g, '');
@@ -138,14 +139,12 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
     const buys = trades.filter(t => t.side === 'BUY');
     const sells = trades.filter(t => t.side === 'SELL');
 
-    // Detect shorts: first chronological trade is SELL
     const firstTrade = trades[0];
     const isShort = firstTrade.side === 'SELL' && sells.length > 0 && buys.length > 0;
 
     const openers = isShort ? sells : buys;
     const closers = isShort ? buys : sells;
 
-    // FIFO matching
     const openQ = openers.map(o => ({ ...o, remaining: o.qty }));
     const closeQ = closers.map(c => ({ ...c, remaining: c.qty }));
 
@@ -172,7 +171,6 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
       const closingTime = closeNum >= openNum ? close.time : open.time;
       const normalizedClosingTime = normalizeTime(closingTime);
 
-      // Use the original (un-lowercased) symbol from the raw row
       const origSymbol = rawRows.find(r => r.rowIndex === open.rowIndex)?.mapped.symbol
         || rawRows.find(r => r.rowIndex === close.rowIndex)?.mapped.symbol
         || open.symbol;
@@ -198,6 +196,7 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
         tradeId: open.tradeId || close.tradeId,
         sourceRows: [open.rowIndex, close.rowIndex],
         isShort,
+        fees: Math.round((open.fees + close.fees) * 100) / 100,
       });
 
       open.remaining -= matchQty;
@@ -237,6 +236,7 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
           tradeId: t.tradeId,
           sourceRows: [t.rowIndex],
           isShort: false,
+          fees: t.fees,
         });
       }
     }
@@ -271,6 +271,7 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
           tradeId: m.tradeId || '',
           sourceRows: [row.rowIndex],
           isShort: false,
+          fees: parseNum(m.fees),
         });
       }
     }

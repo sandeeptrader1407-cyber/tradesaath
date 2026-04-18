@@ -31,12 +31,18 @@ export interface RawTradeRow {
     sellQty?: string;
     buyPrice?: string;
     sellPrice?: string;
+    fees?: string;       // brokerage, commission, charges
+    segment?: string;    // F&O, equity, commodity, etc.
+    orderId?: string;
   };
   /** Which raw column mapped to which standard field */
   columnMapping: Record<string, string>;
   /** Anything suspicious about this row */
   warnings: string[];
 }
+
+/** Confidence level for column mapping */
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 /** Complete snapshot of one uploaded file */
 export interface RawFileData {
@@ -68,6 +74,10 @@ export interface RawFileData {
   warnings: string[];
   /** ISO timestamp of when this was extracted */
   extractedAt: string;
+  /** How confident we are in the column mapping */
+  confidence: ConfidenceLevel;
+  /** Numeric confidence score (0-100) */
+  confidenceScore: number;
 }
 
 // ── Standard Layer: computed from raw ──
@@ -96,6 +106,8 @@ export interface StandardTrade {
   sourceRows: number[];
   /** Is this a short trade? (opened with SELL) */
   isShort: boolean;
+  /** Fees/commission for this trade */
+  fees: number;
 }
 
 /** KPIs computed from StandardTrade[] */
@@ -116,6 +128,8 @@ export interface IntakeKPIs {
   grossSellValue: number;
   /** Count of trades flagged as open positions */
   openPositions: number;
+  /** Total fees/commission across all trades */
+  totalFees: number;
 }
 
 /** Time analysis from StandardTrade[] */

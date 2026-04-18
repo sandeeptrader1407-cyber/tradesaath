@@ -12,7 +12,7 @@ export function calculateIntakeKPIs(trades: StandardTrade[]): IntakeKPIs {
       netPnl: 0, totalTrades: 0, wins: 0, losses: 0, winRate: 0,
       profitFactor: 0, bestTradePnl: 0, worstTradePnl: 0,
       grossProfit: 0, grossLoss: 0, avgWin: 0, avgLoss: 0,
-      grossBuyValue: 0, grossSellValue: 0, openPositions: 0,
+      grossBuyValue: 0, grossSellValue: 0, openPositions: 0, totalFees: 0,
     };
   }
 
@@ -25,6 +25,7 @@ export function calculateIntakeKPIs(trades: StandardTrade[]): IntakeKPIs {
 
   const grossBuyValue = trades.reduce((s, t) => s + (t.entryPrice || 0) * (t.qty || 0), 0);
   const grossSellValue = trades.reduce((s, t) => s + (t.exitPrice || 0) * (t.qty || 0), 0);
+  const totalFees = trades.reduce((s, t) => s + (t.fees || 0), 0);
 
   return {
     netPnl: Math.round(netPnl * 100) / 100,
@@ -44,6 +45,7 @@ export function calculateIntakeKPIs(trades: StandardTrade[]): IntakeKPIs {
     grossBuyValue: Math.round(grossBuyValue * 100) / 100,
     grossSellValue: Math.round(grossSellValue * 100) / 100,
     openPositions,
+    totalFees: Math.round(totalFees * 100) / 100,
   };
 }
 

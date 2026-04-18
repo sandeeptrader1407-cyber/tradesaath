@@ -1,10 +1,14 @@
 /**
- * TradeSaath Raw Extractor
- * Extracts every field from every row, preserving raw values.
- * Column matching uses broad patterns to handle any broker format.
+ * TradeSaath Universal Raw Extractor
+ * Works with ANY broker globally via:
+ * 1. Expanded pattern dictionary (200+ column name variants)
+ * 2. 3-tier matching: exact → contains → fuzzy
+ * 3. Content-based detection fallback for headerless/unknown files
+ * 4. Confidence scoring
+ * 5. File quirk handling (currency symbols, European numbers, etc.)
  */
 
-import { RawTradeRow, RawFileData } from './types';
+import { RawTradeRow, RawFileData, ConfidenceLevel } from './types';
 import { detectBrokerFromText } from '@/lib/config/brokers';
 import { parseCSVText } from '@/lib/parsers/csvParser';
 import { parseExcelBuffer } from '@/lib/parsers/excelParser';
@@ -12,99 +16,404 @@ import { parsePDFBuffer } from '@/lib/parsers/pdfParser';
 import { detectMarket, detectCurrency, detectDate } from '@/lib/parsers/types';
 import * as crypto from 'crypto';
 
-// ── Column pattern matching ──
-// Each key maps to an array of regex patterns (tested in order, first match wins)
-const COLUMN_PATTERNS: Record<string, RegExp[]> = {
+// ═══════════════════════════════════════════
+// STEP 1: EXPANDED COLUMN PATTERN DICTIONARY
+// ═══════════════════════════════════════════
+// Each field has an array of possible column names across all major brokers globally.
+// Patterns are plain strings — matching is done by the smart matcher below.
+
+const COLUMN_PATTERNS: Record<string, string[]> = {
   symbol: [
-    /^(symbol|scrip|instrument|stock|name|contract|underlying|security.?name|company|trading.?symbol|scripname|instrument_name|scrip.?name|tradingsymbol)$/i,
+    // Indian brokers
+    'tradingsymbol', 'trading_symbol', 'symbol', 'scrip', 'scripname', 'scrip_name',
+    'scrip_code', 'instrument', 'instrument_name', 'instrument_key',
+    // US/UK brokers
+    'ticker', 'ticker_symbol', 'stock', 'stock_symbol', 'security',
+    'security_name', 'underlying', 'contract', 'asset', 'description',
+    // Crypto
+    'pair', 'trading_pair', 'coin', 'base_asset', 'asset_pair', 'base_currency',
+    // Forex
+    'currency_pair', 'pair_name', 'forex_pair',
+    // Generic
+    'name', 'product', 'product_name', 'instrument_code', 'isin',
+    'cusip', 'sedol', 'company', 'company_name',
   ],
+
   side: [
-    /^(side|trade.?type|buy.?sell|action|b.?s|direction|transaction.?type|buysell|buy\/sell)$/i,
+    // Standard
+    'side', 'trade_type', 'tradetype', 'buy_sell', 'buysell', 'b_s',
+    'action', 'direction', 'transaction_type', 'order_type',
+    // Explicit
+    'buy/sell', 'b/s', 'buy_or_sell', 'trade_direction', 'position',
+    // Crypto/Forex
+    'order_side', 'buy_sell_ind', 'side_indicator', 'order_action',
+    'execution_side', 'type',
   ],
+
   qty: [
-    /^(qty|quantity|lots|volume|traded.?qty|net.?qty|filled|no.?of.?shares)$/i,
+    // Standard
+    'quantity', 'qty', 'traded_qty', 'filled_qty', 'net_qty',
+    'shares', 'num_shares', 'number_of_shares',
+    'lot', 'lots', 'volume', 'size', 'trade_qty', 'filled',
+    // US
+    'shares_quantity', 'contracts', 'units', 'trade_size',
+    // Crypto
+    'base_amount', 'coin_amount', 'crypto_amount', 'executed_qty',
+    // Forex
+    'lot_size', 'position_size', 'trade_volume',
+    // Generic
+    'count', 'no_of_shares',
   ],
+
   price: [
-    /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price|market.?rate|avg_price)$/i,
+    // Standard
+    'price', 'trade_price', 'avg_price', 'average_price', 'rate',
+    'execution_price', 'fill_price', 'traded_price', 'avg_trade_price',
+    'market_rate', 'avg_rate',
+    // US
+    'price_per_share', 'fill_avg_price', 'executed_price', 'exec_price',
+    // Crypto
+    'unit_price', 'price_per_unit', 'base_price', 'quote_price',
+    // Forex
+    'open_price', 'close_price', 'entry_price', 'exit_price',
+    // Alternative
+    'cost_basis_per_share', 'proceeds_per_share', 'net_rate',
   ],
+
   amount: [
-    /^(amount|value|net.?amount|turnover|total|net.?total|net.?value)$/i,
+    'amount', 'value', 'net_amount', 'turnover', 'total', 'net_total',
+    'net_value', 'trade_value', 'gross_amount', 'consideration',
+    'notional', 'notional_value', 'total_value',
   ],
+
   pnl: [
-    /^(pnl|p.?&.?l|profit|loss|net.?pnl|realized|realised|net.?profit|realized.?p.?&.?l)$/i,
+    // Standard
+    'pnl', 'p&l', 'profit_loss', 'profit/loss', 'realized_pnl',
+    'realised_pnl', 'net_pnl', 'profit', 'pl', 'gain_loss',
+    'realized_p&l', 'realised_p&l',
+    // US
+    'realized_gain_loss', 'net_proceeds', 'unrealized_p&l',
+    'total_pnl', 'gain/loss', 'realized_gain',
+    // Crypto
+    'realized_profit', 'pnl_usd', 'pnl_inr', 'profit_usd',
+    // Forex
+    'net_profit', 'gross_profit', 'swap',
+    // Alternative
+    'return', 'total_return', 'gain', 'loss',
   ],
+
   date: [
-    /^(date|trade.?date|order.?date|exec.?date|trade_date)$/i,
+    // Standard
+    'trade_date', 'tradedate', 'date', 'execution_date', 'fill_date',
+    'settlement_date', 'order_date', 'trade_day', 'transaction_date',
+    // US
+    'date_of_trade', 'buy_date', 'sell_date', 'opened', 'closed',
+    // Crypto
+    'date_utc', 'created_date',
+    // Generic
+    'day', 'trading_day', 'report_date', 'exec_date',
   ],
+
   time: [
-    /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at|date.?&?.?time|date.?time|order.?execution.?time|exchange_timestamp|order_execution_time)$/i,
+    // Standard
+    'order_execution_time', 'execution_time', 'time', 'trade_time',
+    'fill_time', 'timestamp', 'order_time', 'datetime', 'time_utc',
+    'date_time', 'date&time',
+    // US
+    'time_of_trade', 'execution_timestamp', 'fill_timestamp',
+    // Crypto
+    'trade_timestamp', 'created_at',
+    // Alternative
+    'opened_at', 'closed_at', 'executed_at', 'exchange_timestamp',
   ],
+
   exchange: [
-    /^(exchange|segment|market|exch)$/i,
+    'exchange', 'exch', 'exchange_code', 'mkt', 'venue',
+    'trading_venue', 'listing_exchange', 'exchange_name',
   ],
+
+  segment: [
+    'segment', 'series', 'product_type', 'instrument_type',
+    'asset_class', 'market_segment', 'category', 'section',
+  ],
+
   tradeId: [
-    /^(trade.?id|order.?id|deal.?id|exec.?id|trade.?no|trade_id|order_id)$/i,
+    'trade_id', 'tradeid', 'trade_no', 'trade_number', 'execution_id',
+    'fill_id', 'transaction_id', 'ref_id', 'reference_id', 'trade_ref',
+    'execution_reference', 'deal_id', 'fill_number', 'txn_id',
   ],
+
+  orderId: [
+    'order_id', 'orderid', 'order_no', 'order_number', 'order_ref',
+    'order_reference', 'parent_order_id',
+  ],
+
+  fees: [
+    'brokerage', 'commission', 'fee', 'fees', 'transaction_cost',
+    'total_fees', 'charges', 'stt', 'tax', 'gst', 'exchange_charges',
+    'total_charges', 'transaction_charges', 'stamp_duty', 'sebi_charges',
+    'clearing_charges', 'regulatory_fee',
+  ],
+
   expiry: [
-    /^(expiry|expiry.?date|exp)$/i,
+    'expiry', 'expiry_date', 'exp', 'expiration', 'expiration_date',
+    'exp_date', 'contract_expiry',
   ],
+
   strike: [
-    /^(strike|strike.?price)$/i,
+    'strike', 'strike_price', 'exercise_price',
   ],
+
   optionType: [
-    /^(option.?type|opt.?type|ce.?pe|call.?put|instrument.?type)$/i,
+    'option_type', 'opt_type', 'ce_pe', 'call_put',
+    'put_call', 'contract_type', 'right',
   ],
+
   buyQty: [
-    /^(buy.?qty|buy.?quantity|buy.?vol)$/i,
+    'buy_qty', 'buy_quantity', 'buy_vol', 'buy_volume',
+    'bought_qty', 'purchase_qty',
   ],
+
   sellQty: [
-    /^(sell.?qty|sell.?quantity|sell.?vol)$/i,
+    'sell_qty', 'sell_quantity', 'sell_vol', 'sell_volume',
+    'sold_qty', 'sale_qty',
   ],
+
   buyPrice: [
-    /^(buy.?price|buy.?rate|buy.?avg|buy.?value)$/i,
+    'buy_price', 'buy_rate', 'buy_avg', 'buy_value',
+    'purchase_price', 'buy_average', 'bought_price',
   ],
+
   sellPrice: [
-    /^(sell.?price|sell.?rate|sell.?avg|sell.?value)$/i,
+    'sell_price', 'sell_rate', 'sell_avg', 'sell_value',
+    'sale_price', 'sell_average', 'sold_price',
   ],
 };
 
-/** Match headers to standard field names */
+// ═══════════════════════════════════════════
+// STEP 2: SMART COLUMN MATCHING
+// ═══════════════════════════════════════════
+
+/** Normalize a string for comparison: lowercase, strip separators */
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[\s_\-\/\.&]+/g, '').trim();
+}
+
+/**
+ * 3-tier column matching: exact → contains → fuzzy.
+ * Returns mapping of header → field name.
+ */
 export function matchColumns(headers: string[]): Record<string, string> {
   const mapping: Record<string, string> = {};
   const usedFields = new Set<string>();
+  const usedHeaders = new Set<number>();
+  const normalizedHeaders = headers.map(h => normalize(h.trim()));
 
-  for (const header of headers) {
-    const clean = header.trim();
-    if (!clean) continue;
+  // Priority order: most important fields first to avoid ambiguity
+  const fieldPriority = [
+    'symbol', 'side', 'buyQty', 'sellQty', 'buyPrice', 'sellPrice',
+    'qty', 'price', 'date', 'time', 'pnl',
+    'exchange', 'tradeId', 'fees', 'amount', 'segment', 'orderId',
+    'expiry', 'strike', 'optionType',
+  ];
 
-    for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-      if (usedFields.has(field)) continue;
-      for (const pattern of patterns) {
-        if (pattern.test(clean)) {
-          mapping[clean] = field;
-          usedFields.add(field);
-          break;
-        }
+  for (const field of fieldPriority) {
+    if (usedFields.has(field)) continue;
+    const patterns = COLUMN_PATTERNS[field];
+    if (!patterns) continue;
+    const normalizedPatterns = patterns.map(normalize);
+
+    // Tier 1: EXACT match
+    let matched = false;
+    for (const np of normalizedPatterns) {
+      const idx = normalizedHeaders.findIndex((h, i) => !usedHeaders.has(i) && h === np);
+      if (idx >= 0) {
+        mapping[headers[idx].trim()] = field;
+        usedFields.add(field);
+        usedHeaders.add(idx);
+        matched = true;
+        break;
       }
-      if (mapping[clean]) break;
+    }
+    if (matched) continue;
+
+    // Tier 2: CONTAINS match (header contains pattern)
+    for (const np of normalizedPatterns) {
+      if (np.length < 3) continue; // skip very short patterns for contains
+      const idx = normalizedHeaders.findIndex((h, i) => !usedHeaders.has(i) && h.includes(np));
+      if (idx >= 0) {
+        mapping[headers[idx].trim()] = field;
+        usedFields.add(field);
+        usedHeaders.add(idx);
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    // Tier 3: FUZZY match (pattern contains header, header must be >= 3 chars and >= 60% of pattern length)
+    for (const np of normalizedPatterns) {
+      const idx = normalizedHeaders.findIndex((h, i) =>
+        !usedHeaders.has(i) && h.length >= 3 && np.includes(h) && h.length >= np.length * 0.8
+      );
+      if (idx >= 0) {
+        mapping[headers[idx].trim()] = field;
+        usedFields.add(field);
+        usedHeaders.add(idx);
+        matched = true;
+        break;
+      }
     }
   }
 
   return mapping;
 }
 
-/** Normalize a date string to YYYY-MM-DD (best effort) */
+// ═══════════════════════════════════════════
+// STEP 3: CONTENT-BASED DETECTION FALLBACK
+// ═══════════════════════════════════════════
+
+/** Detect column type by analyzing actual data content */
+function detectColumnByContent(dataRows: string[][], colIdx: number): string | null {
+  const samples = dataRows.slice(0, 15).map(r => (r[colIdx] || '').trim()).filter(Boolean);
+  if (samples.length < 2) return null;
+
+  // Is it BUY/SELL? Check first — very distinctive
+  const sideValues = ['buy', 'sell', 'long', 'short', 'b', 's'];
+  if (samples.every(s => sideValues.includes(s.toLowerCase()))) return 'side';
+
+  // Is it a date?
+  const dateRegex = /^(\d{1,4}[\-\/\.]\d{1,2}[\-\/\.]\d{1,4}|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/i;
+  if (samples.filter(s => dateRegex.test(s)).length >= samples.length * 0.8) return 'date';
+
+  // Is it a time? (HH:MM or HH:MM:SS, not a date)
+  const timeRegex = /^\d{1,2}:\d{2}(:\d{2})?$/;
+  if (samples.every(s => timeRegex.test(s))) return 'time';
+
+  // Is it a symbol/ticker? (uppercase, 2-20 chars, letters/numbers/dots/hyphens)
+  const symbolRegex = /^[A-Z][A-Z0-9\.\-\s]{1,30}$/;
+  if (samples.filter(s => symbolRegex.test(s)).length >= samples.length * 0.7) return 'symbol';
+
+  // Numeric columns — determine price vs qty by value range
+  const cleanedNums = samples.map(s => parseFloat(cleanNumeric(s))).filter(n => !isNaN(n));
+  if (cleanedNums.length >= samples.length * 0.8) {
+    const avg = cleanedNums.reduce((a, b) => a + b, 0) / cleanedNums.length;
+    const allInt = cleanedNums.every(n => Number.isInteger(n));
+    // Quantities: usually integers, smaller values
+    if (allInt && avg > 0 && avg < 50000) return 'qty';
+    // Prices: usually decimals, larger range
+    if (avg > 0.01 && avg < 10000000) return 'price';
+  }
+
+  return null;
+}
+
+/**
+ * Apply content-based detection to fill gaps in header matching.
+ * Only used when critical fields (symbol, qty, price) are missing.
+ */
+function applyContentDetection(
+  headers: string[],
+  dataRows: string[][],
+  existingMapping: Record<string, string>,
+): Record<string, string> {
+  const mapping = { ...existingMapping };
+  const mappedFields = new Set(Object.values(mapping));
+  const mappedHeaderIndices = new Set(
+    Object.keys(mapping).map(h => headers.indexOf(h)).filter(i => i >= 0)
+  );
+
+  // Only try content detection for missing critical fields
+  const criticalMissing = ['symbol', 'side', 'qty', 'price', 'date'].filter(f => !mappedFields.has(f));
+  if (criticalMissing.length === 0) return mapping;
+
+  for (let i = 0; i < headers.length; i++) {
+    if (mappedHeaderIndices.has(i)) continue;
+    const detected = detectColumnByContent(dataRows, i);
+    if (detected && criticalMissing.includes(detected) && !mappedFields.has(detected)) {
+      mapping[headers[i]] = detected;
+      mappedFields.add(detected);
+      mappedHeaderIndices.add(i);
+    }
+  }
+
+  return mapping;
+}
+
+// ═══════════════════════════════════════════
+// STEP 4: FILE QUIRK HANDLERS
+// ═══════════════════════════════════════════
+
+/** Strip currency symbols from a string */
+function stripCurrency(s: string): string {
+  return s.replace(/[$\u20B9\u00A3\u20AC\u00A5\uFFE5]/g, '').trim();
+}
+
+/** Clean numeric value: handle currency, commas, parens, European format */
+export function cleanNumeric(val: string): string {
+  if (!val) return '';
+  let s = stripCurrency(val.trim());
+
+  // Accounting negatives: (500) → -500
+  if (s.startsWith('(') && s.endsWith(')')) {
+    s = '-' + s.slice(1, -1);
+  }
+
+  // Detect European vs US number format
+  // European: 1.234.567,89 (dots for thousands, comma for decimal)
+  // US/Indian: 1,234,567.89 (commas for thousands, dot for decimal)
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+
+  if (lastComma > lastDot && lastComma === s.length - 3) {
+    // Likely European: "1.234,56" → "1234.56"
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // US/Indian: just strip commas
+    s = s.replace(/,/g, '');
+  }
+
+  // Remove any remaining non-numeric chars except minus and dot
+  s = s.replace(/[^0-9.\-]/g, '');
+
+  return s;
+}
+
+/** Normalize a date string to YYYY-MM-DD (best effort, supports 10+ formats) */
 export function normalizeDate(raw: string): string {
   if (!raw) return '';
   const s = raw.trim();
 
+  // Unix timestamp (seconds or milliseconds)
+  const unixNum = parseFloat(s);
+  if (!isNaN(unixNum) && /^\d{10,13}$/.test(s)) {
+    const ms = s.length === 10 ? unixNum * 1000 : unixNum;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  }
+
+  // ISO 8601: 2024-03-01T09:16:32Z or 2024-03-01 09:16:32
+  const isoFull = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[T\s]/);
+  if (isoFull) return `${isoFull[1]}-${isoFull[2].padStart(2, '0')}-${isoFull[3].padStart(2, '0')}`;
+
   // Already YYYY-MM-DD or YYYY/MM/DD
-  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
 
-  // DD-MM-YYYY or DD/MM/YYYY
-  const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  // DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dmy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+
+  // MM-DD-YYYY (US) — ambiguous, assume if month <= 12 and day > 12
+  const mdy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (mdy) {
+    const m = parseInt(mdy[1]), d = parseInt(mdy[2]);
+    if (m <= 12 && d > 12) {
+      return `${mdy[3]}-${mdy[1].padStart(2, '0')}-${mdy[2].padStart(2, '0')}`;
+    }
+    // Default to DD-MM-YYYY (more common globally)
+    return `${mdy[3]}-${mdy[2].padStart(2, '0')}-${mdy[1].padStart(2, '0')}`;
+  }
 
   // Excel serial date
   const serial = parseFloat(s);
@@ -114,13 +423,25 @@ export function normalizeDate(raw: string): string {
     return d.toISOString().split('T')[0];
   }
 
-  // Named month: "5 Jan 2024", "January 5, 2024"
-  const namedMonth = s.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{4})/i);
-  if (namedMonth) {
+  // Named month: "5 Jan 2024", "15 December 2023"
+  const dMonthY = s.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{4})/i);
+  if (dMonthY) {
     const months: Record<string, string> = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-    const m = months[namedMonth[2].toLowerCase().slice(0, 3)];
-    return `${namedMonth[3]}-${m}-${namedMonth[1].padStart(2, '0')}`;
+    const m = months[dMonthY[2].toLowerCase().slice(0, 3)];
+    if (m) return `${dMonthY[3]}-${m}-${dMonthY[1].padStart(2, '0')}`;
   }
+
+  // "Jan 5, 2024" or "January 5 2024"
+  const monthDY = s.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{1,2})[\s,]+(\d{4})/i);
+  if (monthDY) {
+    const months: Record<string, string> = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+    const m = months[monthDY[1].toLowerCase().slice(0, 3)];
+    if (m) return `${monthDY[3]}-${m}-${monthDY[2].padStart(2, '0')}`;
+  }
+
+  // YYYYMMDD (compact)
+  const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
 
   return s; // Return as-is if can't parse
 }
@@ -130,9 +451,19 @@ export function normalizeTime(raw: string): string {
   if (!raw) return '';
   const s = raw.trim();
 
-  // Extract HH:MM from various formats
+  // HH:MM:SS or HH:MM
   const hhmm = s.match(/(\d{1,2}):(\d{2})/);
   if (hhmm) return `${hhmm[1].padStart(2, '0')}:${hhmm[2]}`;
+
+  // Unix timestamp — extract time
+  const unixNum = parseFloat(s);
+  if (!isNaN(unixNum) && /^\d{10,13}$/.test(s)) {
+    const ms = s.length === 10 ? unixNum * 1000 : unixNum;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      return `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+    }
+  }
 
   return s;
 }
@@ -144,6 +475,13 @@ function extractDateFromTime(timeStr: string): string | undefined {
   if (isoDate) return isoDate[1];
   const ddmmDate = timeStr.match(/(\d{2}[-/]\d{2}[-/]\d{4})/);
   if (ddmmDate) return normalizeDate(ddmmDate[1]);
+  // Unix timestamp
+  const unixNum = parseFloat(timeStr);
+  if (!isNaN(unixNum) && /^\d{10,13}$/.test(timeStr.trim())) {
+    const ms = timeStr.trim().length === 10 ? unixNum * 1000 : unixNum;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  }
   return undefined;
 }
 
@@ -166,6 +504,98 @@ function buildSymbol(base: string, strike?: string, optType?: string): string {
   return sym;
 }
 
+// ═══════════════════════════════════════════
+// STEP 5: CONFIDENCE SCORING
+// ═══════════════════════════════════════════
+
+/** Compute confidence level and score for a column mapping */
+export function computeConfidence(
+  mapping: Record<string, string>,
+  rowCount: number,
+  brokerDetected: boolean,
+): { level: ConfidenceLevel; score: number } {
+  let score = 0;
+  const fields = new Set(Object.values(mapping));
+
+  // Required fields (20 pts each)
+  if (fields.has('symbol')) score += 20;
+  if (fields.has('side') || fields.has('buyQty') || fields.has('sellQty')) score += 20;
+  if (fields.has('qty') || fields.has('buyQty') || fields.has('sellQty')) score += 20;
+  if (fields.has('price') || fields.has('buyPrice') || fields.has('sellPrice')) score += 20;
+
+  // Important fields (10 pts)
+  if (fields.has('date') || fields.has('time')) score += 10;
+
+  // Optional but valuable
+  if (fields.has('time')) score += 3;
+  if (fields.has('pnl')) score += 3;
+  if (fields.has('exchange')) score += 2;
+  if (fields.has('tradeId')) score += 2;
+  if (fields.has('fees')) score += 2;
+
+  // Data volume bonus
+  if (rowCount >= 10) score += 3;
+  if (rowCount >= 50) score += 2;
+
+  // Broker recognition bonus
+  if (brokerDetected) score += 5;
+
+  // Cap at 100
+  score = Math.min(score, 100);
+
+  const level: ConfidenceLevel = score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
+
+  return { level, score };
+}
+
+// ═══════════════════════════════════════════
+// STEP 6: HEADER ROW DETECTION
+// ═══════════════════════════════════════════
+
+/**
+ * Detect the real header row in cases where brokers put
+ * account info, totals, or metadata in the first N rows.
+ * Returns the index of the header row, or 0 if first row is headers.
+ */
+export function detectHeaderRow(lines: string[][]): number {
+  // Try each of the first 20 rows as a potential header
+  const maxCheck = Math.min(lines.length, 20);
+
+  let bestIdx = 0;
+  let bestScore = 0;
+
+  for (let i = 0; i < maxCheck; i++) {
+    const row = lines[i];
+    if (!row || row.length < 3) continue;
+
+    // Score this row as a header candidate
+    let score = 0;
+    const allPatterns = Object.values(COLUMN_PATTERNS).flat();
+    const normalizedPatterns = allPatterns.map(normalize);
+
+    for (const cell of row) {
+      const nc = normalize(cell.trim());
+      if (!nc) continue;
+      // Check if this cell matches any known column pattern
+      if (normalizedPatterns.some(p => nc === p || nc.includes(p) || (p.length >= 3 && p.includes(nc)))) {
+        score++;
+      }
+    }
+
+    // Need at least 3 matches to be a header
+    if (score > bestScore && score >= 3) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  return bestIdx;
+}
+
+// ═══════════════════════════════════════════
+// MAIN EXTRACTION
+// ═══════════════════════════════════════════
+
 /**
  * Extract raw rows from parsed CSV/Excel data.
  * Takes headers + data rows (string[][]) and returns RawTradeRow[].
@@ -174,13 +604,21 @@ export function extractRawRows(
   headers: string[],
   dataRows: string[][],
 ): { rows: RawTradeRow[]; columnMapping: Record<string, string>; warnings: string[] } {
-  const columnMapping = matchColumns(headers);
+  // Step 1: Smart header matching
+  let columnMapping = matchColumns(headers);
   const warnings: string[] = [];
 
-  // Check for critical missing columns
+  // Step 2: Content-based detection fallback
   const mappedFields = new Set(Object.values(columnMapping));
-  if (!mappedFields.has('symbol')) warnings.push('No symbol/instrument column detected');
-  if (!mappedFields.has('price') && !mappedFields.has('buyPrice') && !mappedFields.has('sellPrice')) {
+  const criticalMissing = ['symbol', 'qty', 'price'].filter(f => !mappedFields.has(f));
+  if (criticalMissing.length > 0 && dataRows.length > 0) {
+    columnMapping = applyContentDetection(headers, dataRows, columnMapping);
+  }
+
+  // Check for remaining critical missing columns
+  const finalFields = new Set(Object.values(columnMapping));
+  if (!finalFields.has('symbol')) warnings.push('No symbol/instrument column detected');
+  if (!finalFields.has('price') && !finalFields.has('buyPrice') && !finalFields.has('sellPrice')) {
     warnings.push('No price column detected');
   }
 
@@ -212,7 +650,7 @@ export function extractRawRows(
 
     const symbol = getMapped('symbol');
     // Skip summary/total rows
-    if (!symbol || /^(total|grand|sub|net|sum)/i.test(symbol)) continue;
+    if (!symbol || /^(total|grand|sub|net|sum|average|avg|count)/i.test(symbol)) continue;
 
     const mapped: RawTradeRow['mapped'] = {
       symbol: buildSymbol(symbol, getMapped('strike'), getMapped('optionType')),
@@ -232,6 +670,9 @@ export function extractRawRows(
       sellQty: getMapped('sellQty'),
       buyPrice: getMapped('buyPrice'),
       sellPrice: getMapped('sellPrice'),
+      fees: getMapped('fees'),
+      segment: getMapped('segment'),
+      orderId: getMapped('orderId'),
     };
 
     // Try to extract date from time field if date is missing
@@ -242,8 +683,8 @@ export function extractRawRows(
 
     // Infer side from buyQty/sellQty if missing
     if (!mapped.side) {
-      const bq = parseFloat((mapped.buyQty || '').replace(/,/g, ''));
-      const sq = parseFloat((mapped.sellQty || '').replace(/,/g, ''));
+      const bq = parseFloat(cleanNumeric(mapped.buyQty || ''));
+      const sq = parseFloat(cleanNumeric(mapped.sellQty || ''));
       if (!isNaN(bq) && bq > 0) mapped.side = 'BUY';
       else if (!isNaN(sq) && sq > 0) mapped.side = 'SELL';
     }
@@ -297,16 +738,10 @@ export async function extractRawFile(
 
   if (ext === 'csv' || ext === 'tsv') {
     rawText = buffer.toString('utf-8');
-    // Parse to get headers and rows
-    const lines = rawText.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length > 0) {
-      // Use papaparse via csvParser to get structured data
-      // But we also need raw headers — get them from the first data line
-      const parsed = parseCSVText(rawText);
-      if (parsed.length > 0) {
-        headers = Object.keys(parsed[0]);
-        dataRows = parsed.map(row => headers.map(h => String(row[h] ?? '')));
-      }
+    const parsed = parseCSVText(rawText);
+    if (parsed.length > 0) {
+      headers = Object.keys(parsed[0]);
+      dataRows = parsed.map(row => headers.map(h => String(row[h] ?? '')));
     }
   } else if (ext === 'xlsx' || ext === 'xls') {
     const result = parseExcelBuffer(buffer);
@@ -323,7 +758,6 @@ export async function extractRawFile(
       dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
     }
   } else {
-    // Try as text
     rawText = buffer.toString('utf-8');
     const parsed = parseCSVText(rawText);
     if (parsed.length > 0) {
@@ -346,6 +780,15 @@ export async function extractRawFile(
   const currency = detectCurrency(rawText);
   const tradeDate = detectDate(rawText);
 
+  const brokerDetected = broker !== 'Unknown';
+  const { level: confidence, score: confidenceScore } = computeConfidence(
+    columnMapping, rows.length, brokerDetected
+  );
+
+  if (confidence === 'low') {
+    warnings.push(`Low confidence (${confidenceScore}/100) in column mapping — some fields may be incorrectly mapped`);
+  }
+
   return {
     filename,
     extension: ext,
@@ -361,5 +804,7 @@ export async function extractRawFile(
     rawText,
     warnings,
     extractedAt: new Date().toISOString(),
+    confidence,
+    confidenceScore,
   };
 }
