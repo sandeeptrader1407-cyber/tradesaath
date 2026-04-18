@@ -17,6 +17,7 @@ import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisCom
 import { clerkClient } from '@clerk/nextjs/server';
 import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, computeFileHash } from '@/lib/intake';
 import type { RawFileData } from '@/lib/intake';
+import { tradesNeedPairing, pairClaudeTrades } from '@/lib/intake/claudeTradePairer';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
 
@@ -483,6 +484,15 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
     extracted = extractParsed.data as any;
     trades = extracted.trades || [];
+
+    // Claude often returns individual BUY/SELL legs from contract notes
+    // without computing P&L. Pair them and calculate P&L.
+    if (trades.length > 0 && tradesNeedPairing(trades)) {
+      console.log(`[UPLOAD] Claude trades need pairing (${trades.length} raw legs with null P&L)`);
+      trades = pairClaudeTrades(trades, extracted.trade_date || '');
+      extracted.trades = trades;
+      console.log(`[UPLOAD] Paired into ${trades.length} trades`);
+    }
   }
 
   if (trades.length === 0) {
