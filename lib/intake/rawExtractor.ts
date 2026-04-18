@@ -13,6 +13,8 @@ import { detectBrokerFromText } from '@/lib/config/brokers';
 import { parseCSVText } from '@/lib/parsers/csvParser';
 import { parseExcelBuffer } from '@/lib/parsers/excelParser';
 import { parsePDFBuffer } from '@/lib/parsers/pdfParser';
+import { extractPdfWithCoordinates } from './pdfTableExtractor';
+import { parseContractNote } from './contractNoteDetector';
 import { detectMarket, detectCurrency, detectDate } from '@/lib/parsers/types';
 import * as crypto from 'crypto';
 
@@ -751,11 +753,41 @@ export async function extractRawFile(
       dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
     }
   } else if (ext === 'pdf') {
-    const result = await parsePDFBuffer(buffer);
-    rawText = result.text;
-    if (result.rows.length > 0) {
-      headers = Object.keys(result.rows[0]);
-      dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
+    // Strategy 1: Layout-aware coordinate-based extraction (contract notes)
+    let pdfHandled = false;
+    try {
+      const extraction = await extractPdfWithCoordinates(buffer);
+      if (extraction.tableRows.length >= 2) {
+        const cnResult = parseContractNote(extraction);
+        if (cnResult.dataRows.length > 0) {
+          headers = cnResult.headers;
+          dataRows = cnResult.dataRows;
+          rawText = cnResult.rawText;
+          warnings.push(...cnResult.warnings);
+          pdfHandled = true;
+          console.log(`[RawExtractor] PDF contract note: ${cnResult.broker.brokerName}, ${cnResult.dataRows.length} trade rows`);
+        } else {
+          rawText = extraction.rawText;
+          warnings.push('Contract note detector found no trade rows — falling back to legacy parser');
+        }
+      } else {
+        rawText = extraction.rawText;
+        warnings.push('PDF has too few table rows for contract note detection — falling back');
+      }
+    } catch (pdfErr) {
+      console.error('[RawExtractor] Coordinate PDF extraction failed:', pdfErr instanceof Error ? pdfErr.message : pdfErr);
+      warnings.push('Coordinate-based PDF extraction failed — falling back to legacy parser');
+    }
+
+    // Strategy 2: Legacy text-based PDF parser (order books, generic formats)
+    if (!pdfHandled) {
+      const result = await parsePDFBuffer(buffer);
+      if (!rawText) rawText = result.text;
+      if (result.rows.length > 0) {
+        headers = Object.keys(result.rows[0]);
+        dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
+        console.log(`[RawExtractor] Legacy PDF parser: ${result.rows.length} rows`);
+      }
     }
   } else {
     rawText = buffer.toString('utf-8');
