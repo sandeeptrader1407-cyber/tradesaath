@@ -466,7 +466,15 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.log(`Call 1: AI extracting trades... (broker hint: ${brokerHint || 'none'})`);
     const c1Start = Date.now();
     const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 4096, 55000);
-    console.log(`Call 1 took ${Date.now() - c1Start}ms`);
+    console.log(`Call 1 took ${Date.now() - c1Start}ms, ok=${extractResult.ok}`);
+
+    // Log Claude response preview for debugging
+    if (extractResult.ok) {
+      const responsePreview = typeof extractResult.data === 'string'
+        ? extractResult.data.substring(0, 400)
+        : JSON.stringify(extractResult.data).substring(0, 400);
+      console.log(`[UPLOAD] Claude extract response preview: ${responsePreview}`);
+    }
 
     if (!extractResult.ok) {
       const userMsg = extractResult.code === 'TIMEOUT'
@@ -478,12 +486,16 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
     }
     const extractParsed = safeParseJSON(extractResult.data as string);
+    console.log(`[UPLOAD] safeParseJSON ok=${extractParsed.ok}, hasData=${!!extractParsed.data}`);
     if (!extractParsed.ok || !extractParsed.data) {
+      const rawStr = typeof extractResult.data === 'string' ? extractResult.data : '';
+      console.error(`[UPLOAD] JSON parse failed. Raw response length=${rawStr.length}, first 300 chars: ${rawStr.substring(0, 300)}`);
       return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
     extracted = extractParsed.data as any;
     trades = extracted.trades || [];
+    console.log(`[UPLOAD] Extracted trades count: ${trades.length}, keys: ${Object.keys(extracted).join(',')}`);
 
     // Claude often returns individual BUY/SELL legs from contract notes
     // without computing P&L. Pair them and calculate P&L.
