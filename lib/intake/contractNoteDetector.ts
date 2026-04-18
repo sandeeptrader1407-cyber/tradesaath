@@ -398,4 +398,7 @@ export function parseContractNote(extraction: PdfExtractionResult): ContractNote
     currency: 'INR',
     headers,
     dataRows,
-    rawTex
+    rawText,
+    warnings,
+  };
+}
