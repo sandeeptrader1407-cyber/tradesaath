@@ -9,6 +9,61 @@
 import { RawTradeRow, StandardTrade } from './types';
 import { normalizeDate, normalizeTime, cleanNumeric } from './rawExtractor';
 
+/**
+ * Compute a unique signature for a trade — used for deduplication.
+ * Uses broker tradeId if available, otherwise falls back to a composite key.
+ */
+export function computeTradeSignature(trade: {
+  tradeId?: string; trade_id?: string;
+  date?: string; trade_date?: string;
+  entryTime?: string; entry_time?: string; time?: string;
+  symbol?: string;
+  side?: string;
+  quantity?: number; qty?: number;
+  entryPrice?: number; entry_price?: number; price?: number;
+  exitPrice?: number; exit_price?: number;
+}): string {
+  // Use broker's tradeId if available (most reliable)
+  const tid = trade.tradeId || trade.trade_id;
+  if (tid && String(tid).length > 3) {
+    return `tid:${tid}`;
+  }
+  // Fallback: composite key unlikely to repeat by accident
+  const date = trade.date || trade.trade_date || '';
+  const time = trade.entryTime || trade.entry_time || trade.time || '';
+  const sym = (trade.symbol || '').toUpperCase().replace(/\s+/g, '');
+  const side = (trade.side || '').toUpperCase();
+  const qty = trade.quantity || trade.qty || 0;
+  const entry = trade.entryPrice || trade.entry_price || trade.price || 0;
+  const exit = trade.exitPrice || trade.exit_price || 0;
+  return [date, time, sym, side, qty, entry.toFixed(2), exit.toFixed(2)].join('|');
+}
+
+/**
+ * Deduplicate trades: remove trades whose signature matches an existing set.
+ * Returns { unique, skipped } counts.
+ */
+export function deduplicateTrades<T extends Record<string, unknown>>(
+  newTrades: T[],
+  existingTrades: T[],
+): { unique: T[]; skipped: number } {
+  const existingSigs = new Set(
+    existingTrades.map(t => computeTradeSignature(t as Parameters<typeof computeTradeSignature>[0]))
+  );
+  const unique: T[] = [];
+  let skipped = 0;
+  for (const t of newTrades) {
+    const sig = computeTradeSignature(t as Parameters<typeof computeTradeSignature>[0]);
+    if (existingSigs.has(sig)) {
+      skipped++;
+    } else {
+      unique.push(t);
+      existingSigs.add(sig); // prevent intra-batch duplicates too
+    }
+  }
+  return { unique, skipped };
+}
+
 const UNKNOWN_DATE = 'unknown';
 
 /** Parse a numeric value from a raw string, handling all formats */
