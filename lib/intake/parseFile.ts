@@ -3,7 +3,7 @@
  * read file -> extract raw -> (optionally save to Supabase) -> pair trades -> validate -> return
  */
 
-import { IntakeResult } from './types';
+import { IntakeResult, RawFileData } from './types';
 import { extractRawFile } from './rawExtractor';
 import { pairRawTrades } from './tradePairer';
 import { validateTrades } from './tradeValidator';
@@ -19,6 +19,19 @@ export interface IntakeOptions {
   sessionId?: string;
 }
 
+function emptyRawFile(filename: string, ext: string, sizeBytes: number, error: string): RawFileData {
+  return {
+    filename, extension: ext, sizeBytes,
+    fileHash: '', broker: 'Unknown', market: 'Unknown', currency: '',
+    tradeDate: new Date().toISOString().split('T')[0],
+    headers: [], columnMapping: {}, rows: [], rawText: '',
+    warnings: [error],
+    extractedAt: new Date().toISOString(),
+    confidence: 'low',
+    confidenceScore: 0,
+  };
+}
+
 /**
  * Parse a trade file through the raw-first intake pipeline.
  * Always returns IntakeResult — never throws.
@@ -32,17 +45,9 @@ export async function intakeFile(
 
   // Images need AI/OCR — early exit
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-    const emptyRaw = {
-      filename, extension: ext, sizeBytes: buffer.length,
-      fileHash: '', broker: 'Unknown', market: 'Unknown', currency: '',
-      tradeDate: new Date().toISOString().split('T')[0],
-      headers: [], columnMapping: {}, rows: [], rawText: '',
-      warnings: ['Image files require AI for OCR extraction'],
-      extractedAt: new Date().toISOString(),
-    };
     return {
       success: false,
-      rawFile: emptyRaw,
+      rawFile: emptyRawFile(filename, ext, buffer.length, 'Image files require AI for OCR extraction'),
       trades: [],
       kpis: calculateIntakeKPIs([]),
       timeAnalysis: calculateIntakeTimeAnalysis([]),
@@ -56,7 +61,7 @@ export async function intakeFile(
 
     // Step 1: Extract raw data
     const rawFile = await extractRawFile(buffer, filename);
-    console.log(`[Intake] Extracted ${rawFile.rows.length} raw rows, broker: ${rawFile.broker}`);
+    console.log(`[Intake] Extracted ${rawFile.rows.length} raw rows, broker: ${rawFile.broker}, confidence: ${rawFile.confidence} (${rawFile.confidenceScore}/100)`);
 
     // Step 2: Optionally save raw data to Supabase
     if (options.saveRaw && options.userId) {
@@ -106,13 +111,7 @@ export async function intakeFile(
     console.error(`[Intake] Error: ${msg}`);
     return {
       success: false,
-      rawFile: {
-        filename, extension: ext, sizeBytes: buffer.length,
-        fileHash: '', broker: 'Unknown', market: 'Unknown', currency: '',
-        tradeDate: new Date().toISOString().split('T')[0],
-        headers: [], columnMapping: {}, rows: [], rawText: '',
-        warnings: [msg], extractedAt: new Date().toISOString(),
-      },
+      rawFile: emptyRawFile(filename, ext, buffer.length, msg),
       trades: [],
       kpis: calculateIntakeKPIs([]),
       timeAnalysis: calculateIntakeTimeAnalysis([]),
