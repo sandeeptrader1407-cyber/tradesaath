@@ -157,22 +157,34 @@ export interface IntakeResult {
   error?: string;
 }
 
-// ── Supabase storage shape ──
 
-/** What gets inserted into the raw_files table */
+// -- Supabase storage shape --
+
+/** What gets inserted into the raw_files table (matches actual DB columns) */
 export interface RawFileRecord {
   user_id: string;
   session_id?: string;
-  filename: string;
-  file_hash: string;
+  // Legacy columns (kept for backward compat with old saveRawFile)
+  file_name?: string;
   file_size_bytes: number;
-  broker: string;
+  file_hash: string;
+  // Module 1 columns
+  broker_id: string;
+  broker_name: string;
   market: string;
   currency: string;
-  trade_date: string;
+  headers?: string[];
+  total_rows: number;
+  data_rows: number;
+  skipped_rows: number;
+  has_time_column: boolean;
+  date_range_start?: string;
+  date_range_end?: string;
   /** The complete RawFileData as JSONB */
-  raw_data: RawFileData;
-  row_count: number;
-  extraction_warnings: string[];
+  raw_data: RawFileData | object;
+  column_mapping?: Record<string, string>;
+  parser_version: string;
+  parsed_at: string;
+  warnings?: string[];
   created_at?: string;
 }

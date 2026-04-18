@@ -1,5 +1,5 @@
 /**
- * TradeSaath Intake Module — Public API
+ * TradeSaath Intake Module -- Public API
  * Raw-first architecture: store everything raw, compute later.
  */
 
@@ -24,4 +24,11 @@ export { extractRawFile, extractRawRows, matchColumns, normalizeDate, normalizeT
 export { pairRawTrades } from './tradePairer';
 export { validateTrades } from './tradeValidator';
 export { calculateIntakeKPIs, calculateIntakeTimeAnalysis } from './kpiCalculator';
-export { saveRawData } from './saveRawData';
+export { saveRawData, saveClaudeFallbackRawData, computeFileHash } from './saveRawData';
+export { toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis } from './legacyAdapter';
+
+// PDF layout-aware extraction
+export { extractPdfWithCoordinates } from './pdfTableExtractor';
+export type { PdfTableRow, PdfExtractionResult } from './pdfTableExtractor';
+export { parseContractNote, detectBrokerFromPdf, extractContractNoteDate } from './contractNoteDetector';
+export type { ContractNoteResult, BrokerDetection } from './contractNoteDetector';
