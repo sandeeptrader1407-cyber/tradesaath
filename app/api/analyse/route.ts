@@ -15,6 +15,8 @@ import { createBatch } from '@/lib/analysis/analysisQueue';
 import { sendEmail } from '@/lib/email';
 import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisComplete';
 import { clerkClient } from '@clerk/nextjs/server';
+import { intakeFile, toLegacyTrade, saveRawData } from '@/lib/intake';
+import type { RawFileData } from '@/lib/intake';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
 
@@ -404,43 +406,77 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   console.log(`=== ANALYSE: ${files.length} file(s) via FormData ===`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content blocks
-  const userContent: any[] = [];
+  const brokerHint = context?.detected_broker || context?.broker || '';
+
+  // ─── Try Module 1 intake pipeline first (free, instant, deterministic) ───
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade shape
+  let trades: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted metadata
+  let extracted: any = {};
+  let rawFileData: RawFileData | undefined;
+  let usedLocalParse = false;
+
+  const localParseStart = Date.now();
   for (const file of files) {
-    const mediaType = getMediaType(file.name);
     const buffer = Buffer.from(await file.arrayBuffer());
-    if (mediaType === 'text/csv') {
-      userContent.push({ type: 'text', text: `File: ${file.name}\n\n${buffer.toString('utf-8')}` });
-    } else if (mediaType.startsWith('image/')) {
-      userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } });
-    } else {
-      userContent.push({ type: 'document', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } });
+    const intakeResult = await intakeFile(buffer, file.name);
+    if (intakeResult.success && intakeResult.trades.length > 0) {
+      const legacyTrades = intakeResult.trades.map(toLegacyTrade);
+      trades.push(...legacyTrades);
+      rawFileData = intakeResult.rawFile;
+      extracted = {
+        detected_market: intakeResult.rawFile.market,
+        detected_currency: intakeResult.rawFile.currency,
+        detected_broker: intakeResult.rawFile.broker,
+        trade_date: intakeResult.rawFile.tradeDate,
+        trades: legacyTrades,
+      };
+      usedLocalParse = true;
+      console.log(`[Intake] Local parse OK: ${legacyTrades.length} trades, broker=${intakeResult.rawFile.broker}, confidence=${intakeResult.rawFile.confidence} (${intakeResult.rawFile.confidenceScore}/100)`);
     }
   }
-  const brokerHint = context?.detected_broker || context?.broker || '';
-  userContent.push({ type: 'text', text: brokerHint ? `Extract all trades from these files. Broker: ${brokerHint}` : 'Extract all trades from these files.' });
+  console.log(`Local parse attempt took ${Date.now() - localParseStart}ms`);
 
-  console.log(`Call 1: Extracting trades... (broker hint: ${brokerHint || 'none'})`);
-  const c1Start = Date.now();
-  const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 4096, 55000);
-  console.log(`Call 1 took ${Date.now() - c1Start}ms`);
+  // ─── Fall back to Claude AI extraction if local parse failed ───
+  if (trades.length === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content blocks
+    const userContent: any[] = [];
+    for (const file of files) {
+      const mediaType = getMediaType(file.name);
+      const buffer = Buffer.from(await file.arrayBuffer());
+      if (mediaType === 'text/csv') {
+        userContent.push({ type: 'text', text: `File: ${file.name}\n\n${buffer.toString('utf-8')}` });
+      } else if (mediaType.startsWith('image/')) {
+        userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } });
+      } else {
+        userContent.push({ type: 'document', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } });
+      }
+    }
+    userContent.push({ type: 'text', text: brokerHint ? `Extract all trades from these files. Broker: ${brokerHint}` : 'Extract all trades from these files.' });
 
-  if (!extractResult.ok) {
-    const userMsg = extractResult.code === 'TIMEOUT'
-      ? 'Analysis is taking longer than expected. Please try again or upload a smaller file.'
-      : extractResult.code === 'RATE_LIMIT' || extractResult.code === 'OVERLOADED'
-        ? 'Our AI is experiencing high demand. Please try again in a few minutes.'
-        : 'Trade extraction failed. Please try again.';
-    console.error('Extract failed:', extractResult.error, extractResult.code);
-    return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
+    console.log(`Call 1: AI extracting trades... (broker hint: ${brokerHint || 'none'})`);
+    const c1Start = Date.now();
+    const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 4096, 55000);
+    console.log(`Call 1 took ${Date.now() - c1Start}ms`);
+
+    if (!extractResult.ok) {
+      const userMsg = extractResult.code === 'TIMEOUT'
+        ? 'Analysis is taking longer than expected. Please try again or upload a smaller file.'
+        : extractResult.code === 'RATE_LIMIT' || extractResult.code === 'OVERLOADED'
+          ? 'Our AI is experiencing high demand. Please try again in a few minutes.'
+          : 'Trade extraction failed. Please try again.';
+      console.error('Extract failed:', extractResult.error, extractResult.code);
+      return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
+    }
+    const extractParsed = safeParseJSON(extractResult.data as string);
+    if (!extractParsed.ok || !extractParsed.data) {
+      return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
+    extracted = extractParsed.data as any;
+    trades = extracted.trades || [];
   }
-  const extractParsed = safeParseJSON(extractResult.data as string);
-  if (!extractParsed.ok || !extractParsed.data) {
-    return NextResponse.json({ error: 'Could not parse trades from file. Try a different format.' }, { status: 422 });
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
-  const extracted = extractParsed.data as any;
-  const trades = extracted.trades || [];
+
   if (trades.length === 0) {
     return NextResponse.json({ error: 'No trades found in the uploaded file(s).' }, { status: 422 });
   }
@@ -481,6 +517,18 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     const { userId } = await auth();
     const anonId = userId ? undefined : await getOrCreateAnonId();
 
+    // Save raw file data (Module 1) if local parse was used and user is authenticated
+    let rawFileId: string | undefined;
+    if (usedLocalParse && rawFileData && userId) {
+      const rawResult = await saveRawData(rawFileData, userId);
+      if ('id' in rawResult) {
+        rawFileId = rawResult.id;
+        console.log(`[Intake] Raw file saved: ${rawFileId}`);
+      } else {
+        console.warn(`[Intake] Raw save failed: ${rawResult.error}`);
+      }
+    }
+
     savedSessionId = await saveSessionsByDay({
       trades, analysis: response.analysis, context,
       metadata: {
@@ -488,9 +536,17 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         detected_currency: extracted.detected_currency || 'INR',
         detected_broker: extracted.detected_broker || 'Unknown',
         trade_date: extracted.trade_date || '',
+        raw_file_id: rawFileId,
       },
       plan: 'free', userId: userId || undefined, anonId, files,
     });
+
+    // Link raw_file_id to session (update raw_files row with session_id)
+    if (rawFileId && savedSessionId && userId) {
+      saveRawData(rawFileData!, userId, savedSessionId).catch(err =>
+        console.warn('[Intake] Failed to link session to raw file:', err)
+      );
+    }
   } catch (e) {
     console.error('Session save failed (non-blocking):', e);
   }
@@ -537,8 +593,8 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.error('[ANALYSIS_EMAIL] Non-blocking error:', emailErr);
   }
 
-  console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl}`);
-  return NextResponse.json({ ...response, sessionId: savedSessionId || null });
+  console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl} | localParse: ${usedLocalParse}`);
+  return NextResponse.json({ ...response, sessionId: savedSessionId || null, _parsed_locally: usedLocalParse });
 }
 
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {

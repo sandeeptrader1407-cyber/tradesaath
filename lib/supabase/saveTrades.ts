@@ -39,35 +39,42 @@ export async function saveTradeSession({
       .reduce((s: number, t: any) => s + t.pnl, 0)
   )
 
+  // Build insert row — include raw_file_id only if column exists (added by Module 1 migration)
+  const insertRow: Record<string, any> = {
+    user_id: userId || null,
+    anon_id: anonId || null,
+    session_key: crypto.randomUUID(),
+    broker: metadata?.detected_broker || 'Unknown',
+    broker_name: metadata?.detected_broker || 'Unknown',
+    file_name: metadata?.file_name || 'upload',
+    trade_date: metadata?.trade_date || new Date().toISOString().split('T')[0],
+    detected_market: metadata?.detected_market || 'Unknown',
+    detected_currency: metadata?.detected_currency || 'INR',
+    detected_broker: metadata?.detected_broker || 'Unknown',
+    trades: trades,
+    analysis: analysis,
+    context: context,
+    trade_count: trades.length,
+    net_pnl: netPnl,
+    win_count: wins,
+    loss_count: losses,
+    win_rate: trades.length > 0 ? Math.round((wins / trades.length) * 10000) / 100 : 0,
+    profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
+    best_trade: trades.length > 0 ? Math.max(...trades.map((t: any) => t.pnl || 0)) : 0,
+    worst_trade: trades.length > 0 ? Math.min(...trades.map((t: any) => t.pnl || 0)) : 0,
+    plan: plan || 'free',
+    payment_id: paymentId || null,
+    raw_row_count: trades.length,
+    parsed_count: trades.length,
+  }
+  // Include raw_file_id if provided (requires Module 1 DB migration)
+  if (metadata?.raw_file_id) {
+    insertRow.raw_file_id = metadata.raw_file_id
+  }
+
   const { data, error } = await supabase
     .from('trade_sessions')
-    .insert({
-      user_id: userId || null,
-      anon_id: anonId || null,
-      session_key: crypto.randomUUID(),
-      broker: metadata?.detected_broker || 'Unknown',
-      broker_name: metadata?.detected_broker || 'Unknown',
-      file_name: metadata?.file_name || 'upload',
-      trade_date: metadata?.trade_date || new Date().toISOString().split('T')[0],
-      detected_market: metadata?.detected_market || 'Unknown',
-      detected_currency: metadata?.detected_currency || 'INR',
-      detected_broker: metadata?.detected_broker || 'Unknown',
-      trades: trades,
-      analysis: analysis,
-      context: context,
-      trade_count: trades.length,
-      net_pnl: netPnl,
-      win_count: wins,
-      loss_count: losses,
-      win_rate: trades.length > 0 ? Math.round((wins / trades.length) * 10000) / 100 : 0,
-      profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
-      best_trade: trades.length > 0 ? Math.max(...trades.map((t: any) => t.pnl || 0)) : 0,
-      worst_trade: trades.length > 0 ? Math.min(...trades.map((t: any) => t.pnl || 0)) : 0,
-      plan: plan || 'free',
-      payment_id: paymentId || null,
-      raw_row_count: trades.length,
-      parsed_count: trades.length,
-    })
+    .insert(insertRow)
     .select()
     .single()
 
