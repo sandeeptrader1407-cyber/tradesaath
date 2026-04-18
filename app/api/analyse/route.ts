@@ -61,7 +61,16 @@ async function callClaude(
 /* ─── JSON parser with truncation recovery ─── */
 function safeParseJSON(raw: string): { ok: boolean; data?: unknown; truncated?: boolean } {
   let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  // Try direct parse first
   try { return { ok: true, data: JSON.parse(cleaned) }; } catch { /* fall through */ }
+  // Claude sometimes wraps JSON in prose text — extract the JSON object
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+  if (jsonStart >= 0 && jsonEnd > jsonStart) {
+    const extracted = cleaned.substring(jsonStart, jsonEnd + 1);
+    try { return { ok: true, data: JSON.parse(extracted) }; } catch { /* fall through */ }
+  }
+  // Truncation recovery: find the last complete array element and balance braces
   const lastBrace = cleaned.lastIndexOf('}]');
   const lastComma = cleaned.lastIndexOf('},');
   if (lastBrace > 0 && lastBrace > lastComma) cleaned = cleaned.substring(0, lastBrace + 2);
@@ -494,16 +503,29 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted shape
     extracted = extractParsed.data as any;
-    trades = extracted.trades || [];
+    // Claude may return trades under different keys
+    trades = extracted.trades || extracted.trade_list || extracted.orders || [];
+    // Ensure every trade has a qty field (Claude uses "quantity", downstream expects "qty" too)
+    for (const t of trades) {
+      if (t.quantity && !t.qty) t.qty = t.quantity;
+      if (t.qty && !t.quantity) t.quantity = t.qty;
+    }
     console.log(`[UPLOAD] Extracted trades count: ${trades.length}, keys: ${Object.keys(extracted).join(',')}`);
 
     // Claude often returns individual BUY/SELL legs from contract notes
     // without computing P&L. Pair them and calculate P&L.
     if (trades.length > 0 && tradesNeedPairing(trades)) {
-      console.log(`[UPLOAD] Claude trades need pairing (${trades.length} raw legs with null P&L)`);
-      trades = pairClaudeTrades(trades, extracted.trade_date || '');
-      extracted.trades = trades;
-      console.log(`[UPLOAD] Paired into ${trades.length} trades`);
+      const prePairCount = trades.length;
+      console.log(`[UPLOAD] Claude trades need pairing (${prePairCount} raw legs with null P&L)`);
+      const paired = pairClaudeTrades(trades, extracted.trade_date || '');
+      // Safety: don't lose trades if pairing reduces to 0
+      if (paired.length > 0) {
+        trades = paired;
+        extracted.trades = trades;
+        console.log(`[UPLOAD] Paired ${prePairCount} legs into ${trades.length} trades`);
+      } else {
+        console.warn(`[UPLOAD] Pairing returned 0 trades from ${prePairCount} legs — keeping original legs`);
+      }
     }
   }
 
