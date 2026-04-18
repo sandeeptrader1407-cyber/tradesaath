@@ -17,7 +17,20 @@ function dateOf(row: AnyRow): string {
   return UNKNOWN_DATE;
 }
 
-/* ─── Pair buy/sell orders for same instrument on the same day ─── */
+/** Compute holding time in minutes between two HH:MM strings */
+function holdingMinutes(entryTime: string, exitTime: string): number {
+  const parse = (t: string) => {
+    const parts = t.split(':').map(Number);
+    return (isNaN(parts[0]) || isNaN(parts[1])) ? null : parts[0] * 60 + parts[1];
+  };
+  const a = parse(entryTime);
+  const b = parse(exitTime);
+  if (a === null || b === null) return 0;
+  const diff = b - a;
+  return diff >= 0 ? diff : 0;
+}
+
+/* --- Pair buy/sell orders for same instrument on the same day --- */
 export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
   // Group by symbol + date so cross-day pairing is impossible.
   const groups: Record<string, AnyRow[]> = {};
@@ -43,57 +56,79 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
     const buys = trades.filter(t => t.side === 'BUY');
     const sells = trades.filter(t => t.side === 'SELL');
 
-    // FIFO matching: match buy qty with sell qty in chronological order
-    const buyQ: (AnyRow & { remaining: number })[] = buys.map(b => ({ ...b, remaining: b.qty || 0 }));
-    const sellQ: (AnyRow & { remaining: number })[] = sells.map(s => ({ ...s, remaining: s.qty || 0 }));
+    // Detect if this is a short-first group: first chronological trade is a SELL
+    const firstTrade = trades[0];
+    const isShort = firstTrade && firstTrade.side === 'SELL' && sells.length > 0 && buys.length > 0;
 
-    let bi = 0, si = 0;
-    while (bi < buyQ.length && si < sellQ.length) {
-      const buy = buyQ[bi];
-      const sell = sellQ[si];
-      if (buy.remaining <= 0) { bi++; continue; }
-      if (sell.remaining <= 0) { si++; continue; }
+    // For shorts: entry = sell, exit = buy  |  For longs: entry = buy, exit = sell
+    const openers = isShort ? sells : buys;
+    const closers = isShort ? buys : sells;
 
-      const matchQty = Math.min(buy.remaining, sell.remaining);
-      const entry = buy.price || 0;
-      const exit = sell.price || 0;
-      const pnl = Math.round((exit - entry) * matchQty * 100) / 100;
+    // FIFO matching
+    const openQ: (AnyRow & { remaining: number })[] = openers.map(o => ({ ...o, remaining: o.qty || 0 }));
+    const closeQ: (AnyRow & { remaining: number })[] = closers.map(c => ({ ...c, remaining: c.qty || 0 }));
 
-      // Use the time of whichever came second (the closing trade)
-      const buyTime = (buy.time || '00:00').replace(/:/g, '');
-      const sellTime = (sell.time || '00:00').replace(/:/g, '');
-      const closingTime = parseInt(sellTime) >= parseInt(buyTime) ? sell.time : buy.time;
+    let oi = 0, ci = 0;
+    while (oi < openQ.length && ci < closeQ.length) {
+      const open = openQ[oi];
+      const close = closeQ[ci];
+      if (open.remaining <= 0) { oi++; continue; }
+      if (close.remaining <= 0) { ci++; continue; }
+
+      const matchQty = Math.min(open.remaining, close.remaining);
+      const entryPrice = open.price || 0;
+      const exitPrice = close.price || 0;
+
+      // P&L: for longs (exit - entry) * qty, for shorts (entry - exit) * qty
+      const pnl = isShort
+        ? Math.round((entryPrice - exitPrice) * matchQty * 100) / 100
+        : Math.round((exitPrice - entryPrice) * matchQty * 100) / 100;
+
+      const entryTime = open.time || '';
+      const exitTime = close.time || '';
+
+      // Determine which came second chronologically for the "time" field
+      const openNum = parseInt((open.time || '00:00').replace(/:/g, ''));
+      const closeNum = parseInt((close.time || '00:00').replace(/:/g, ''));
+      const closingTime = closeNum >= openNum ? close.time : open.time;
 
       paired.push({
         index: 0,
         time: closingTime || '',
         date: groupDate,
-        symbol: buy.symbol || sell.symbol,
-        side: 'BUY',
+        symbol: open.symbol || close.symbol,
+        side: isShort ? 'SELL' : 'BUY',
         qty: matchQty,
-        entry,
-        exit,
+        entry: entryPrice,
+        exit: exitPrice,
         pnl,
         cum_pnl: 0,
         session: classifySession(closingTime || ''),
         time_gap_minutes: null,
         tag: pnl >= 0 ? 'win' : 'loss',
         label: pnl >= 0 ? 'Winner' : 'Loser',
+        entry_time: entryTime,
+        exit_time: exitTime,
+        holding_minutes: holdingMinutes(entryTime, exitTime),
+        exchange: open.exchange || close.exchange || '',
+        trade_id: open.trade_id || close.trade_id || '',
       });
 
-      buy.remaining -= matchQty;
-      sell.remaining -= matchQty;
-      if (buy.remaining <= 0) bi++;
-      if (sell.remaining <= 0) si++;
+      open.remaining -= matchQty;
+      close.remaining -= matchQty;
+      if (open.remaining <= 0) oi++;
+      if (close.remaining <= 0) ci++;
     }
 
-    // Handle unpaired trades with direct P&L
+    // Handle unpaired trades (open positions or trades with direct P&L)
     const allRemaining = [
-      ...buyQ.filter(b => b.remaining > 0),
-      ...sellQ.filter(s => s.remaining > 0),
+      ...openQ.filter(o => o.remaining > 0),
+      ...closeQ.filter(c => c.remaining > 0),
     ];
     for (const t of allRemaining) {
-      if (t.pnl !== undefined) {
+      // Include if they have P&L data, or flag as open position
+      const hasPnl = t.pnl !== undefined;
+      if (hasPnl || t.remaining > 0) {
         paired.push({
           index: 0,
           time: t.time || '',
@@ -103,12 +138,17 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
           qty: t.remaining || t.qty || 1,
           entry: t.price || 0,
           exit: 0,
-          pnl: t.pnl,
+          pnl: hasPnl ? t.pnl : 0,
           cum_pnl: 0,
           session: classifySession(t.time || ''),
           time_gap_minutes: null,
-          tag: t.pnl >= 0 ? 'win' : 'loss',
-          label: t.pnl >= 0 ? 'Winner' : 'Loser',
+          tag: hasPnl ? (t.pnl >= 0 ? 'win' : 'loss') : 'open',
+          label: hasPnl ? (t.pnl >= 0 ? 'Winner' : 'Loser') : 'Open Position',
+          entry_time: t.time || '',
+          exit_time: '',
+          holding_minutes: 0,
+          exchange: t.exchange || '',
+          trade_id: t.trade_id || '',
         });
       }
     }
@@ -132,6 +172,11 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
         time_gap_minutes: null,
         tag: (t.pnl || 0) >= 0 ? 'win' : 'loss',
         label: (t.pnl || 0) >= 0 ? 'Winner' : 'Loser',
+        entry_time: t.time || '',
+        exit_time: '',
+        holding_minutes: 0,
+        exchange: t.exchange || '',
+        trade_id: t.trade_id || '',
       });
     }
   }

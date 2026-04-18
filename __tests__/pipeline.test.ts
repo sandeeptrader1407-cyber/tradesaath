@@ -495,3 +495,136 @@ describe('Pipeline: End-to-End', () => {
     }
   })
 })
+
+/* =====================================================================
+   SECTION 7: PARSING CORRECTNESS — Field Preservation
+===================================================================== */
+describe('Pipeline: Parsing Correctness', () => {
+  it('Zerodha CSV preserves all core fields per trade', async () => {
+    const result = await parseTradeFile(loadFixture('zerodha-single-day.csv'), 'zerodha-single-day.csv')
+    expect(result.success).toBe(true)
+    for (const t of result.trades) {
+      expect(t.date).toBeTruthy()
+      expect(t.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(t.symbol).toBeTruthy()
+      expect(typeof t.qty).toBe('number')
+      expect(t.qty).toBeGreaterThan(0)
+      expect(typeof t.entry).toBe('number')
+      expect(t.entry).toBeGreaterThan(0)
+      expect(typeof t.pnl).toBe('number')
+      // New fields should exist (even if empty string for optional ones)
+      expect(typeof t.entry_time).toBe('string')
+      expect(typeof t.exit_time).toBe('string')
+      expect(typeof t.holding_minutes).toBe('number')
+      expect(typeof t.exchange).toBe('string')
+      expect(typeof t.trade_id).toBe('string')
+    }
+  })
+
+  it('paired trades preserve both entry and exit times', async () => {
+    const result = await parseTradeFile(loadFixture('zerodha-single-day.csv'), 'zerodha-single-day.csv')
+    expect(result.success).toBe(true)
+    const pairedWithTimes = result.trades.filter(t => t.exit !== 0)
+    // At least some paired trades should exist
+    expect(pairedWithTimes.length).toBeGreaterThan(0)
+    for (const t of pairedWithTimes) {
+      // entry_time should be a valid time string
+      expect(t.entry_time).toMatch(/^\d{1,2}:\d{2}/)
+      // exit_time should be a valid time string
+      expect(t.exit_time).toMatch(/^\d{1,2}:\d{2}/)
+      // holding_minutes should be >= 0
+      expect(t.holding_minutes).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('multi-day CSV preserves per-row dates correctly', async () => {
+    const result = await parseTradeFile(loadFixture('zerodha-multi-day.csv'), 'zerodha-multi-day.csv')
+    expect(result.success).toBe(true)
+    const dates = new Set(result.trades.map(t => t.date))
+    expect(dates.size).toBe(5)
+    // No trade should have 'unknown' date
+    for (const t of result.trades) {
+      expect(t.date).not.toBe('unknown')
+      expect(t.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    }
+  })
+
+  it('P&L calculation matches manual (exit - entry) * qty for longs', () => {
+    const rawTrades = [
+      { symbol: 'TEST', side: 'BUY', qty: 100, price: 50.00, time: '09:15', date: '2024-01-15' },
+      { symbol: 'TEST', side: 'SELL', qty: 100, price: 55.00, time: '09:30', date: '2024-01-15' },
+    ]
+    const paired = pairTrades(rawTrades)
+    expect(paired.length).toBe(1)
+    expect(paired[0].pnl).toBe(500) // (55 - 50) * 100
+    expect(paired[0].entry).toBe(50)
+    expect(paired[0].exit).toBe(55)
+    expect(paired[0].side).toBe('BUY')
+  })
+
+  it('short trades (sell first) are paired correctly with correct P&L', () => {
+    const rawTrades = [
+      { symbol: 'NIFTY', side: 'SELL', qty: 75, price: 245.50, time: '09:22', date: '2024-01-15' },
+      { symbol: 'NIFTY', side: 'BUY', qty: 75, price: 220.30, time: '09:48', date: '2024-01-15' },
+    ]
+    const paired = pairTrades(rawTrades)
+    expect(paired.length).toBe(1)
+    // Short P&L = (entry - exit) * qty = (245.50 - 220.30) * 75 = 1890
+    expect(paired[0].pnl).toBe(1890)
+    expect(paired[0].side).toBe('SELL')
+    expect(paired[0].entry).toBe(245.50)
+    expect(paired[0].exit).toBe(220.30)
+  })
+
+  it('short trades fixture parses correctly end-to-end', async () => {
+    const result = await parseTradeFile(loadFixture('short-trades.csv'), 'short-trades.csv')
+    expect(result.success).toBe(true)
+    expect(result.trades.length).toBe(3) // 3 round trips
+    // First trade: SELL 245.50, BUY 220.30 -> profit
+    const t1 = result.trades[0]
+    expect(t1.pnl).toBeGreaterThan(0)
+    expect(t1.side).toBe('SELL')
+    // Second trade: SELL 198.00, BUY 210.50 -> loss (bought back higher)
+    const t2 = result.trades[1]
+    expect(t2.pnl).toBeLessThan(0)
+  })
+
+  it('partial fills create multiple paired trades', () => {
+    const rawTrades = [
+      { symbol: 'AAPL', side: 'BUY', qty: 100, price: 150.00, time: '10:00', date: '2024-01-15' },
+      { symbol: 'AAPL', side: 'SELL', qty: 50, price: 155.00, time: '10:30', date: '2024-01-15' },
+      { symbol: 'AAPL', side: 'SELL', qty: 50, price: 160.00, time: '11:00', date: '2024-01-15' },
+    ]
+    const paired = pairTrades(rawTrades)
+    expect(paired.length).toBe(2) // Two partial fills
+    expect(paired[0].qty).toBe(50)
+    expect(paired[0].pnl).toBe(250) // (155 - 150) * 50
+    expect(paired[1].qty).toBe(50)
+    expect(paired[1].pnl).toBe(500) // (160 - 150) * 50
+  })
+
+  it('holding_minutes is computed correctly during pairing', () => {
+    const rawTrades = [
+      { symbol: 'TEST', side: 'BUY', qty: 10, price: 100, time: '09:15', date: '2024-01-15' },
+      { symbol: 'TEST', side: 'SELL', qty: 10, price: 110, time: '10:45', date: '2024-01-15' },
+    ]
+    const paired = pairTrades(rawTrades)
+    expect(paired.length).toBe(1)
+    expect(paired[0].entry_time).toBe('09:15')
+    expect(paired[0].exit_time).toBe('10:45')
+    expect(paired[0].holding_minutes).toBe(90) // 10:45 - 09:15 = 90 min
+  })
+
+  it('unmatched trades are flagged as open positions', () => {
+    const rawTrades = [
+      { symbol: 'TEST', side: 'BUY', qty: 100, price: 50, time: '09:15', date: '2024-01-15' },
+      // No matching sell
+    ]
+    const paired = pairTrades(rawTrades)
+    expect(paired.length).toBe(1)
+    expect(paired[0].tag).toBe('open')
+    expect(paired[0].label).toBe('Open Position')
+    expect(paired[0].exit).toBe(0)
+    expect(paired[0].pnl).toBe(0)
+  })
+})

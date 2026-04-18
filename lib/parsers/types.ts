@@ -12,16 +12,22 @@ export interface ParsedTrade {
   time: string;
   date: string; // YYYY-MM-DD from the original trade row (or 'unknown' if missing)
   symbol: string;
-  side: string;
+  side: string;        // 'BUY' or 'SELL' (direction of the opening leg)
   qty: number;
-  entry: number;
-  exit: number;
+  entry: number;       // entry price
+  exit: number;        // exit price (0 if open/unpaired)
   pnl: number;
   cum_pnl: number;
   session: string;
   time_gap_minutes: number | null;
   tag: string;
   label: string;
+  // New fields for full trade context
+  entry_time: string;          // HH:MM of the opening leg
+  exit_time: string;           // HH:MM of the closing leg ('' if open/unpaired)
+  holding_minutes: number;     // exit_time - entry_time in minutes (0 if unknown)
+  exchange: string;            // NSE/NFO/BSE etc. ('' if not available)
+  trade_id: string;            // broker trade ID for dedup ('' if not available)
 }
 
 export interface ParsedKPIs {
@@ -73,6 +79,8 @@ const COL = {
   sellPrice: /^(sell.?price|sell.?rate|sell.?avg|sell.?value)/i,
   pnl: /^(pnl|p.?&.?l|profit|loss|net.?pnl|realized|realised|net.?profit)/i,
   date: /^(date|trade.?date|order.?date|exec.?date)/i,
+  exchange: /^(exchange|segment|market|exch)/i,
+  tradeId: /^(trade.?id|order.?id|deal.?id|exec.?id|id)/i,
   expiry: /^(expiry|expiry.?date|exp)/i,
   strike: /^(strike|strike.?price)/i,
   optType: /^(option.?type|opt.?type|ce.?pe|call.?put|instrument.?type)/i,
@@ -85,7 +93,7 @@ export function detectMarket(text: string): string {
   if (t.includes('nyse') || t.includes('nasdaq')) return 'NYSE';
   if (t.includes('forex') || t.includes('fx')) return 'Forex';
   if (t.includes('crypto') || t.includes('btc') || t.includes('eth')) return 'Crypto';
-  return 'NSE';
+  return 'Unknown';
 }
 
 // Currency detection
@@ -95,7 +103,7 @@ export function detectCurrency(text: string): string {
   if (t.includes('usd') || t.includes('$')) return 'USD';
   if (t.includes('eur')) return 'EUR';
   if (t.includes('gbp')) return 'GBP';
-  if (t.includes('jpy') || t.includes('yen') || t.includes('¥')) return 'JPY';
+  if (t.includes('jpy') || t.includes('yen')) return 'JPY';
   return '';  // Let downstream infer from detected market
 }
 
@@ -256,6 +264,12 @@ export function parseRow(row: string[], colMap: Record<string, number>): AnyRow 
     result.symbol = `${symbol} ${strike || ''} ${opt}`.replace(/\s+/g, ' ').trim();
   }
   if (expiry) result.expiry = expiry;
+
+  // Extract exchange and trade ID when available
+  const exchange = get('exchange');
+  if (exchange) result.exchange = exchange;
+  const tradeId = get('tradeId');
+  if (tradeId) result.trade_id = tradeId;
 
   if (result.symbol && /OPTIDX/i.test(result.symbol)) {
     result.symbol = result.symbol.replace(/OPTIDX/i, '').replace(/\s+/g, ' ').trim();
