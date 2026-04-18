@@ -15,7 +15,7 @@ import { createBatch } from '@/lib/analysis/analysisQueue';
 import { sendEmail } from '@/lib/email';
 import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisComplete';
 import { clerkClient } from '@clerk/nextjs/server';
-import { intakeFile, toLegacyTrade, saveRawData } from '@/lib/intake';
+import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, computeFileHash } from '@/lib/intake';
 import type { RawFileData } from '@/lib/intake';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
@@ -404,9 +404,15 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     }
   }
 
-  console.log(`=== ANALYSE: ${files.length} file(s) via FormData ===`);
+  console.log(`[UPLOAD] === ANALYSE: ${files.length} file(s) via FormData ===`);
 
   const brokerHint = context?.detected_broker || context?.broker || '';
+
+  // Read all file buffers upfront (needed for both parse attempts and hash)
+  const fileBuffers: { file: File; buffer: Buffer }[] = [];
+  for (const file of files) {
+    fileBuffers.push({ file, buffer: Buffer.from(await file.arrayBuffer()) });
+  }
 
   // ─── Try Module 1 intake pipeline first (free, instant, deterministic) ───
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade shape
@@ -417,8 +423,8 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   let usedLocalParse = false;
 
   const localParseStart = Date.now();
-  for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer());
+  for (const { file, buffer } of fileBuffers) {
+    console.log(`[UPLOAD] Module 1 trying: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`);
     const intakeResult = await intakeFile(buffer, file.name);
     if (intakeResult.success && intakeResult.trades.length > 0) {
       const legacyTrades = intakeResult.trades.map(toLegacyTrade);
@@ -432,18 +438,20 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         trades: legacyTrades,
       };
       usedLocalParse = true;
-      console.log(`[Intake] Local parse OK: ${legacyTrades.length} trades, broker=${intakeResult.rawFile.broker}, confidence=${intakeResult.rawFile.confidence} (${intakeResult.rawFile.confidenceScore}/100)`);
+      console.log(`[UPLOAD] Module 1 OK: ${legacyTrades.length} trades, broker=${intakeResult.rawFile.broker}, confidence=${intakeResult.rawFile.confidence} (${intakeResult.rawFile.confidenceScore}/100)`);
+    } else {
+      console.log(`[UPLOAD] Module 1 returned 0 trades for ${file.name} (${intakeResult.error || 'no structured data'}), will try Claude AI`);
     }
   }
-  console.log(`Local parse attempt took ${Date.now() - localParseStart}ms`);
+  console.log(`[UPLOAD] Local parse took ${Date.now() - localParseStart}ms`);
 
   // ─── Fall back to Claude AI extraction if local parse failed ───
   if (trades.length === 0) {
+    console.log(`[UPLOAD] Claude AI fallback triggered for ${files.length} file(s)`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content blocks
     const userContent: any[] = [];
-    for (const file of files) {
+    for (const { file, buffer } of fileBuffers) {
       const mediaType = getMediaType(file.name);
-      const buffer = Buffer.from(await file.arrayBuffer());
       if (mediaType === 'text/csv') {
         userContent.push({ type: 'text', text: `File: ${file.name}\n\n${buffer.toString('utf-8')}` });
       } else if (mediaType.startsWith('image/')) {
@@ -516,16 +524,41 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   try {
     const { userId } = await auth();
     const anonId = userId ? undefined : await getOrCreateAnonId();
+    console.log(`[UPLOAD] Saving session: userId=${userId ? 'yes' : 'no'}, anonId=${anonId ? 'yes' : 'no'}, trades=${trades.length}, localParse=${usedLocalParse}`);
 
-    // Save raw file data (Module 1) if local parse was used and user is authenticated
+    // Save raw file data — works for BOTH local parse and Claude fallback
     let rawFileId: string | undefined;
-    if (usedLocalParse && rawFileData && userId) {
-      const rawResult = await saveRawData(rawFileData, userId);
-      if ('id' in rawResult) {
-        rawFileId = rawResult.id;
-        console.log(`[Intake] Raw file saved: ${rawFileId}`);
-      } else {
-        console.warn(`[Intake] Raw save failed: ${rawResult.error}`);
+    if (userId) {
+      if (usedLocalParse && rawFileData) {
+        // Module 1 local parse — save full raw file data
+        const rawResult = await saveRawData(rawFileData, userId);
+        if ('id' in rawResult) {
+          rawFileId = rawResult.id;
+          console.log(`[UPLOAD] Raw file saved (local parse): ${rawFileId}`);
+        } else {
+          console.warn(`[UPLOAD] Raw save failed (local): ${rawResult.error}`);
+        }
+      } else if (!usedLocalParse && trades.length > 0 && fileBuffers.length > 0) {
+        // Claude AI fallback — still create a raw_files row
+        const firstFile = fileBuffers[0];
+        const fileHash = computeFileHash(firstFile.buffer);
+        const rawResult = await saveClaudeFallbackRawData({
+          filename: firstFile.file.name,
+          fileHash,
+          fileSizeBytes: firstFile.file.size,
+          broker: extracted.detected_broker || 'Unknown',
+          market: extracted.detected_market || 'Unknown',
+          currency: extracted.detected_currency || 'INR',
+          tradeDate: extracted.trade_date || '',
+          tradeCount: trades.length,
+          trades,
+        }, userId);
+        if ('id' in rawResult) {
+          rawFileId = rawResult.id;
+          console.log(`[UPLOAD] Raw file saved (Claude fallback): ${rawFileId}`);
+        } else {
+          console.warn(`[UPLOAD] Raw save failed (Claude): ${rawResult.error}`);
+        }
       }
     }
 
@@ -537,18 +570,25 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         detected_broker: extracted.detected_broker || 'Unknown',
         trade_date: extracted.trade_date || '',
         raw_file_id: rawFileId,
+        file_name: fileBuffers[0]?.file.name || 'upload',
       },
       plan: 'free', userId: userId || undefined, anonId, files,
     });
+    console.log(`[UPLOAD] Session saved: ${savedSessionId || 'none'}, rawFileId: ${rawFileId || 'none'}`);
 
     // Link raw_file_id to session (update raw_files row with session_id)
     if (rawFileId && savedSessionId && userId) {
-      saveRawData(rawFileData!, userId, savedSessionId).catch(err =>
-        console.warn('[Intake] Failed to link session to raw file:', err)
-      );
+      try {
+        const { getSupabaseAdmin } = await import('@/lib/supabase');
+        const sb = getSupabaseAdmin();
+        await sb.from('raw_files').update({ session_id: savedSessionId }).eq('id', rawFileId);
+        console.log('[UPLOAD] Linked raw_file ' + rawFileId + ' to session ' + savedSessionId);
+      } catch (linkErr) {
+        console.warn('[UPLOAD] Failed to link session to raw file:', linkErr);
+      }
     }
   } catch (e) {
-    console.error('Session save failed (non-blocking):', e);
+    console.error('[UPLOAD] Session save failed (non-blocking):', e);
   }
 
   // Fire-and-forget: send analysis complete email for fresh uploads
@@ -593,7 +633,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.error('[ANALYSIS_EMAIL] Non-blocking error:', emailErr);
   }
 
-  console.log(`Total: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl} | localParse: ${usedLocalParse}`);
+  console.log(`[UPLOAD] Complete: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl} | localParse: ${usedLocalParse} | sessionId: ${savedSessionId || 'none'}`);
   return NextResponse.json({ ...response, sessionId: savedSessionId || null, _parsed_locally: usedLocalParse });
 }
 
