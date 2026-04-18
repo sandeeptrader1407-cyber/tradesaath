@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit'
+import { intakeFile, toLegacyTrade } from '@/lib/intake'
 
 export const runtime = 'nodejs'
 
@@ -82,24 +83,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    console.log(`📄 Extract request: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`)
+    console.log(`Extract request: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`)
 
-    const client = getClient()
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // --- Try Module 1 intake pipeline first (free, instant) ---
+    const intakeResult = await intakeFile(buffer, file.name)
+    if (intakeResult.success && intakeResult.trades.length > 0) {
+      const legacyTrades = intakeResult.trades.map(toLegacyTrade)
+      // Ensure cumPnl is computed
+      let cum = 0
+      for (const t of legacyTrades) {
+        cum += (t.pnl || 0)
+        t.cumPnl = cum
+        t.cum_pnl = cum
+        if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
+      }
+      console.log(`[Intake] Local extract OK: ${legacyTrades.length} trades from ${intakeResult.rawFile.broker}`)
+      return NextResponse.json({
+        trades: legacyTrades,
+        broker: intakeResult.rawFile.broker || 'Unknown',
+        market: intakeResult.rawFile.market || 'Unknown',
+        tradeDate: intakeResult.rawFile.tradeDate,
+        currency: intakeResult.rawFile.currency || 'INR',
+        _parsed_locally: true,
+      })
+    }
+    console.log(`[Intake] Local parse returned 0 trades, falling back to AI extraction`)
+
+    // --- Fall back to Claude AI extraction ---
+    const client = getClient()
 
     // Build the message content based on file type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content block types
     const content: any[] = []
 
     if (isTextFile(file.name, file.type)) {
-      // CSV/TSV — send as plain text (cheaper, faster)
+      // CSV/TSV -- send as plain text (cheaper, faster)
       const text = buffer.toString('utf-8')
-      console.log(`📝 Sending as text (${text.length} chars)`)
+      console.log(`[Extract] Sending as text (${text.length} chars)`)
       content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
 
     } else if (isExcel(file.name, file.type)) {
-      // Excel — convert to CSV via xlsx, send as text
+      // Excel -- convert to CSV via xlsx, send as text
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const XLSX = require('xlsx')
@@ -110,7 +137,7 @@ export async function POST(req: NextRequest) {
           sheets.push(`--- Sheet: ${name} ---\n${csv}`)
         }
         const text = sheets.join('\n\n')
-        console.log(`📊 Excel converted to CSV (${text.length} chars, ${workbook.SheetNames.length} sheets)`)
+        console.log(`[Extract] Excel converted to CSV (${text.length} chars, ${workbook.SheetNames.length} sheets)`)
         content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
       } catch (xlErr) {
         console.error('Excel parse failed, sending as base64:', xlErr)
@@ -122,26 +149,26 @@ export async function POST(req: NextRequest) {
       }
 
     } else if (DOCUMENT_TYPES.includes(file.type) || /\.pdf$/i.test(file.name)) {
-      // PDF — send as document attachment
+      // PDF -- send as document attachment
       const base64 = buffer.toString('base64')
-      console.log(`📑 Sending PDF as document (${(base64.length / 1024).toFixed(1)} KB base64)`)
+      console.log(`[Extract] Sending PDF as document (${(base64.length / 1024).toFixed(1)} KB base64)`)
       content.push({
         type: 'document',
         source: { type: 'base64', media_type: 'application/pdf', data: base64 }
       })
 
     } else if (IMAGE_TYPES.includes(file.type) || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name)) {
-      // Image — send as image attachment
+      // Image -- send as image attachment
       const base64 = buffer.toString('base64')
       const mediaType = file.type || 'image/png'
-      console.log(`🖼️ Sending image as attachment (${mediaType})`)
+      console.log(`[Extract] Sending image as attachment (${mediaType})`)
       content.push({
         type: 'image',
         source: { type: 'base64', media_type: mediaType, data: base64 }
       })
 
     } else {
-      // Unknown type — try sending as text
+      // Unknown type -- try sending as text
       const text = buffer.toString('utf-8')
       content.push({ type: 'text', text: `FILE CONTENT (${file.name}):\n\n${text}` })
     }
@@ -155,7 +182,7 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content }],
     })
 
-    console.log(`🤖 Extract response — model: ${message.model}, stop: ${message.stop_reason}, usage: ${JSON.stringify(message.usage)}`)
+    console.log(`[Extract] Extract response -- model: ${message.model}, stop: ${message.stop_reason}, usage: ${JSON.stringify(message.usage)}`)
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
 
@@ -169,7 +196,7 @@ export async function POST(req: NextRequest) {
 
     if (!result.trades || result.trades.length === 0) {
       const errMsg = result.error || 'Could not extract trade data from this file. Try uploading the original CSV or Excel export from your broker.'
-      console.log(`⚠️ No trades extracted: ${errMsg}`)
+      console.log(`[Extract] No trades extracted: ${errMsg}`)
       return NextResponse.json({ error: errMsg }, { status: 422 })
     }
 
@@ -186,7 +213,7 @@ export async function POST(req: NextRequest) {
       if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
     }
 
-    console.log(`✅ Extracted ${result.trades.length} trades from ${result.broker || 'unknown broker'}`)
+    console.log(`[Extract] Extracted ${result.trades.length} trades from ${result.broker || 'unknown broker'}`)
 
     return NextResponse.json({
       trades: result.trades,
