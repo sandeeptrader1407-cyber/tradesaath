@@ -20,6 +20,10 @@ import {
 } from './types';
 
 export type { ParsedTrade, ParsedKPIs, ParseResult } from './types';
+export type { IntakeResult, StandardTrade } from '@/lib/intake';
+
+// Re-export the intake pipeline for callers that want the raw-first approach
+export { intakeFile } from '@/lib/intake';
 
 /* ═══════════════════════════════════════════
    MAIN EXPORT: parseTradeFile
@@ -45,13 +49,12 @@ export async function parseTradeFile(buffer: Buffer, filename: string): Promise<
       rawText = text;
       rawTrades = rows;
     } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      // Images need AI/OCR — return failure so AI handles it
       return {
         success: false,
         broker: 'Unknown',
-        market: 'NSE',
+        market: 'Unknown',
         trade_date: new Date().toISOString().split('T')[0],
-        currency: 'INR',
+        currency: '',
         total_trades_in_file: 0,
         kpis: calculateKPIs([]),
         trades: [],
@@ -59,7 +62,6 @@ export async function parseTradeFile(buffer: Buffer, filename: string): Promise<
         error: 'Image files require AI for OCR extraction',
       };
     } else {
-      // Try as text
       const text = buffer.toString('utf-8');
       rawText = text;
       rawTrades = parseCSVText(text);
@@ -82,7 +84,6 @@ export async function parseTradeFile(buffer: Buffer, filename: string): Promise<
       };
     }
 
-    // Pair trades and calculate
     const pairedTrades = pairTrades(rawTrades);
     const kpis = calculateKPIs(pairedTrades);
     const timeAnalysis = calculateTimeAnalysis(pairedTrades);
