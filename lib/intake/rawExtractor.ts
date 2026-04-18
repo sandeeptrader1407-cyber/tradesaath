@@ -15,6 +15,7 @@ import { parseExcelBuffer } from '@/lib/parsers/excelParser';
 import { parsePDFBuffer } from '@/lib/parsers/pdfParser';
 import { extractPdfWithCoordinates } from './pdfTableExtractor';
 import { parseContractNote } from './contractNoteDetector';
+import { extractPdfWithOcr, parseOcrTradeRows } from './pdfOcrExtractor';
 import { detectMarket, detectCurrency, detectDate } from '@/lib/parsers/types';
 import * as crypto from 'crypto';
 
@@ -779,14 +780,54 @@ export async function extractRawFile(
       warnings.push('Coordinate-based PDF extraction failed — falling back to legacy parser');
     }
 
-    // Strategy 2: Legacy text-based PDF parser (order books, generic formats)
+    // Strategy 2: OCR for scanned/image PDFs (when text extraction found nothing)
+    if (!pdfHandled && (!rawText || rawText.replace(/---\s*PAGE BREAK\s*---/g, '').trim().length < 50)) {
+      console.log('[RawExtractor] PDF has no/minimal text — trying OCR extraction...');
+      try {
+        const ocrResult = await extractPdfWithOcr(buffer);
+        if (ocrResult && ocrResult.rawText.length > 100) {
+          rawText = ocrResult.rawText;
+          // First try contract note detector on OCR output
+          if (ocrResult.tableRows.length >= 2) {
+            try {
+              const cnResult = parseContractNote(ocrResult);
+              if (cnResult.dataRows.length > 0) {
+                headers = cnResult.headers;
+                dataRows = cnResult.dataRows;
+                warnings.push(...cnResult.warnings);
+                pdfHandled = true;
+                console.log('[RawExtractor] OCR + contract note parser: ' + cnResult.dataRows.length + ' trade rows');
+              }
+            } catch (cnErr) {
+              console.error('[RawExtractor] Contract note parse on OCR failed:', cnErr instanceof Error ? cnErr.message : cnErr);
+            }
+          }
+          // Fallback: parse OCR text directly for trade patterns
+          if (!pdfHandled) {
+            const ocrTrades = parseOcrTradeRows(ocrResult.rawText);
+            if (ocrTrades.dataRows.length > 0) {
+              headers = ocrTrades.headers;
+              dataRows = ocrTrades.dataRows;
+              warnings.push(...ocrTrades.warnings);
+              pdfHandled = true;
+              console.log('[RawExtractor] OCR direct parse: ' + ocrTrades.dataRows.length + ' trades (broker: ' + ocrTrades.broker + ')');
+            }
+          }
+        }
+      } catch (ocrErr) {
+        console.error('[RawExtractor] OCR extraction failed:', ocrErr instanceof Error ? ocrErr.message : ocrErr);
+        warnings.push('OCR extraction failed — will fall back to Claude AI if available');
+      }
+    }
+
+    // Strategy 3: Legacy text-based PDF parser (order books, generic formats)
     if (!pdfHandled) {
       const result = await parsePDFBuffer(buffer);
       if (!rawText) rawText = result.text;
       if (result.rows.length > 0) {
         headers = Object.keys(result.rows[0]);
         dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
-        console.log(`[RawExtractor] Legacy PDF parser: ${result.rows.length} rows`);
+        console.log('[RawExtractor] Legacy PDF parser: ' + result.rows.length + ' rows');
       }
     }
   } else {
@@ -818,7 +859,7 @@ export async function extractRawFile(
   );
 
   if (confidence === 'low') {
-    warnings.push(`Low confidence (${confidenceScore}/100) in column mapping — some fields may be incorrectly mapped`);
+    warnings.push('Low confidence (' + confidenceScore + '/100) in column mapping — some fields may be incorrectly mapped');
   }
 
   return {
