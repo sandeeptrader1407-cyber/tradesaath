@@ -5,7 +5,7 @@ import { useUploadStore } from "@/lib/uploadStore"
 import { useAnalysisStore } from "@/lib/analysisStore"
 import { showToast } from "@/components/ui/Toast"
 
-/* ─── User-friendly error messages ─── */
+/* User-friendly error messages */
 function friendlyError(raw: string, code?: string): string {
   if (code === 'TIMEOUT' || /timed?\s*out|timeout/i.test(raw))
     return "Analysis is taking longer than expected. This can happen with large files. Please try again or upload a smaller file."
@@ -21,7 +21,6 @@ function friendlyError(raw: string, code?: string): string {
     return "No trades found in this file. Please check the file format or try a different file."
   if (/parse|extract|format/i.test(raw))
     return "Could not read trades from this file. Please check the file format or try a different file."
-  // Generic fallback — never expose internal details
   return "Analysis failed. Please try again."
 }
 
@@ -81,7 +80,7 @@ export default function AnalyseButton() {
         const data = await res.json().catch(() => ({}))
         friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
         console.warn("AI analysis HTTP error:", res.status, data)
-        showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
+        showToast.warning("AI analysis unavailable \u2014 showing parsed trades only. You can retry later.")
         setAnalysisState("complete")
         return
       }
@@ -91,11 +90,16 @@ export default function AnalyseButton() {
         console.warn("AI coaching unavailable:", data._ai_error)
         showToast.info("AI coaching is processing. Showing your parsed trades for now.")
       }
+      // Show dedup stats if trades were skipped during save
+      if (data.tradesSkipped && data.tradesSkipped > 0) {
+        const mergeNote = data.sessionsMerged > 0 ? ` Merged into ${data.sessionsMerged} existing session(s).` : ""
+        showToast.info(`Added ${data.tradesAdded || 0} new trades. Skipped ${data.tradesSkipped} duplicates.${mergeNote}`)
+      }
       setAnalysis(data)
       setAnalysisState("complete")
     } catch (err) {
       console.warn("AI analysis failed:", err)
-      showToast.warning("AI analysis unavailable — showing parsed trades only. You can retry later.")
+      showToast.warning("AI analysis unavailable \u2014 showing parsed trades only. You can retry later.")
       setAnalysisState("complete")
     }
   }
@@ -175,6 +179,14 @@ export default function AnalyseButton() {
 
         const data = await res.json().catch(() => ({ error: "Failed to read response" }))
 
+        // Handle duplicate file detection
+        if (data.duplicate) {
+          showToast.info(data.message || "This file was already uploaded. No changes made.")
+          setAnalysisState("idle")
+          setLoading(false)
+          return
+        }
+
         if (!res.ok || data.error) {
           const msg = friendlyError(data.error || data.details || `HTTP ${res.status}`, data.code)
           showToast.error(msg)
@@ -182,9 +194,15 @@ export default function AnalyseButton() {
           setAnalysisState("error")
           return
         }
+
+        // Show dedup stats if available
+        if (data.tradesSkipped && data.tradesSkipped > 0) {
+          showToast.info(`Added ${data.tradesAdded || data.trades?.length || 0} new trades. Skipped ${data.tradesSkipped} duplicates.`)
+        }
+
         setAnalysis(data)
         setAnalysisState("complete")
-        showToast.success(`Analysis complete! ${data.trades?.length || 0} trades found.`)
+        showToast.success(`Analysis complete! ${data.tradesAdded || data.trades?.length || 0} trades found.`)
         return
       }
 
@@ -235,12 +253,12 @@ export default function AnalyseButton() {
           boxShadow: isAnalysing ? "none" : "0 0 20px rgba(62,232,196,.2)",
         }}
       >
-        {isAnalysing ? "⟳ Analysing…" : "🔍 Run Free Analysis"}
+        {isAnalysing ? "\u27F3 Analysing\u2026" : "\uD83D\uDD0D Run Free Analysis"}
       </button>
       <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         {isAnalysing
           ? <span ref={statusRef}>Analysing {files.length} file(s){String.fromCodePoint(0x2026)}</span>
-          : "No login required · upload your broker statement to start"}
+          : "No login required \u00b7 upload your broker statement to start"}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"

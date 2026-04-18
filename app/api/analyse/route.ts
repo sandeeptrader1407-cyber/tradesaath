@@ -3,7 +3,7 @@ export const maxDuration = 90;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { saveTradeSession } from '@/lib/supabase/saveTrades';
+import { saveTradeSession, DedupStats } from '@/lib/supabase/saveTrades';
 import { saveRawFile } from '@/lib/supabase/saveFile';
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 import { bustDashboardCache } from '@/lib/dashboardCache';
@@ -227,13 +227,15 @@ ${ctxLines}
 
 /* ─── Group trades by date and save each day as a separate session ─── */
 /* eslint-disable @typescript-eslint/no-explicit-any -- dynamic trade/analysis shapes throughout */
+type SaveResult = { sessionId?: string; dedupStats?: { tradesAdded: number; tradesSkipped: number; sessionsMerged: number } }
+
 async function saveSessionsByDay({
   trades, analysis, context, metadata, plan, userId, anonId, files,
 }: {
   trades: any[]; analysis: any; context: any; metadata: any; plan: string
   userId?: string; anonId?: string; files?: File[]
-}): Promise<string | undefined> {
-  if (!userId && !anonId) return undefined
+}): Promise<SaveResult> {
+  if (!userId && !anonId) return {}
 
   // --- 1. Determine per-trade date ---
   // Each trade may have entry_time like "09:15" (time-only) or "2024-03-20 09:15"
@@ -268,6 +270,7 @@ async function saveSessionsByDay({
       userId, anonId, trades, analysis, context, metadata, plan,
     })
     const sid = saved?.id
+    const ds: DedupStats | undefined = saved?._dedupStats
     if (sid && analysis?.trade_analyses) {
       const merged = trades.map((t: any, i: number) => {
         const ai = (analysis.trade_analyses as any[])?.find((a: any) => a.trade_index === i)
@@ -289,7 +292,14 @@ async function saveSessionsByDay({
       }
     }
     if (userId) bustDashboardCache(userId)
-    return sid
+    return {
+      sessionId: sid,
+      dedupStats: ds ? {
+        tradesAdded: ds.tradesAdded,
+        tradesSkipped: ds.tradesSkipped,
+        sessionsMerged: ds.sessionMerged ? 1 : 0,
+      } : undefined,
+    }
   }
 
   // --- 3. Multi-day: save each date group as its own session ---
@@ -297,6 +307,7 @@ async function saveSessionsByDay({
   let firstSessionId: string | undefined
   const savedSessionIds: string[] = []
   const tradeAnalyses: any[] = analysis?.trade_analyses || []
+  let totalAdded = 0, totalSkipped = 0, totalMerged = 0
 
   for (const [dateKey, group] of dateGroups) {
     const dayTrades = group.map(g => g.trade)
@@ -330,6 +341,12 @@ async function saveSessionsByDay({
       analysis: dayAnalysis, context, metadata: dayMetadata, plan,
     })
     const sid = saved?.id
+    const ds: DedupStats | undefined = saved?._dedupStats
+    if (ds) {
+      totalAdded += ds.tradesAdded
+      totalSkipped += ds.tradesSkipped
+      if (ds.sessionMerged) totalMerged++
+    }
     if (!firstSessionId) firstSessionId = sid
     if (sid) savedSessionIds.push(sid)
 
@@ -343,7 +360,7 @@ async function saveSessionsByDay({
       )
     }
 
-    console.log(`Saved session for ${dateKey}: ${dayTrades.length} trades, ID=${sid}`)
+    console.log(`Saved session for ${dateKey}: ${dayTrades.length} trades, ID=${sid}, added=${ds?.tradesAdded ?? dayTrades.length}, skipped=${ds?.tradesSkipped ?? 0}`)
   }
 
   // Save raw files attached to the first session
@@ -371,7 +388,14 @@ async function saveSessionsByDay({
   }
 
   if (userId) bustDashboardCache(userId)
-  return firstSessionId
+  return {
+    sessionId: firstSessionId,
+    dedupStats: (totalSkipped > 0 || totalMerged > 0) ? {
+      tradesAdded: totalAdded,
+      tradesSkipped: totalSkipped,
+      sessionsMerged: totalMerged,
+    } : undefined,
+  }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -422,6 +446,40 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   const fileBuffers: { file: File; buffer: Buffer }[] = [];
   for (const file of files) {
     fileBuffers.push({ file, buffer: Buffer.from(await file.arrayBuffer()) });
+  }
+
+  // ─── LEVEL 1: File-level duplicate detection (SHA-256) ───
+  // Check BEFORE any parsing/Claude calls to save cost on known duplicates.
+  try {
+    const { userId: dupCheckUserId } = await auth();
+    if (dupCheckUserId && fileBuffers.length > 0) {
+      const firstHash = computeFileHash(fileBuffers[0].buffer);
+      const { getSupabaseAdmin } = await import('@/lib/supabase');
+      const sb = getSupabaseAdmin();
+      const { data: existingFile } = await sb
+        .from('raw_files')
+        .select('id, data_rows, parsed_at, file_name')
+        .eq('user_id', dupCheckUserId)
+        .eq('file_hash', firstHash)
+        .maybeSingle();
+
+      if (existingFile) {
+        const uploadedDate = existingFile.parsed_at
+          ? new Date(existingFile.parsed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : 'earlier';
+        console.log(`[UPLOAD] DUPLICATE FILE detected: hash=${firstHash.slice(0, 12)}... existingId=${existingFile.id}`);
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          message: `This file was already uploaded on ${uploadedDate}. We found ${existingFile.data_rows || 0} trades from it. No changes made.`,
+          rawFileId: existingFile.id,
+          tradeCount: existingFile.data_rows || 0,
+        });
+      }
+    }
+  } catch (dupErr) {
+    // Non-blocking: if dedup check fails, continue with normal processing
+    console.warn('[UPLOAD] Duplicate check failed (non-blocking):', dupErr);
   }
 
   // ─── Try Module 1 intake pipeline first (free, instant, deterministic) ───
@@ -565,6 +623,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   };
 
   let savedSessionId: string | undefined;
+  let dedupStats: SaveResult['dedupStats'];
   try {
     const { userId } = await auth();
     const anonId = userId ? undefined : await getOrCreateAnonId();
@@ -606,7 +665,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       }
     }
 
-    savedSessionId = await saveSessionsByDay({
+    const saveResult = await saveSessionsByDay({
       trades, analysis: response.analysis, context,
       metadata: {
         detected_market: extracted.detected_market || 'Unknown',
@@ -618,7 +677,9 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       },
       plan: 'free', userId: userId || undefined, anonId, files,
     });
-    console.log(`[UPLOAD] Session saved: ${savedSessionId || 'none'}, rawFileId: ${rawFileId || 'none'}`);
+    savedSessionId = saveResult.sessionId;
+    dedupStats = saveResult.dedupStats;
+    console.log(`[UPLOAD] Session saved: ${savedSessionId || 'none'}, rawFileId: ${rawFileId || 'none'}, dedup: added=${dedupStats?.tradesAdded ?? 'n/a'} skipped=${dedupStats?.tradesSkipped ?? 0} merged=${dedupStats?.sessionsMerged ?? 0}`);
 
     // Link raw_file_id to session (update raw_files row with session_id)
     if (rawFileId && savedSessionId && userId) {
@@ -678,7 +739,16 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   }
 
   console.log(`[UPLOAD] Complete: ${Date.now() - startTime}ms | ${trades.length} trades | Net P&L: ${netPnl} | localParse: ${usedLocalParse} | sessionId: ${savedSessionId || 'none'}`);
-  return NextResponse.json({ ...response, sessionId: savedSessionId || null, _parsed_locally: usedLocalParse });
+  return NextResponse.json({
+    ...response,
+    sessionId: savedSessionId || null,
+    _parsed_locally: usedLocalParse,
+    ...(dedupStats ? {
+      tradesAdded: dedupStats.tradesAdded,
+      tradesSkipped: dedupStats.tradesSkipped,
+      sessionsMerged: dedupStats.sessionsMerged,
+    } : {}),
+  });
 }
 
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
