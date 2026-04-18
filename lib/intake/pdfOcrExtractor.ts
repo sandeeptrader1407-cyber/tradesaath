@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
 import type { PdfExtractionResult, PdfTableRow } from './pdfTableExtractor';
 
@@ -312,3 +312,4 @@ export function parseOcrTradeRows(ocrText: string): {
 
   return { headers, dataRows, broker, tradeDate, warnings };
 }
+              
