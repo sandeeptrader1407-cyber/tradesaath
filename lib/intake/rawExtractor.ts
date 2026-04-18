@@ -724,6 +724,33 @@ export function extractRawRows(
 }
 
 /**
+ * Detect binary/garbage content from PDF text extractors.
+ * pdf-parse often extracts raw stream bytes from scanned PDFs —
+ * encrypted/compressed data that looks like `\x96\x00\x83W+Íµ¯ù...`.
+ * Returns true if the text is mostly non-printable junk.
+ */
+function isBinaryGarbage(text: string): boolean {
+  if (!text || text.length < 100) return false;
+  // Sample first 2000 chars (representative enough)
+  const sample = text.slice(0, 2000);
+  let nonPrintable = 0;
+  for (let i = 0; i < sample.length; i++) {
+    const code = sample.charCodeAt(i);
+    // Count chars that are non-printable ASCII (excluding tab, newline, carriage return)
+    // or in the Latin-1 supplement control range (128-159)
+    if ((code < 32 && code !== 9 && code !== 10 && code !== 13) || (code > 126 && code < 160)) {
+      nonPrintable++;
+    }
+  }
+  const ratio = nonPrintable / sample.length;
+  if (ratio > 0.08) {
+    console.log(`[RawExtractor] Binary garbage detected: ${(ratio * 100).toFixed(1)}% non-printable in first ${sample.length} chars`);
+    return true;
+  }
+  return false;
+}
+
+/**
  * Main entry: extract raw file data from a buffer.
  * Handles CSV, TSV, XLSX, XLS, PDF. Returns RawFileData.
  */
@@ -823,11 +850,18 @@ export async function extractRawFile(
     // Strategy 3: Legacy text-based PDF parser (order books, generic formats)
     if (!pdfHandled) {
       const result = await parsePDFBuffer(buffer);
-      if (!rawText) rawText = result.text;
-      if (result.rows.length > 0) {
-        headers = Object.keys(result.rows[0]);
-        dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
-        console.log('[RawExtractor] Legacy PDF parser: ' + result.rows.length + ' rows');
+      // Check for binary garbage before using the extracted text
+      if (result.text && isBinaryGarbage(result.text)) {
+        console.log(`[RawExtractor] Skipping legacy PDF text (${result.text.length} chars of binary garbage)`);
+        // Don't set rawText to garbage — leave it empty so Claude AI fallback triggers cleanly
+        warnings.push('PDF text extraction returned binary data — skipping legacy parser');
+      } else {
+        if (!rawText) rawText = result.text;
+        if (result.rows.length > 0) {
+          headers = Object.keys(result.rows[0]);
+            dataRows = result.rows.map(row => headers.map(h => String(row[h] ?? '')));
+          console.log('[RawExtractor] Legacy PDF parser: ' + result.rows.length + ' rows');
+        }
       }
     }
   } else {
