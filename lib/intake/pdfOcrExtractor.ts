@@ -37,7 +37,7 @@ function renderPdfPages(
 
   try {
     execSync(
-      `pdftoppm -png -r ${dpi} -l ${maxPages} "${pdfPath}" "${join(tmpDir, 'page')}"`,
+      'pdftoppm -png -r ' + dpi + ' -l ' + maxPages + ' "' + pdfPath + '" "' + join(tmpDir, 'page') + '"',
       { stdio: 'pipe', timeout: 30000 },
     );
   } catch (err) {
@@ -86,7 +86,7 @@ function cleanupOcrFiles(filePaths: string[]): void {
       const inputPdf = join(dir, 'input.pdf');
       if (existsSync(inputPdf)) unlinkSync(inputPdf);
       // rmdir only works on empty dirs
-      execSync(`rmdir "${dir}" 2>/dev/null || true`, { stdio: 'pipe' });
+      execSync('rmdir "' + dir + '" 2>/dev/null || true', { stdio: 'pipe' });
     } catch { /* ignore */ }
   }
 }
@@ -110,11 +110,11 @@ function parseOcrTextToRows(ocrText: string, pageNum: number): PdfTableRow[] {
     if (cells.length >= 1) {
       rows.push({
         page: pageNum,
-        y: lines.length - i, // Approximate Y (top-to-bottom ordering)
+        y: lines.length - i,
         cells,
         items: cells.map((text, idx) => ({
           text,
-          x: idx * 100, // Approximate X position
+          x: idx * 100,
           y: lines.length - i,
           width: text.length * 7,
           height: 10,
@@ -129,33 +129,27 @@ function parseOcrTextToRows(ocrText: string, pageNum: number): PdfTableRow[] {
 
 /**
  * Extract text and table rows from a scanned PDF using OCR.
- * This is the main entry point — called when text-based extraction finds 0 items.
- *
- * Returns null if OCR is not available (no pdftoppm), allowing
- * the caller to fall back to Claude AI.
+ * Returns null if OCR is not available (no pdftoppm).
  */
 export async function extractPdfWithOcr(
   buffer: Buffer,
   maxPages: number = 8,
 ): Promise<PdfExtractionResult | null> {
-  // Check if pdftoppm is available
   if (!hasPdftoppm()) {
-    console.log('[PdfOcr] pdftoppm not available — OCR extraction skipped');
+    console.log('[PdfOcr] pdftoppm not available -- OCR extraction skipped');
     return null;
   }
 
   console.log('[PdfOcr] Starting OCR extraction...');
   const startTime = Date.now();
 
-  // Step 1: Render PDF pages to PNG images
   const imageFiles = renderPdfPages(buffer, maxPages);
   if (imageFiles.length === 0) {
-    console.log('[PdfOcr] No pages rendered — skipping OCR');
+    console.log('[PdfOcr] No pages rendered -- skipping OCR');
     return null;
   }
   console.log('[PdfOcr] Rendered ' + imageFiles.length + ' pages to PNG');
 
-  // Step 2: OCR each page
   const allRows: PdfTableRow[] = [];
   const rawTextParts: string[] = [];
 
@@ -165,7 +159,6 @@ export async function extractPdfWithOcr(
       const pageText = await ocrImage(imageFiles[i]);
       rawTextParts.push(pageText);
       rawTextParts.push('--- PAGE BREAK ---');
-
       const pageRows = parseOcrTextToRows(pageText, pageNum);
       allRows.push(...pageRows);
       console.log('[PdfOcr] Page ' + pageNum + ': ' + pageRows.length + ' rows extracted');
@@ -175,7 +168,6 @@ export async function extractPdfWithOcr(
     }
   }
 
-  // Step 3: Clean up temporary files
   cleanupOcrFiles(imageFiles);
 
   const elapsed = Date.now() - startTime;
@@ -192,8 +184,6 @@ export async function extractPdfWithOcr(
 
 /**
  * Parse OCR text specifically for Indian broker contract notes.
- * Extracts trade rows from OCR text using pattern matching
- * optimized for common OCR artifacts.
  */
 export function parseOcrTradeRows(ocrText: string): {
   headers: string[];
@@ -205,7 +195,6 @@ export function parseOcrTradeRows(ocrText: string): {
   const lines = ocrText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const warnings: string[] = [];
 
-  // Detect broker
   let broker = 'Unknown';
   for (const line of lines) {
     const lower = line.toLowerCase();
@@ -225,7 +214,6 @@ export function parseOcrTradeRows(ocrText: string): {
     if (lower.includes('iifl') && lower.includes('securities')) { broker = 'IIFL'; break; }
   }
 
-  // Detect trade date
   let tradeDate = '';
   for (const line of lines) {
     const dateMatch = line.match(/Trade\s*Date\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
@@ -235,7 +223,6 @@ export function parseOcrTradeRows(ocrText: string): {
     }
   }
 
-  // Extract trade rows — look for OPTIDX/OPTSTK/FUTIDX/FUTSTK/EQ patterns
   const tradePattern = /^(OPTIDX|OPTSTK|FUTIDX|FUTSTK|EQ)\s+/i;
   const headers = ['symbol', 'side', 'quantity', 'price', 'amount'];
   const dataRows: string[][] = [];
@@ -243,11 +230,6 @@ export function parseOcrTradeRows(ocrText: string): {
   for (const line of lines) {
     if (!tradePattern.test(line)) continue;
 
-    // Parse the trade line
-    // Example: OPTIDX NIFTY 24Mar2026 22450 CE-NSE ERE 227.9917 IR 227.9917 CC -88916.7500 B
-    // The OCR output varies, but we can extract key fields
-
-    // Extract symbol (everything before the first number that looks like qty/price)
     const symbolMatch = line.match(/^((?:OPTIDX|OPTSTK|FUTIDX|FUTSTK|EQ)\s+\S+\s+\S+\s+\d+\s+(?:CE|PE|FUT)\S*)/i);
     let symbol = '';
     if (symbolMatch) {
@@ -256,13 +238,10 @@ export function parseOcrTradeRows(ocrText: string): {
         .replace(/\s+/g, ' ')
         .trim();
     } else {
-      // Fallback: grab first few words
       const parts = line.split(/\s+/);
       symbol = parts.slice(0, 5).join(' ');
     }
 
-    // Determine side from the line
-    // Look for B (Buy) or S (Sell) indicators, also negative qty = sell
     const hasNegativeQty = /-\d+/.test(line);
     const lastChar = line.trim().slice(-1).toUpperCase();
     let side = 'BUY';
@@ -270,17 +249,13 @@ export function parseOcrTradeRows(ocrText: string): {
       side = 'SELL';
     }
 
-    // Extract numbers from the line
     const numbers = line.match(/-?\d+\.?\d*/g) || [];
     const numericValues = numbers.map(n => parseFloat(n)).filter(n => !isNaN(n));
 
-    // Try to find quantity and price
     let quantity = 0;
     let price = 0;
     let amount = 0;
 
-    // For options: qty is usually a round number (50, 75, 100, etc.)
-    // Price is usually a decimal number
     for (const val of numericValues) {
       const absVal = Math.abs(val);
       if (absVal > 10000 && amount === 0) {
@@ -288,7 +263,6 @@ export function parseOcrTradeRows(ocrText: string): {
       } else if (absVal >= 1 && absVal <= 100000 && val % 1 !== 0 && price === 0) {
         price = absVal;
       } else if (absVal > 0 && absVal < 100000 && val % 1 === 0 && quantity === 0 && absVal !== 24) {
-        // Skip numbers that look like dates (24)
         quantity = absVal;
       }
     }
@@ -312,4 +286,3 @@ export function parseOcrTradeRows(ocrText: string): {
 
   return { headers, dataRows, broker, tradeDate, warnings };
 }
-              
