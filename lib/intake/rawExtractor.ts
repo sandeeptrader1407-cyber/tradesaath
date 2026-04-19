@@ -10,7 +10,7 @@
 
 import { RawTradeRow, RawFileData, ConfidenceLevel } from './types';
 import { detectBrokerFromText } from '@/lib/config/brokers';
-import { parseCSVText } from '@/lib/parsers/csvParser';
+// Papa.parse used directly in extractRawFile to preserve original CSV headers
 import { parseExcelBuffer } from '@/lib/parsers/excelParser';
 import { parsePDFBuffer } from '@/lib/parsers/pdfParser';
 import { extractPdfWithCoordinates } from './pdfTableExtractor';
@@ -783,10 +783,25 @@ export async function extractRawFile(
 
   if (ext === 'csv' || ext === 'tsv') {
     rawText = buffer.toString('utf-8');
-    const parsed = parseCSVText(rawText);
-    if (parsed.length > 0) {
-      headers = Object.keys(parsed[0]);
-      dataRows = parsed.map(row => headers.map(h => String(row[h] ?? '')));
+    // Parse CSV directly with Papa to preserve original headers
+    // (parseCSVText uses old column mapper that drops entryPrice/exitPrice)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Papa = require('papaparse');
+    // Skip metadata rows (e.g., Fyers has title/date/client before headers)
+    const lines = rawText.trim().split('\n');
+    let headerLineIdx = 0;
+    const headerPatterns = /symbol|instrument|scrip|trade.?time|date.?&?.?time|date.?time|side|qty|quantity|price|traded.?price|entry|exit/i;
+    for (let i = 0; i < Math.min(15, lines.length); i++) {
+      const cols = lines[i].split(',');
+      const matches = cols.filter((c: string) => headerPatterns.test(c.trim())).length;
+      if (matches >= 3) { headerLineIdx = i; break; }
+    }
+    const csvText = headerLineIdx > 0 ? lines.slice(headerLineIdx).join('\n') : rawText.trim();
+    const papaResult = Papa.parse(csvText, { header: false, skipEmptyLines: true, dynamicTyping: false });
+    const allRows: string[][] = papaResult.data || [];
+    if (allRows.length > 1) {
+      headers = allRows[0].map((h: string) => (h || '').trim());
+      dataRows = allRows.slice(1).filter((r: string[]) => r.some((c: string) => c && c.trim()));
     }
   } else if (ext === 'xlsx' || ext === 'xls') {
     const result = parseExcelBuffer(buffer);
@@ -881,10 +896,14 @@ export async function extractRawFile(
     }
   } else {
     rawText = buffer.toString('utf-8');
-    const parsed = parseCSVText(rawText);
-    if (parsed.length > 0) {
-      headers = Object.keys(parsed[0]);
-      dataRows = parsed.map(row => headers.map(h => String(row[h] ?? '')));
+    // Parse as CSV preserving original headers (same as CSV path)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const PapaFallback = require('papaparse');
+    const fbResult = PapaFallback.parse(rawText.trim(), { header: false, skipEmptyLines: true, dynamicTyping: false });
+    const fbRows: string[][] = fbResult.data || [];
+    if (fbRows.length > 1) {
+      headers = fbRows[0].map((h: string) => (h || '').trim());
+      dataRows = fbRows.slice(1).filter((r: string[]) => r.some((c: string) => c && c.trim()));
     }
   }
 
