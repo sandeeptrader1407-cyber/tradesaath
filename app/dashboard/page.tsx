@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { usePlan } from "@/lib/planStore"
+import { useRazorpay } from "@/hooks/useRazorpay"
 import Link from "next/link"
 import TradeSaathScore from "@/components/dashboard/TradeSaathScore"
 import PreMarketCheckin from "@/components/dashboard/PreMarketCheckin"
@@ -149,15 +150,50 @@ export default function DashboardPage() {
   const router = useRouter()
   const { isSignedIn, isLoaded, user } = useUser()
   const { isPro, isPaid } = usePlan()
+  const { pay, loading: payLoading } = useRazorpay()
   const [stats, setStats] = useState<DashStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDetailed, setShowDetailed] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+
+  // Direct-checkout opener used by the in-dashboard Upgrade buttons.
+  // Defaults to pro_monthly unless the caller passes a specific plan.
+  function openCheckout(plan: string = "pro_monthly") {
+    setPayError(null)
+    pay({
+      plan,
+      onSuccess: () => { window.location.href = "/upload" },
+      onError: (err) => setPayError(err),
+    })
+  }
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       router.push("/sign-in")
     }
   }, [isLoaded, isSignedIn, router])
+
+  // Auto-resume payment after post-login redirect from the marketing pricing
+  // section. Pricing.tsx redirects signed-out clicks through
+  // /sign-in?redirect_url=/dashboard?autopay=<plan>. When the user lands
+  // here we fire Razorpay once, then strip the param so a refresh does not
+  // re-open it. We read window.location.search directly (instead of the
+  // useSearchParams hook) because this is a "use client" component and
+  // useSearchParams would force a Suspense boundary that the prerender
+  // otherwise fails on.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const autopay = params.get("autopay")
+    if (!autopay) return
+    const allowed = new Set(["single", "pro_monthly", "pro_yearly"])
+    if (!allowed.has(autopay)) return
+    // Clear the query param immediately to avoid re-triggering on re-renders.
+    window.history.replaceState({}, "", "/dashboard")
+    openCheckout(autopay)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn])
 
   useEffect(() => {
     if (!isSignedIn) return
@@ -281,9 +317,20 @@ export default function DashboardPage() {
           {!isPaid && (
             <div className="flex items-center gap-3">
               <CouponInput compact />
-              <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
-                Upgrade {"\u2192"}
-              </a>
+              <button
+                type="button"
+                disabled={payLoading}
+                onClick={() => openCheckout("pro_monthly")}
+                className="text-xs px-4 py-1.5 rounded-lg font-semibold"
+                style={{ background: "var(--accent)", color: "#071a15", cursor: payLoading ? "wait" : "pointer", opacity: payLoading ? 0.6 : 1 }}
+              >
+                {payLoading ? "Opening..." : `Upgrade \u2192`}
+              </button>
+            </div>
+          )}
+          {payError && (
+            <div style={{ textAlign: "center", fontSize: 13, color: "var(--red)", marginTop: 8, padding: "10px 16px", background: "rgba(244,63,94,.08)", borderRadius: 8, border: "1px solid rgba(244,63,94,.2)" }}>
+              {payError}
             </div>
           )}
         </div>
@@ -457,9 +504,15 @@ export default function DashboardPage() {
                       Fix this in Saathi {"\u2192"}
                     </Link>
                   ) : (
-                    <Link href="/#pricing" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
-                      Upgrade to unlock Saathi {"\u2192"}
-                    </Link>
+                    <button
+                      type="button"
+                      disabled={payLoading}
+                      onClick={() => openCheckout("pro_monthly")}
+                      className="text-xs font-semibold mt-auto text-left"
+                      style={{ color: "var(--accent)", background: "transparent", border: "none", padding: 0, cursor: payLoading ? "wait" : "pointer", opacity: payLoading ? 0.6 : 1 }}
+                    >
+                      {payLoading ? "Opening..." : `Upgrade to unlock Saathi \u2192`}
+                    </button>
                   )}
                 </div>
               </div>

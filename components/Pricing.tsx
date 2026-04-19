@@ -14,7 +14,10 @@ export default function Pricing() {
 
   function handleBuy(plan: string) {
     if (!isSignedIn) {
-      window.location.href = '/sign-in'
+      // Preserve the plan the user clicked so we can auto-open Razorpay
+      // after they complete sign-in. /dashboard reads ?autopay=<plan>.
+      const returnTo = encodeURIComponent(`/dashboard?autopay=${plan}`)
+      window.location.href = `/sign-in?redirect_url=${returnTo}`
       return
     }
     setPayError(null)
