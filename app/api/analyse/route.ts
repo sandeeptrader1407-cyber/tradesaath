@@ -489,6 +489,9 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   let extracted: any = {};
   let rawFileData: RawFileData | undefined;
   let usedLocalParse = false;
+  // Phase 4 sanity gate: surfaced to the client when Claude's JSON output was
+  // truncated by the model's max_tokens ceiling so the UI can warn the user.
+  let extractionTruncated = false;
 
   const localParseStart = Date.now();
   for (const { file, buffer } of fileBuffers) {
@@ -532,7 +535,10 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
     console.log(`Call 1: AI extracting trades... (broker hint: ${brokerHint || 'none'})`);
     const c1Start = Date.now();
-    const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 4096, 55000);
+    // Max_tokens bumped 4096 → 16000 to handle large Fyers-style contract notes (100+ trades).
+    // At 4096 the model truncates around trade 13. Claude Sonnet 4 supports up to 64K output tokens.
+    // Timeout extended 55s → 75s (inside maxDuration=90s) to let the longer response stream finish.
+    const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 16000, 75000);
     console.log(`Call 1 took ${Date.now() - c1Start}ms, ok=${extractResult.ok}`);
 
     // Log Claude response preview for debugging
@@ -553,7 +559,12 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       return NextResponse.json({ error: userMsg, code: extractResult.code || 'EXTRACT_FAILED' }, { status: 502 });
     }
     const extractParsed = safeParseJSON(extractResult.data as string);
-    console.log(`[UPLOAD] safeParseJSON ok=${extractParsed.ok}, hasData=${!!extractParsed.data}`);
+    console.log(`[UPLOAD] safeParseJSON ok=${extractParsed.ok}, hasData=${!!extractParsed.data}, truncated=${!!extractParsed.truncated}`);
+    if (extractParsed.truncated) {
+      extractionTruncated = true;
+      const rawLen = typeof extractResult.data === 'string' ? (extractResult.data as string).length : 0;
+      console.warn(`[UPLOAD] Claude response was TRUNCATED (raw length=${rawLen}). Some trades may be missing. Consider splitting the file.`);
+    }
     if (!extractParsed.ok || !extractParsed.data) {
       const rawStr = typeof extractResult.data === 'string' ? extractResult.data : '';
       console.error(`[UPLOAD] JSON parse failed. Raw response length=${rawStr.length}, first 300 chars: ${rawStr.substring(0, 300)}`);
@@ -619,6 +630,9 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       detected_broker: extracted.detected_broker || 'Unknown', trade_date: extracted.trade_date || '',
       trade_count: trades.length, net_pnl: Math.round(netPnl * 100) / 100,
       processing_time_ms: Date.now() - startTime,
+      ...(extractionTruncated ? {
+        extraction_warning: 'Some trades may be missing — the AI response hit its output-token ceiling. Try uploading fewer pages at a time.',
+      } : {}),
     },
   };
 
