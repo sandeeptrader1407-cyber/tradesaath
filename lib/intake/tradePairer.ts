@@ -29,8 +29,10 @@ export function computeTradeSignature(trade: {
     return `tid:${tid}`;
   }
   // Fallback: composite key unlikely to repeat by accident
-  const date = trade.date || trade.trade_date || '';
-  const time = trade.entryTime || trade.entry_time || trade.time || '';
+  const date = (trade.date || trade.trade_date || '').substring(0, 10);
+  const rawTime = trade.entryTime || trade.entry_time || trade.time || '';
+  // Normalize time to HH:MM (strip seconds for consistency)
+  const time = rawTime.length > 5 ? rawTime.substring(0, 5) : rawTime;
   const sym = (trade.symbol || '').toUpperCase().replace(/\s+/g, '');
   const side = (trade.side || '').toUpperCase();
   const qty = trade.quantity || trade.qty || 0;
@@ -126,6 +128,12 @@ interface PreparedRow {
   time: string;
   exchange: string;
   tradeId: string;
+  /** Pre-paired: entry price from same row */
+  entryPriceRaw: number;
+  /** Pre-paired: exit price from same row */
+  exitPriceRaw: number;
+  /** Whether this row is pre-paired (has both entry and exit price) */
+  isPrePaired: boolean;
 }
 
 /** Prepare raw rows for pairing */
@@ -146,6 +154,11 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
     const pnl = pnlStr ? parseNum(pnlStr) : undefined;
     const fees = parseNum(m.fees);
 
+    // Pre-paired: entry/exit prices on the same row
+    const entryPriceRaw = parseNum(m.entryPrice);
+    const exitPriceRaw = parseNum(m.exitPrice);
+    const isPrePaired = entryPriceRaw > 0 && exitPriceRaw > 0;
+
     if (!side && qty <= 0 && !pnl) continue;
 
     prepared.push({
@@ -160,10 +173,92 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
       time,
       exchange: m.exchange || '',
       tradeId: m.tradeId || '',
+      entryPriceRaw,
+      exitPriceRaw,
+      isPrePaired,
     });
   }
 
   return prepared;
+}
+
+/**
+ * Build trades from pre-paired rows (each row has entry + exit price).
+ * No FIFO matching needed — each row IS a complete trade.
+ */
+function buildPrePairedTrades(prepared: PreparedRow[], rawRows: RawTradeRow[]): StandardTrade[] {
+  const paired: StandardTrade[] = [];
+
+  for (const t of prepared) {
+    const entryPrice = t.isPrePaired ? t.entryPriceRaw : t.price;
+    const exitPrice = t.isPrePaired ? t.exitPriceRaw : 0;
+    const isShort = t.side === 'SELL';
+
+    // Use provided P&L or compute from prices
+    let pnl: number;
+    if (t.pnl !== undefined) {
+      pnl = t.pnl;
+    } else if (exitPrice > 0) {
+      pnl = isShort
+        ? Math.round((entryPrice - exitPrice) * t.qty * 100) / 100
+        : Math.round((exitPrice - entryPrice) * t.qty * 100) / 100;
+    } else {
+      pnl = 0;
+    }
+
+    const entryTime = normalizeTime(t.time);
+    const origSymbol = rawRows.find(r => r.rowIndex === t.rowIndex)?.mapped.symbol || t.symbol;
+
+    paired.push({
+      index: 0,
+      symbol: origSymbol,
+      side: t.side,
+      qty: t.qty,
+      entryPrice,
+      exitPrice,
+      pnl,
+      cumPnl: 0,
+      date: t.date,
+      entryTime,
+      exitTime: '',
+      holdingMinutes: 0,
+      session: classifySession(entryTime),
+      timeGapMinutes: null,
+      tag: exitPrice > 0 ? (pnl >= 0 ? 'win' : 'loss') : 'open',
+      label: exitPrice > 0 ? (pnl >= 0 ? 'Winner' : 'Loser') : 'Open Position',
+      exchange: t.exchange,
+      tradeId: t.tradeId,
+      sourceRows: [t.rowIndex],
+      isShort,
+      fees: t.fees,
+    });
+  }
+
+  // Sort by date then time
+  paired.sort((a, b) => {
+    if (a.date !== b.date) {
+      if (a.date === UNKNOWN_DATE) return 1;
+      if (b.date === UNKNOWN_DATE) return -1;
+      return a.date.localeCompare(b.date);
+    }
+    const ta = (a.entryTime || '').replace(/:/g, '');
+    const tb = (b.entryTime || '').replace(/:/g, '');
+    return parseInt(ta || '0') - parseInt(tb || '0');
+  });
+
+  // Set indices, cumPnl, time gaps
+  let cumPnl = 0;
+  for (let i = 0; i < paired.length; i++) {
+    paired[i].index = i;
+    cumPnl += paired[i].pnl;
+    paired[i].cumPnl = Math.round(cumPnl * 100) / 100;
+    if (i > 0 && paired[i].date === paired[i - 1].date) {
+      const prevTime = paired[i - 1].exitTime || paired[i - 1].entryTime;
+      paired[i].timeGapMinutes = timeGapMinutes(prevTime, paired[i].entryTime);
+    }
+  }
+
+  return paired;
 }
 
 /**
@@ -172,6 +267,15 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
  */
 export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
   const prepared = prepareRows(rawRows);
+
+  // ── Pre-paired detection ──
+  // If most rows have both entry and exit prices, treat as pre-paired CSV
+  const prePairedRows = prepared.filter(t => t.isPrePaired);
+  const isPrePairedFile = prePairedRows.length > 0 && prePairedRows.length >= prepared.length * 0.5;
+
+  if (isPrePairedFile) {
+    return buildPrePairedTrades(prepared, rawRows);
+  }
 
   // Group by symbol + date
   const groups: Record<string, PreparedRow[]> = {};

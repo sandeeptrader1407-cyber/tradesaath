@@ -31,6 +31,8 @@ export interface RawTradeRow {
     sellQty?: string;
     buyPrice?: string;
     sellPrice?: string;
+    entryPrice?: string;  // pre-paired: entry price on same row
+    exitPrice?: string;   // pre-paired: exit price on same row
     fees?: string;       // brokerage, commission, charges
     segment?: string;    // F&O, equity, commodity, etc.
     orderId?: string;

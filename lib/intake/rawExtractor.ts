@@ -78,7 +78,7 @@ const COLUMN_PATTERNS: Record<string, string[]> = {
     // Crypto
     'unit_price', 'price_per_unit', 'base_price', 'quote_price',
     // Forex
-    'open_price', 'close_price', 'entry_price', 'exit_price',
+    'open_price', 'close_price',
     // Alternative
     'cost_basis_per_share', 'proceeds_per_share', 'net_rate',
   ],
@@ -191,6 +191,16 @@ const COLUMN_PATTERNS: Record<string, string[]> = {
     'sell_price', 'sell_rate', 'sell_avg', 'sell_value',
     'sale_price', 'sell_average', 'sold_price',
   ],
+
+  entryPrice: [
+    'entry_price', 'entry', 'open_price', 'entry_rate',
+    'buy_entry_price', 'opening_price', 'entry_value',
+  ],
+
+  exitPrice: [
+    'exit_price', 'exit', 'close_price', 'exit_rate',
+    'sell_exit_price', 'closing_price', 'exit_value',
+  ],
 };
 
 // ═══════════════════════════════════════════
@@ -215,6 +225,7 @@ export function matchColumns(headers: string[]): Record<string, string> {
   // Priority order: most important fields first to avoid ambiguity
   const fieldPriority = [
     'symbol', 'side', 'buyQty', 'sellQty', 'buyPrice', 'sellPrice',
+    'entryPrice', 'exitPrice',
     'qty', 'price', 'date', 'time', 'pnl',
     'exchange', 'tradeId', 'fees', 'amount', 'segment', 'orderId',
     'expiry', 'strike', 'optionType',
@@ -524,7 +535,7 @@ export function computeConfidence(
   if (fields.has('symbol')) score += 20;
   if (fields.has('side') || fields.has('buyQty') || fields.has('sellQty')) score += 20;
   if (fields.has('qty') || fields.has('buyQty') || fields.has('sellQty')) score += 20;
-  if (fields.has('price') || fields.has('buyPrice') || fields.has('sellPrice')) score += 20;
+  if (fields.has('price') || fields.has('buyPrice') || fields.has('sellPrice') || fields.has('entryPrice')) score += 20;
 
   // Important fields (10 pts)
   if (fields.has('date') || fields.has('time')) score += 10;
@@ -621,7 +632,7 @@ export function extractRawRows(
   // Check for remaining critical missing columns
   const finalFields = new Set(Object.values(columnMapping));
   if (!finalFields.has('symbol')) warnings.push('No symbol/instrument column detected');
-  if (!finalFields.has('price') && !finalFields.has('buyPrice') && !finalFields.has('sellPrice')) {
+  if (!finalFields.has('price') && !finalFields.has('buyPrice') && !finalFields.has('sellPrice') && !finalFields.has('entryPrice')) {
     warnings.push('No price column detected');
   }
 
@@ -673,6 +684,8 @@ export function extractRawRows(
       sellQty: getMapped('sellQty'),
       buyPrice: getMapped('buyPrice'),
       sellPrice: getMapped('sellPrice'),
+      entryPrice: getMapped('entryPrice'),
+      exitPrice: getMapped('exitPrice'),
       fees: getMapped('fees'),
       segment: getMapped('segment'),
       orderId: getMapped('orderId'),
@@ -697,9 +710,11 @@ export function extractRawRows(
       mapped.qty = mapped.buyQty || mapped.sellQty;
     }
 
-    // Infer price from buyPrice/sellPrice if missing
+    // Infer price from entryPrice/buyPrice/sellPrice if missing
     if (!mapped.price) {
-      if (mapped.side === 'BUY' || (!mapped.side && mapped.buyPrice)) {
+      if (mapped.entryPrice) {
+        mapped.price = mapped.entryPrice;
+      } else if (mapped.side === 'BUY' || (!mapped.side && mapped.buyPrice)) {
         mapped.price = mapped.buyPrice;
       } else {
         mapped.price = mapped.sellPrice;
