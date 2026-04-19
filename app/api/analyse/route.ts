@@ -643,39 +643,72 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     const anonId = userId ? undefined : await getOrCreateAnonId();
     console.log(`[UPLOAD] Saving session: userId=${userId ? 'yes' : 'no'}, anonId=${anonId ? 'yes' : 'no'}, trades=${trades.length}, localParse=${usedLocalParse}`);
 
-    // Save raw file data — works for BOTH local parse and Claude fallback
+    // Save raw file data — GUARANTEED path. Tries local-parse save first (if we have
+    // rawFileData), then falls back to a Claude-extracted record so every authenticated
+    // upload lands a raw_files row. Previous version skipped silently when
+    // usedLocalParse=true && rawFileData=null (the Aditya case).
     let rawFileId: string | undefined;
     if (userId) {
-      if (usedLocalParse && rawFileData) {
-        // Module 1 local parse — save full raw file data
-        const rawResult = await saveRawData(rawFileData, userId);
-        if ('id' in rawResult) {
-          rawFileId = rawResult.id;
-          console.log(`[UPLOAD] Raw file saved (local parse): ${rawFileId}`);
-        } else {
-          console.warn(`[UPLOAD] Raw save failed (local): ${rawResult.error}`);
+      // Cap raw_data JSONB size — Postgres JSONB tolerates large payloads but
+      // dashboard reads get slow past a few thousand rows.
+      const MAX_RAW_ROWS = 5000;
+
+      // Branch A: Module 1 local parse produced rawFileData → save it.
+      if (rawFileData) {
+        try {
+          const trimmed = rawFileData.rows.length > MAX_RAW_ROWS
+            ? {
+                ...rawFileData,
+                rows: rawFileData.rows.slice(0, MAX_RAW_ROWS),
+                warnings: [
+                  ...(rawFileData.warnings || []),
+                  `raw_data truncated from ${rawFileData.rows.length} to ${MAX_RAW_ROWS} rows for storage`,
+                ],
+              }
+            : rawFileData;
+          const rawResult = await saveRawData(trimmed, userId);
+          if ('id' in rawResult) {
+            rawFileId = rawResult.id;
+            console.log(`[UPLOAD] Raw file saved (local parse): ${rawFileId}`);
+          } else {
+            console.error(`[UPLOAD] Raw save FAILED (local): ${rawResult.error} | file=${rawFileData.filename} rows=${rawFileData.rows.length}`);
+          }
+        } catch (rawErr) {
+          console.error('[UPLOAD] Raw save THREW (local):', rawErr);
         }
-      } else if (!usedLocalParse && trades.length > 0 && fileBuffers.length > 0) {
-        // Claude AI fallback — still create a raw_files row
-        const firstFile = fileBuffers[0];
-        const fileHash = computeFileHash(firstFile.buffer);
-        const rawResult = await saveClaudeFallbackRawData({
-          filename: firstFile.file.name,
-          fileHash,
-          fileSizeBytes: firstFile.file.size,
-          broker: extracted.detected_broker || 'Unknown',
-          market: extracted.detected_market || 'Unknown',
-          currency: extracted.detected_currency || 'INR',
-          tradeDate: extracted.trade_date || '',
-          tradeCount: trades.length,
-          trades,
-        }, userId);
-        if ('id' in rawResult) {
-          rawFileId = rawResult.id;
-          console.log(`[UPLOAD] Raw file saved (Claude fallback): ${rawFileId}`);
-        } else {
-          console.warn(`[UPLOAD] Raw save failed (Claude): ${rawResult.error}`);
+      }
+
+      // Branch B: No local row yet (either rawFileData was missing, or Branch A failed)
+      // — fall back to a Claude-extracted record so we ALWAYS have a raw_files row.
+      if (!rawFileId && fileBuffers.length > 0 && trades.length > 0) {
+        try {
+          const firstFile = fileBuffers[0];
+          const fileHash = computeFileHash(firstFile.buffer);
+          const cappedTrades = trades.length > MAX_RAW_ROWS ? trades.slice(0, MAX_RAW_ROWS) : trades;
+          const rawResult = await saveClaudeFallbackRawData({
+            filename: firstFile.file.name,
+            fileHash,
+            fileSizeBytes: firstFile.file.size,
+            broker: extracted.detected_broker || 'Unknown',
+            market: extracted.detected_market || 'Unknown',
+            currency: extracted.detected_currency || 'INR',
+            tradeDate: extracted.trade_date || '',
+            tradeCount: trades.length,
+            trades: cappedTrades,
+          }, userId);
+          if ('id' in rawResult) {
+            rawFileId = rawResult.id;
+            console.log(`[UPLOAD] Raw file saved (${usedLocalParse ? 'local-parse fallback' : 'Claude fallback'}): ${rawFileId}`);
+          } else {
+            console.error(`[UPLOAD] Raw save FAILED (fallback): ${rawResult.error} | file=${firstFile.file.name} trades=${trades.length}`);
+          }
+        } catch (rawErr) {
+          console.error('[UPLOAD] Raw save THREW (fallback):', rawErr);
         }
+      }
+
+      if (!rawFileId) {
+        console.error(`[UPLOAD] CRITICAL: no raw_files row created | userId=${userId} trades=${trades.length} localParse=${usedLocalParse} hasRawFileData=${!!rawFileData} fileBuffers=${fileBuffers.length}`);
       }
     }
 
@@ -703,7 +736,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         await sb.from('raw_files').update({ session_id: savedSessionId }).eq('id', rawFileId);
         console.log('[UPLOAD] Linked raw_file ' + rawFileId + ' to session ' + savedSessionId);
       } catch (linkErr) {
-        console.warn('[UPLOAD] Failed to link session to raw file:', linkErr);
+        console.error('[UPLOAD] Failed to link session to raw file:', linkErr);
       }
     }
   } catch (e) {

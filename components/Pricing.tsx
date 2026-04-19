@@ -9,7 +9,7 @@ import CouponInput from '@/components/CouponInput'
 export default function Pricing() {
   const [yearly, setYearly] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
-  const { pay, loading: payLoading, testMode } = useRazorpay()
+  const { pay, loading: payLoading } = useRazorpay()
   const { isSignedIn } = useUser()
 
   function handleBuy(plan: string) {
@@ -35,12 +35,6 @@ export default function Pricing() {
       <div className="wrap">
         <div className="sec-eyebrow" style={{ textAlign: 'center' }}>Pricing</div>
         <div className="sec-title" style={{ textAlign: 'center' }}>Start free. Upgrade when ready.</div>
-
-        {testMode && (
-          <div className="test-mode-badge" style={{ margin: '0 auto 16px', width: 'fit-content' }}>
-            TEST MODE - no real charges
-          </div>
-        )}
 
         <div className="billing-toggle-row">
           <div className={`billing-pill${yearly ? ' yearly' : ''}`} role="tablist" aria-label="Billing frequency">
@@ -156,11 +150,6 @@ export default function Pricing() {
           <CouponInput onSuccess={() => { window.location.href = '/dashboard' }} />
         </div>
 
-        {testMode && (
-          <div className="test-card-hint" style={{ marginTop: 20 }}>
-            Test card: <code>4111 1111 1111 1111</code> | Expiry: any future date | CVV: any 3 digits | OTP: <code>1234</code>
-          </div>
-        )}
       </div>
     </section>
   )

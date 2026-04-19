@@ -15,12 +15,6 @@ declare global {
   }
 }
 
-/** Check if we're in Razorpay test mode based on the public key */
-export function isRazorpayTestMode(): boolean {
-  const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
-  return key.startsWith('rzp_test_')
-}
-
 function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof window !== 'undefined' && window.Razorpay) {
@@ -38,8 +32,6 @@ function loadRazorpayScript(): Promise<boolean> {
 export function useRazorpay() {
   const [loading, setLoading] = useState(false)
   const [paid, setPaid] = useState(false)
-
-  const testMode = isRazorpayTestMode()
 
   const pay = useCallback(async ({ plan = 'single', email, onSuccess, onError }: RazorpayOptions = {}) => {
     setLoading(true)
@@ -140,5 +132,5 @@ export function useRazorpay() {
     }
   }, [])
 
-  return { pay, loading, paid, setPaid, testMode }
+  return { pay, loading, paid, setPaid }
 }
