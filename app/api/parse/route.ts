@@ -2,7 +2,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { intakeFile, toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis } from '@/lib/intake';
+import { intakeFile, toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis, computeFileHash } from '@/lib/intake';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
 /* ═══════════════════════════════════════════
@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
 
     console.log('=== PARSE: Module 1 intake pipeline (no AI) ===');
     console.log('File:', file.name, 'Size:', bytes.byteLength);
+
+    // Compute file hash for dedup (passed to /api/analyse later)
+    const fileHash = computeFileHash(buffer);
 
     const result = await intakeFile(buffer, file.name);
 
@@ -56,6 +59,8 @@ export async function POST(req: NextRequest) {
       market,
       trade_date: tradeDate,
       currency,
+      file_hash: fileHash,
+      file_size_bytes: bytes.byteLength,
       total_trades_in_file: result.trades.length,
       trades_shown: result.trades.length,
       kpis: legacyKPIs,

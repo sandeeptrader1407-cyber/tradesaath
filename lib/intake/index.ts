@@ -32,3 +32,6 @@ export { extractPdfWithCoordinates } from './pdfTableExtractor';
 export type { PdfTableRow, PdfExtractionResult } from './pdfTableExtractor';
 export { parseContractNote, detectBrokerFromPdf, extractContractNoteDate } from './contractNoteDetector';
 export type { ContractNoteResult, BrokerDetection } from './contractNoteDetector';
+
+// OCR extraction for scanned PDFs
+export { extractPdfWithOcr, parseOcrTradeRows } from './pdfOcrExtractor';

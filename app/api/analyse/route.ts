@@ -758,7 +758,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { trades, kpis, broker, market, trade_date, currency, time_analysis, context } = body;
+  const { trades, kpis, broker, market, trade_date, currency, time_analysis, context, file_hash, file_size_bytes } = body;
 
   if (!trades || !Array.isArray(trades) || trades.length === 0) {
     return NextResponse.json({ error: 'No trades provided. Please upload a broker statement.' }, { status: 400 });
@@ -813,12 +813,33 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     _parsed_locally: true,
   });
 
+  let saveResult: SaveResult = {};
+
   const saveSession = async (responseObj: ReturnType<typeof buildResponse>) => {
     try {
       const { userId } = await auth();
       const anonId = userId ? undefined : await getOrCreateAnonId();
+      const effectiveUserId = userId || anonId || 'anonymous';
 
-      await saveSessionsByDay({
+      // Save raw_files record if we have a file hash (L1 dedup)
+      if (file_hash && effectiveUserId) {
+        const rawResult = await saveClaudeFallbackRawData({
+          filename: `parsed-upload-${trade_date || 'unknown'}.csv`,
+          fileHash: file_hash,
+          fileSizeBytes: file_size_bytes || 0,
+          broker: broker || 'Unknown',
+          market: market || 'Unknown',
+          currency: currency || 'INR',
+          tradeDate: trade_date || '',
+          tradeCount: trades.length,
+          trades,
+        }, effectiveUserId);
+        if ('id' in rawResult) {
+          console.log('[Analyse/JSON] Saved raw_files record:', rawResult.id);
+        }
+      }
+
+      saveResult = await saveSessionsByDay({
         trades, analysis: responseObj.analysis, context: context || {},
         metadata: {
           detected_market: market || 'Unknown',
@@ -888,5 +909,13 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
   }
 
   console.log(`Analysis complete: ${Date.now() - startTime}ms (code)`);
-  return NextResponse.json(finalResponse);
+  const ds = saveResult.dedupStats;
+  return NextResponse.json({
+    ...finalResponse,
+    ...(ds ? {
+      tradesAdded: ds.tradesAdded,
+      tradesSkipped: ds.tradesSkipped,
+      sessionsMerged: ds.sessionsMerged,
+    } : {}),
+  });
 }
