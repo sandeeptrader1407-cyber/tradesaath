@@ -7,14 +7,6 @@ import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 
 const keyId = process.env.RAZORPAY_KEY_ID!
 const keySecret = process.env.RAZORPAY_KEY_SECRET!
-const isTestMode = keyId.startsWith('rzp_test_')
-
-// Safety check: log mode on startup so you always know
-console.log(`[Razorpay] Mode: ${isTestMode ? 'TEST' : '⚠️  LIVE'} (key: ${keyId.slice(0, 12)}...)`)
-
-if (!isTestMode && process.env.NODE_ENV === 'development') {
-  console.warn('[Razorpay] ⚠️  WARNING: Using LIVE keys in development! Switch to rzp_test_ keys in .env.local')
-}
 
 const razorpay = new Razorpay({
   key_id: keyId,
@@ -42,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
     const selectedPlan = PLANS[planId as Exclude<PlanId, 'free'>]
 
-    console.log(`[Razorpay] Creating ${isTestMode ? 'TEST' : 'LIVE'} order: ${plan} — ₹${selectedPlan.price / 100}`)
+    console.log(`[Razorpay] Creating order: ${plan} — ₹${selectedPlan.price / 100}`)
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
@@ -89,7 +81,6 @@ export async function POST(req: NextRequest) {
       plan,
       description: selectedPlan.description,
       prefillEmail: userEmail,
-      testMode: isTestMode,
     })
   } catch (err: unknown) {
     console.error('[Razorpay] Full error object:', JSON.stringify(err, null, 2))
