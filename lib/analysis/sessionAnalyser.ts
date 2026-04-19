@@ -11,7 +11,15 @@ import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis'
 import { updateSessionAnalysis } from '@/lib/supabase/saveTrades'
 import { bustDashboardCache } from '@/lib/dashboardCache'
 import { detectPatterns } from '@/lib/analysis/patternDetector'
-import { buildAnalysisJSON, generateAICoaching } from '@/lib/analysis/sessionSummarizer'
+import { buildAnalysisJSON, generateAICoaching, type AnalysisJSON } from '@/lib/analysis/sessionSummarizer'
+import { FLAGS } from '@/lib/config/flags'
+import {
+  runModule2Analysis,
+  buildShadowDiff,
+  logShadowDiff,
+} from '@/lib/analysis/module2Bridge'
+import type { StandardTrade } from '@/lib/intake/types'
+import type { UserBaseline } from '@/lib/compute/types'
 
 export const CURRENT_ANALYSIS_VERSION = 4
 
@@ -133,17 +141,81 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
       console.warn('user baseline fetch failed, falling back to session-local stats:', e)
     }
 
-    /* 5. Run code pattern detection */
-    const result = detectPatterns(allTrades, { userTypicalQty, userAvgDailyTrades })
+    /* 5-7. Detection + coaching + build — flag-branched.
+     *
+     *   Legacy (default):     detectPatterns + buildAnalysisJSON
+     *   FLAG MODULE_2:        Module 2 compute pipeline
+     *   FLAG SHADOW_MODE:     both run, legacy served, diff logged
+     *
+     * Shadow mode takes precedence over the main flag so we can
+     * always retreat to the safe default by flipping one env var.
+     */
+    let analysis: AnalysisJSON
 
-    /* 6. Optional AI coaching */
-    let aiCoaching: string | undefined
-    if (includeAICoaching && process.env.ANTHROPIC_API_KEY) {
-      aiCoaching = await generateAICoaching(process.env.ANTHROPIC_API_KEY, result)
+    const moduleTwoBaseline: UserBaseline | undefined =
+      (userTypicalQty > 0 || userAvgDailyTrades > 0)
+        ? {
+            medianQty: userTypicalQty,
+            avgDailyTrades: userAvgDailyTrades,
+            avgLossPerTrade: 0,
+            avgWinPerTrade: 0,
+            avgHoldingMinutes: 0,
+            totalSessionsAnalysed: 0,
+            computedAt: new Date().toISOString(),
+          }
+        : undefined
+
+    if (FLAGS.MODULE_2_SHADOW_MODE) {
+      // Both paths run in parallel. Old serves. New is logged.
+      const legacyPromise: Promise<AnalysisJSON> = (async () => {
+        const result = detectPatterns(allTrades, { userTypicalQty, userAvgDailyTrades })
+        let aiCoaching: string | undefined
+        if (includeAICoaching && process.env.ANTHROPIC_API_KEY) {
+          aiCoaching = await generateAICoaching(process.env.ANTHROPIC_API_KEY, result)
+        }
+        return buildAnalysisJSON({ ...session, trades: allTrades }, result, aiCoaching)
+      })()
+
+      const newPromise: Promise<AnalysisJSON | null> = runModule2Analysis(
+        allTrades as unknown as StandardTrade[],
+        {
+          baseline: moduleTwoBaseline,
+          session: { ...session, trades: allTrades },
+        }
+      ).catch((e) => {
+        console.warn('[MODULE_2_SHADOW] new path failed:', e)
+        return null
+      })
+
+      const [legacy, modern] = await Promise.all([legacyPromise, newPromise])
+      try {
+        logShadowDiff(buildShadowDiff(legacy, modern))
+      } catch (e) {
+        console.warn('[MODULE_2_SHADOW] diff log failed:', e)
+      }
+      analysis = legacy
+    } else if (FLAGS.USE_MODULE_2_COMPUTE) {
+      // Module 2 path.
+      analysis = await runModule2Analysis(
+        allTrades as unknown as StandardTrade[],
+        {
+          baseline: moduleTwoBaseline,
+          session: { ...session, trades: allTrades },
+        }
+      )
+    } else {
+      /* 5. Run code pattern detection */
+      const result = detectPatterns(allTrades, { userTypicalQty, userAvgDailyTrades })
+
+      /* 6. Optional AI coaching */
+      let aiCoaching: string | undefined
+      if (includeAICoaching && process.env.ANTHROPIC_API_KEY) {
+        aiCoaching = await generateAICoaching(process.env.ANTHROPIC_API_KEY, result)
+      }
+
+      /* 7. Build analysis JSONB */
+      analysis = buildAnalysisJSON({ ...session, trades: allTrades }, result, aiCoaching)
     }
-
-    /* 7. Build analysis JSONB */
-    const analysis = buildAnalysisJSON({ ...session, trades: allTrades }, result, aiCoaching)
 
     /* 8. Build rows for trade_analysis table */
     const merged = allTrades.map((t: any, i: number) => {
