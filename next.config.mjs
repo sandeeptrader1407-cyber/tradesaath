@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['unpdf', 'tesseract.js'],
+    // Keep these packages out of the webpack bundle — let Node require()
+    // them at runtime. Required for:
+    //  - @napi-rs/canvas:  ships a native .node binary (skia*.node) webpack can't parse
+    //  - pdfjs-dist:       uses dynamic imports + node-specific worker loading
+    //  - unpdf / tesseract.js: large WASM, previously configured external
+    serverComponentsExternalPackages: [
+      'unpdf',
+      'tesseract.js',
+      '@napi-rs/canvas',
+      'pdfjs-dist',
+    ],
   },
   eslint: {
     // ESLint runs during builds — all rules enforced

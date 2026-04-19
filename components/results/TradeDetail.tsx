@@ -56,7 +56,9 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
   };
 
   const formatPnl = (pnl: number): string => {
-    const sign = pnl >= 0 ? "+" : "";
+    // Losses must render with an explicit minus sign, not an empty string.
+    // Old bug: sign was "" for negative pnl, so a loss displayed without any sign.
+    const sign = pnl > 0 ? "+" : pnl < 0 ? "-" : "";
     return `${sign}\u20B9${Math.abs(Math.round(pnl)).toLocaleString("en-IN")}`;
   };
 
