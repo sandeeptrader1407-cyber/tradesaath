@@ -1,9 +1,7 @@
 /**
  * Module 2, Layer 4 — Decision Quality Score orchestrator.
  *
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║ PORT NOTES                                                       ║
- * ╚══════════════════════════════════════════════════════════════════╝
+ * PORT NOTES
  *
  * • Every sub-score formula is ported EXACTLY from the existing
  *   `lib/analysis/patternDetector.ts` DQS block (lines 656-720 of
@@ -11,36 +9,36 @@
  *   the seven sub-score modules.
  *
  * • Sub-score weights match the legacy composite precisely:
- *     Risk Management      25 %    ← scoreRiskManagement
- *     Emotional Control    20 %    ← scoreEmotionalControl
- *     Position Sizing      15 %    ← scorePositionSizing
- *     Exit Discipline      15 %    ← scoreExitDiscipline
- *     Entry Quality        10 %    ← scoreEntryQuality
- *     Exit Timing          10 %    ← scoreExitTiming
- *     Rule Following        5 %    ← scoreRuleFollowing
- *                          ────
+ *     Risk Management      25 %    <- scoreRiskManagement
+ *     Emotional Control    20 %    <- scoreEmotionalControl
+ *     Position Sizing      15 %    <- scorePositionSizing
+ *     Exit Discipline      15 %    <- scoreExitDiscipline
+ *     Entry Quality        10 %    <- scoreEntryQuality
+ *     Exit Timing          10 %    <- scoreExitTiming
+ *     Rule Following        5 %    <- scoreRuleFollowing
+ *                          ----
  *                          100 %
  *
- * • Composite  overall = Σ (score × weight) / 100,  clamped 0..100,
+ * • Composite  overall = sum(score * weight) / 100,  clamped 0..100,
  *   rounded to nearest integer. Matches legacy formula exactly.
  *
- * • Grade thresholds — INTENTIONALLY DIFFER from legacy.
+ * • Grade thresholds - INTENTIONALLY DIFFER from legacy.
  *   This port uses the stricter spec thresholds:
- *       A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F < 60
- *   Legacy used A ≥ 80, B ≥ 65, C ≥ 45, D ≥ 25, F < 25.
- *   The ±5-point sanity check is done against the numeric `overall`,
- *   not the letter grade — grades are a downstream presentation
+ *       A >= 90, B >= 80, C >= 70, D >= 60, F < 60
+ *   Legacy used A >= 80, B >= 65, C >= 45, D >= 25, F < 25.
+ *   The +/-5-point sanity check is done against the numeric `overall`,
+ *   not the letter grade - grades are a downstream presentation
  *   concern and are allowed to differ by policy.
  *
  * • NEW fields on DQSSubScore vs. legacy DQS<number>:
- *     `detail`      – human-readable summary of the underlying data
+ *     `detail`      - human-readable summary of the underlying data
  *                     (no new computation; same stats rendered as text)
- *     `suggestion`  – a pre-canned coaching line tiered by score band
- *                     (<60, 60-84, ≥85). No new scoring.
+ *     `suggestion`  - a pre-canned coaching line tiered by score band
+ *                     (<60, 60-84, >=85). No new scoring.
  *
  * • NEW field on DQSResult vs. legacy DQS:
- *     `biggestDrag` – the sub-score with the largest weighted shortfall.
- *                     shortfall = weight × (100 − score) / 100.
+ *     `biggestDrag` - the sub-score with the largest weighted shortfall.
+ *                     shortfall = weight * (100 - score) / 100.
  *                     `potentialImprovement` = the same value = how
  *                     many composite points this sub-score would add
  *                     if it went to 100.
@@ -59,31 +57,17 @@ import type {
   DQSResult,
   DQSSubScore,
 } from '../types'
-import {
-  scoreRiskManagement,
-  RISK_MANAGEMENT_WEIGHT,
-} from './riskManagement'
-import {
-  scoreEmotionalControl,
-  EMOTIONAL_CONTROL_WEIGHT,
-} from './emotionalControl'
-import {
-  scorePositionSizing,
-  POSITION_SIZING_WEIGHT,
-} from './positionSizing'
-import {
-  scoreExitDiscipline,
-  EXIT_DISCIPLINE_WEIGHT,
-} from './exitDiscipline'
-import {
-  scoreEntryQuality,
-  ENTRY_QUALITY_WEIGHT,
-} from './entryQuality'
-import { scoreExitTiming, EXIT_TIMING_WEIGHT } from './exitTiming'
-import {
-  scoreRuleFollowing,
-  RULE_FOLLOWING_WEIGHT,
-} from './ruleFollowing'
+// Imports: only the scoring fns (used by computeDQS below).
+// Weight constants are re-exported directly via `export { ... } from './...'`
+// below so ESLint's no-unused-vars rule does not flag them. Any consumer
+// still gets them via `from '@/lib/compute/dqs'`.
+import { scoreRiskManagement } from './riskManagement'
+import { scoreEmotionalControl } from './emotionalControl'
+import { scorePositionSizing } from './positionSizing'
+import { scoreExitDiscipline } from './exitDiscipline'
+import { scoreEntryQuality } from './entryQuality'
+import { scoreExitTiming } from './exitTiming'
+import { scoreRuleFollowing } from './ruleFollowing'
 
 export {
   scoreRiskManagement,
@@ -141,8 +125,8 @@ export function computeComposite(subScores: DQSSubScore[]): number {
  * Pick the single sub-score with the largest weighted shortfall from 100.
  * shortfall(s) = s.weight * (100 - s.score) / 100
  *
- * Ties are broken by iteration order — which is the stable display
- * order (risk → emotional → sizing → exit-disc → entry → exit-time → rules).
+ * Ties are broken by iteration order - which is the stable display
+ * order (risk -> emotional -> sizing -> exit-disc -> entry -> exit-time -> rules).
  */
 export function findBiggestDrag(subScores: DQSSubScore[]): {
   factorName: string
@@ -170,13 +154,13 @@ export function findBiggestDrag(subScores: DQSSubScore[]): {
 }
 
 /**
- * Main entrypoint — compute the DQSResult for a session.
+ * Main entrypoint - compute the DQSResult for a session.
  *
  * INPUTS  (all read-only; no mutation anywhere in this layer)
- *   trades    — the enriched trades (Layer 1 output)
- *   patterns  — the chosen patterns  (Layer 2 output)
- *   cycles    — the detected cycles  (Layer 3 output; currently unused
- *                                     by any sub-score — reserved for
+ *   trades    - the enriched trades (Layer 1 output)
+ *   patterns  - the chosen patterns  (Layer 2 output)
+ *   cycles    - the detected cycles  (Layer 3 output; currently unused
+ *                                     by any sub-score - reserved for
  *                                     future scoring lifts)
  *
  * OUTPUT
