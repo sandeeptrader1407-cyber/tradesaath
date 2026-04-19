@@ -10,6 +10,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis'
 import { updateSessionAnalysis } from '@/lib/supabase/saveTrades'
 import { bustDashboardCache } from '@/lib/dashboardCache'
+import { bustCoachPlanCache } from '@/lib/coachCache'
 import { detectPatterns } from '@/lib/analysis/patternDetector'
 import { buildAnalysisJSON, generateAICoaching, type AnalysisJSON } from '@/lib/analysis/sessionSummarizer'
 import { FLAGS } from '@/lib/config/flags'
@@ -256,8 +257,9 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
       console.warn('dqs_score column sync failed (non-blocking):', e)
     }
 
-    /* 10. Bust dashboard cache */
+    /* 10. Bust dashboard cache + coach plan cache */
     bustDashboardCache(userId)
+    bustCoachPlanCache(userId)
 
     return { success: true, tradesAnalysed: merged.length }
   } catch (err: unknown) {

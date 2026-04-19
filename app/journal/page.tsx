@@ -49,80 +49,76 @@ function JournalContent() {
       .catch(() => setLoading(false))
   }, [])
 
-  // Detect recurring patterns from session analysis data
+  // Detect recurring patterns from session analysis data.
+  //
+  // Reads the already-computed `mistake_patterns` array from each session's
+  // `analysis` JSONB — these are the canonical per-session counts/costs
+  // produced server-side by the analyser (both legacy and Module 2 paths
+  // emit the same shape via `buildAnalysisJSON`). No re-detection here.
+  //
+  // Trend: sessions are ordered newest-first, so index < midpoint is the
+  // recent half. Compare recent vs older count per pattern name.
   useEffect(() => {
     if (sessions.length < 2) return
-    const tagCounts: Record<string, { count: number; sessions: number; cost: number; recentCount: number; olderCount: number }> = {}
+    const patternTotals: Record<
+      string,
+      { count: number; sessions: number; cost: number; recentCount: number; olderCount: number }
+    > = {}
     const midpoint = Math.floor(sessions.length / 2)
 
     sessions.forEach((sess, idx) => {
-      // Dynamic analysis JSON — shape varies by session
       const analysis = sess.analysis as Record<string, unknown> | null
       if (!analysis) return
-
-      // Count from trade_analyses (new format)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic analysis JSON
-      const tradeAnalyses = (analysis.trade_analyses || []) as any[]
-      const seenTags = new Set<string>()
-      for (const ta of tradeAnalyses) {
-        if (ta.tag && ta.tag !== 'win') {
-          const tag = ta.tag as string
-          if (!tagCounts[tag]) tagCounts[tag] = { count: 0, sessions: 0, cost: 0, recentCount: 0, olderCount: 0 }
-          tagCounts[tag].count++
-          if (!seenTags.has(tag)) { tagCounts[tag].sessions++; seenTags.add(tag) }
-          // Try multiple pnl field names; parse strings to numbers
-          const pnlVal = Number(ta.pnl ?? ta.net_pnl ?? ta.trade_pnl ?? 0)
-          if (pnlVal < 0) tagCounts[tag].cost += Math.abs(pnlVal)
-          if (idx < midpoint) tagCounts[tag].recentCount++
-          else tagCounts[tag].olderCount++
-        }
-      }
+      const mp = analysis.mistake_patterns as any[] | undefined
+      if (!Array.isArray(mp) || mp.length === 0) return
 
-      // Fallback: if trade_analyses had no per-trade pnl, distribute session loss to tags present
-      if (tradeAnalyses.length > 0 && sess.net_pnl < 0) {
-        const tagsInSession = Array.from(seenTags)
-        const anyHadPnl = tradeAnalyses.some((ta: Record<string, unknown>) => ta.pnl != null || ta.net_pnl != null || ta.trade_pnl != null)
-        if (!anyHadPnl && tagsInSession.length > 0) {
-          const share = Math.abs(sess.net_pnl) / tagsInSession.length
-          for (const tag of tagsInSession) {
-            tagCounts[tag].cost += Math.round(share)
-          }
+      for (const p of mp) {
+        const name = String(p?.name || '').trim()
+        const count = Number(p?.count || 0)
+        const cost = Math.abs(Number(p?.cost || 0))
+        if (!name || count <= 0) continue
+        if (!patternTotals[name]) {
+          patternTotals[name] = { count: 0, sessions: 0, cost: 0, recentCount: 0, olderCount: 0 }
         }
-      }
-
-      // Count from mistake_patterns (legacy)
-      if (analysis.mistake_patterns) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const mp of (analysis.mistake_patterns as any[])) {
-          const tag = (mp.name || '').toLowerCase().replace(/\s+/g, '_')
-          if (!tag) continue
-          if (!tagCounts[tag]) tagCounts[tag] = { count: 0, sessions: 0, cost: 0, recentCount: 0, olderCount: 0 }
-          tagCounts[tag].count += (mp.count || 1)
-          tagCounts[tag].cost += Math.abs(mp.cost || 0)
-        }
+        patternTotals[name].count += count
+        patternTotals[name].sessions += 1
+        patternTotals[name].cost += cost
+        if (idx < midpoint) patternTotals[name].recentCount += count
+        else patternTotals[name].olderCount += count
       }
     })
 
-    const TAG_LABELS: Record<string, string> = {
-      rvg: 'Revenge Trading after losses',
-      fomo: 'FOMO entries chasing momentum',
-      pnc: 'Panic exits at the worst moment',
-      avg: 'Averaging down on losing trades',
-      vs: 'Vicious cycle cascade trades',
-      revenge_trading: 'Revenge Trading after losses',
-      fomo_entry: 'FOMO entries chasing momentum',
-      overtrading: 'Overtrading beyond your edge',
+    // Map canonical `mistake_patterns.name` values to display strings +
+    // stable tag slugs consumed by the link targets below.
+    const NAME_TO_TAG: Record<string, string> = {
+      'Revenge Trade': 'rvg',
+      'Averaging Down': 'avg',
+      'FOMO Entry': 'fomo',
+      'Panic Exit': 'pnc',
+      'Overtrading': 'over',
+      'Oversized': 'size',
+      'Late Exit': 'late',
+    }
+    const NAME_DESCRIPTIONS: Record<string, string> = {
+      'Revenge Trade': 'Revenge Trading after losses',
+      'Averaging Down': 'Averaging down on losing trades',
+      'FOMO Entry': 'FOMO entries chasing momentum',
+      'Panic Exit': 'Panic exits at the worst moment',
+      'Overtrading': 'Overtrading beyond your edge',
+      'Oversized': 'Oversized position entries',
+      'Late Exit': 'Holding losers too long',
     }
 
-    const detected: PatternAlert[] = Object.entries(tagCounts)
+    const detected: PatternAlert[] = Object.entries(patternTotals)
       .filter(([, v]) => v.count >= 3 && v.sessions >= 2) // recurring = 3+ occurrences across 2+ sessions
-      .map(([tag, v]) => {
+      .map(([name, v]) => {
         let trend: 'worsening' | 'improving' | 'stable' = 'stable'
         if (v.recentCount > v.olderCount * 1.3) trend = 'worsening'
         else if (v.olderCount > v.recentCount * 1.3) trend = 'improving'
         return {
-          name: TAG_LABELS[tag] || tag.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-          tag,
+          name: NAME_DESCRIPTIONS[name] || name,
+          tag: NAME_TO_TAG[name] || name.toLowerCase().replace(/\s+/g, '_'),
           count: v.count,
           sessions: v.sessions,
           cost: Math.round(v.cost),

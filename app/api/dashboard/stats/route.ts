@@ -409,6 +409,27 @@ export async function GET(req: NextRequest) {
       for (const f of dqsFactors) dqsSubScores[f.name] = f.score
     }
 
+    // Latest AI coaching note from the most recent analysed session.
+    // Fallback chain:
+    //   ai_coaching        — canonical top-level field (both legacy and
+    //                        Module 2 paths write here via buildAnalysisJSON)
+    //   insights.aiCoaching — Module 2 nested field (defensive — bridge
+    //                        flattens to top-level today, but keep the
+    //                        path in case the bridge is removed later)
+    //   coaching            — any older snapshot field
+    let latestAiCoaching: string | null = null
+    if (latestAnalysedSession?.analysis) {
+      const a = latestAnalysedSession.analysis
+      const candidate =
+        (typeof a.ai_coaching === 'string' && a.ai_coaching) ||
+        (typeof a?.insights?.aiCoaching === 'string' && a.insights.aiCoaching) ||
+        (typeof a.coaching === 'string' && a.coaching) ||
+        null
+      if (candidate && candidate.trim().length > 0) {
+        latestAiCoaching = candidate.trim()
+      }
+    }
+
     // Aggregate patterns from analysis JSONB (new excess-over-baseline costs).
     const patternsByTag: Record<string, { label: string; count: number; cost: number }> = {}
     let patternsTotalCost = 0
@@ -588,6 +609,7 @@ export async function GET(req: NextRequest) {
         grade: dqsGrade,
         subScores: dqsSubScores,
       },
+      latestAiCoaching,
       patterns: {
         byTag: patternsByTagArr,
         totalMistakeCost: patternsTotalCost,
