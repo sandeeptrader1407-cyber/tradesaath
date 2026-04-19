@@ -91,6 +91,13 @@ interface DashStats {
     totalMistakeCost: number
     totalMistakeCount: number
   }
+  // Latest AI coaching note — populated by /api/dashboard/stats from the
+  // most recent analysed session's `analysis.ai_coaching` (canonical
+  // top-level field written by both legacy and Module 2 paths via
+  // buildAnalysisJSON). Falls back to `analysis.insights.aiCoaching`
+  // and `analysis.coaching` defensively. Null when no coaching text
+  // is available.
+  latestAiCoaching?: string | null
 }
 
 function getGreeting(): string {
@@ -205,19 +212,19 @@ export default function DashboardPage() {
   // Build behavioral insight cards from real pattern data (no AI required).
   // Keys cover BOTH the tagLabels names (from trade_analysis) and sessionSummarizer names (from analysis JSONB).
   const INSIGHT_META: Record<string, { icon: string; color: string }> = {
-    "Revenge Trading": { icon: "⚔️", color: "var(--red)" },
-    "Revenge Trade": { icon: "⚔️", color: "var(--red)" },
-    "FOMO Entries": { icon: "🔥", color: "var(--red)" },
-    "FOMO Entry": { icon: "🔥", color: "var(--red)" },
-    "Panic Exits": { icon: "💨", color: "var(--gold)" },
-    "Panic Exit": { icon: "💨", color: "var(--gold)" },
-    "Averaging Down": { icon: "📉", color: "var(--red)" },
-    "Overtrading": { icon: "📈", color: "var(--gold)" },
-    "Oversized Position": { icon: "🏋️", color: "var(--red)" },
-    "Oversized": { icon: "🏋️", color: "var(--red)" },
-    "Late Exit": { icon: "🕑", color: "var(--gold)" },
-    "Vicious Cycle": { icon: "🔄", color: "var(--red)" },
-    "Decision Fatigue": { icon: "😵", color: "var(--gold)" },
+    "Revenge Trading": { icon: "\u2694\uFE0F", color: "var(--red)" },
+    "Revenge Trade": { icon: "\u2694\uFE0F", color: "var(--red)" },
+    "FOMO Entries": { icon: "\uD83D\uDD25", color: "var(--red)" },
+    "FOMO Entry": { icon: "\uD83D\uDD25", color: "var(--red)" },
+    "Panic Exits": { icon: "\uD83D\uDCA8", color: "var(--gold)" },
+    "Panic Exit": { icon: "\uD83D\uDCA8", color: "var(--gold)" },
+    "Averaging Down": { icon: "\uD83D\uDCC9", color: "var(--red)" },
+    "Overtrading": { icon: "\uD83D\uDCC8", color: "var(--gold)" },
+    "Oversized Position": { icon: "\uD83C\uDFCB\uFE0F", color: "var(--red)" },
+    "Oversized": { icon: "\uD83C\uDFCB\uFE0F", color: "var(--red)" },
+    "Late Exit": { icon: "\uD83D\uDD51", color: "var(--gold)" },
+    "Vicious Cycle": { icon: "\uD83D\uDD04", color: "var(--red)" },
+    "Decision Fatigue": { icon: "\uD83D\uDE35", color: "var(--gold)" },
   }
 
   // Compute mistake data for MistakeCostCalculator.
@@ -225,7 +232,7 @@ export default function DashboardPage() {
   // otherwise fall back to mistakeTrades (raw |pnl| from trade_analysis table).
   const patternMistakes = (stats?.patterns?.byTag || []).map(p => ({
     type: p.label,
-    icon: INSIGHT_META[p.label]?.icon || "⚠️",
+    icon: INSIGHT_META[p.label]?.icon || "\u26A0\uFE0F",
     count: p.count,
     cost: p.cost,
   }))
@@ -236,28 +243,28 @@ export default function DashboardPage() {
     : (stats?.totalMistakeCost || 0)
 
   const insights = (stats?.patterns?.byTag || []).slice(0, 4).map(p => {
-    const meta = INSIGHT_META[p.label] || { icon: "⚠️", color: "var(--gold)" }
+    const meta = INSIGHT_META[p.label] || { icon: "\u26A0\uFE0F", color: "var(--gold)" }
     return {
       icon: meta.icon,
       title: p.label,
       color: meta.color,
-      desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost ₹${Math.round(p.cost).toLocaleString('en-IN')}.`,
+      desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost \u20B9${Math.round(p.cost).toLocaleString('en-IN')}.`,
     }
   })
   // If no insights from patterns, build from mistakeTrades fallback
   const insightsForBI = insights.length > 0 ? insights : (stats?.mistakeTrades || []).slice(0, 4).map(m => {
-    const meta = INSIGHT_META[m.type] || { icon: m.icon || "⚠️", color: "var(--gold)" }
+    const meta = INSIGHT_META[m.type] || { icon: m.icon || "\u26A0\uFE0F", color: "var(--gold)" }
     return {
       icon: meta.icon,
       title: m.type,
       color: meta.color,
-      desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged — cost ₹${Math.round(m.cost).toLocaleString('en-IN')}.`,
+      desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged — cost \u20B9${Math.round(m.cost).toLocaleString('en-IN')}.`,
     }
   })
 
   const streakDir = stats?.streaks?.current
-    ? stats.streaks.current > 0 ? "↑" : "↓"
-    : "→"
+    ? stats.streaks.current > 0 ? "\u2191" : "\u2193"
+    : "\u2192"
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
@@ -269,13 +276,13 @@ export default function DashboardPage() {
           borderColor: isPaid ? "var(--accent)" : "var(--border)",
         }}>
           <span className="text-sm" style={{ color: isPaid ? "var(--accent)" : "var(--text2)" }}>
-            {isPro ? "⭐ Pro Plan Active" : isPaid ? "⭐ Single Report Plan" : "Free Plan — Upgrade for full features"}
+            {isPro ? "\u2B50 Pro Plan Active" : isPaid ? "\u2B50 Single Report Plan" : "Free Plan \u2014 Upgrade for full features"}
           </span>
           {!isPaid && (
             <div className="flex items-center gap-3">
               <CouponInput compact />
               <a href="/#pricing" className="text-xs px-4 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
-                Upgrade {"→"}
+                Upgrade {"\u2192"}
               </a>
             </div>
           )}
@@ -287,7 +294,7 @@ export default function DashboardPage() {
               {getGreeting()}, {getDisplayName(user)}
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text2)" }}>
-              {getMonthYear()} {"·"} {stats?.sessionCount || 0} {(stats?.sessionCount || 0) === 1 ? "session" : "sessions"} {"·"} {stats?.totalTrades || 0} trades analysed
+              {getMonthYear()} {"\u00B7"} {stats?.sessionCount || 0} {(stats?.sessionCount || 0) === 1 ? "session" : "sessions"} {"\u00B7"} {stats?.totalTrades || 0} trades analysed
             </p>
           </div>
           <button
@@ -295,7 +302,7 @@ export default function DashboardPage() {
             className="px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shrink-0"
             style={{ background: "var(--accent)", color: "#071a15" }}
           >
-            {"📤"} New Analysis
+            {"\uD83D\uDCE4"} New Analysis
           </button>
         </div>
 
@@ -305,7 +312,7 @@ export default function DashboardPage() {
             borderColor: "#f59e0b",
           }}>
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-2xl">{"⚡"}</span>
+              <span className="text-2xl">{"\u26A1"}</span>
               <div>
                 <h2 className="text-base font-bold" style={{ color: "var(--text)" }}>
                   {stats.pendingAnalysisCount} session{stats.pendingAnalysisCount === 1 ? "" : "s"} need analysis
@@ -329,7 +336,7 @@ export default function DashboardPage() {
 
         {!stats?.hasData && !loading && (
           <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-            <div className="text-5xl mb-4">{"📊"}</div>
+            <div className="text-5xl mb-4">{"\uD83D\uDCCA"}</div>
             <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Welcome to your Trading Dashboard</h2>
             <p className="text-sm mb-6" style={{ color: "var(--text2)" }}>Upload your first trading session to see your performance insights, discipline score, and behavioral patterns.</p>
             <button
@@ -337,7 +344,7 @@ export default function DashboardPage() {
               className="px-6 py-3 rounded-xl text-sm font-semibold"
               style={{ background: "var(--accent)", color: "#071a15" }}
             >
-              {"📋"} Upload First Session {"→"}
+              {"\uD83D\uDCCB"} Upload First Session {"\u2192"}
             </button>
           </div>
         )}
@@ -350,6 +357,37 @@ export default function DashboardPage() {
 
         {stats?.hasData && !loading && (
           <>
+            {stats.latestAiCoaching && (
+              <div
+                className="rounded-xl border-l-4 px-4 py-3"
+                style={{
+                  background: "rgba(157,122,247,.05)",
+                  borderLeftColor: "var(--purple)",
+                  borderTop: "1px solid var(--border)",
+                  borderRight: "1px solid var(--border)",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-lg shrink-0" aria-hidden>{"\uD83E\uDDE0"}</span>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-[10px] uppercase tracking-wider font-semibold mb-1"
+                      style={{ color: "var(--purple)" }}
+                    >
+                      Saathi{"\u2019"}s take on your last session
+                    </div>
+                    <p
+                      className="text-sm"
+                      style={{ color: "var(--text)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}
+                    >
+                      {stats.latestAiCoaching}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
               <div className="rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
@@ -397,7 +435,7 @@ export default function DashboardPage() {
                     </>
                   ) : lowest ? (
                     <>
-                      <div className="text-2xl mb-2">{"⚠️"}</div>
+                      <div className="text-2xl mb-2">{"\u26A0\uFE0F"}</div>
                       <div className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
                         {lowest.name}
                       </div>
@@ -408,7 +446,7 @@ export default function DashboardPage() {
                     </>
                   ) : (
                     <>
-                      <div className="text-2xl mb-2">{"📊"}</div>
+                      <div className="text-2xl mb-2">{"\uD83D\uDCCA"}</div>
                       <div className="text-xs" style={{ color: "var(--text2)", lineHeight: 1.6 }}>
                         Upload more sessions to discover your patterns
                       </div>
@@ -416,11 +454,11 @@ export default function DashboardPage() {
                   )}
                   {isPro ? (
                     <Link href="/coach" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
-                      Fix this in Saathi {"→"}
+                      Fix this in Saathi {"\u2192"}
                     </Link>
                   ) : (
                     <Link href="/#pricing" className="text-xs font-semibold mt-auto" style={{ color: "var(--accent)" }}>
-                      Upgrade to unlock Saathi {"→"}
+                      Upgrade to unlock Saathi {"\u2192"}
                     </Link>
                   )}
                 </div>
@@ -453,7 +491,7 @@ export default function DashboardPage() {
                 className="text-xs px-5 py-2 rounded-lg font-semibold transition-all"
                 style={{ background: "var(--s2)", color: "var(--text2)", border: "1px solid var(--border)" }}
               >
-                {showDetailed ? "📊 Hide detailed analytics ▲" : "📊 Show detailed analytics ▼"}
+                {showDetailed ? "\uD83D\uDCCA Hide detailed analytics \u25B2" : "\uD83D\uDCCA Show detailed analytics \u25BC"}
               </button>
             </div>
 
