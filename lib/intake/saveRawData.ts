@@ -74,15 +74,18 @@ export async function saveRawData(
     user_id: userId,
     session_id: sessionId || null,
     file_name: rawFile.filename,
+    file_type: (rawFile.extension || 'unknown').toLowerCase(), // NOT NULL in schema
     file_size_bytes: rawFile.sizeBytes,
     file_hash: rawFile.fileHash,
     broker_id: toBrokerId(rawFile.broker),
     broker_name: rawFile.broker,
+    broker_detected: rawFile.broker,
     market: rawFile.market,
     currency: rawFile.currency,
     headers: rawFile.headers,
     total_rows: rawFile.rows.length,
     data_rows: rawFile.rows.length,
+    trades_count: rawFile.rows.length,
     skipped_rows: 0,
     has_time_column: hasTimeColumn,
     date_range_start: dateRangeStart || null,
@@ -152,20 +155,26 @@ export async function saveClaudeFallbackRawData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasTime = params.trades.some((t: any) => !!(t as any).time || !!(t as any).entry_time);
 
+  // Derive file_type from filename extension
+  const ext = (params.filename.split('.').pop() || 'unknown').toLowerCase();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const record: Record<string, any> = {
     user_id: userId,
     session_id: sessionId || null,
     file_name: params.filename,
+    file_type: ext, // NOT NULL in schema
     file_size_bytes: params.fileSizeBytes,
     file_hash: params.fileHash,
     broker_id: 'claude-extracted',
     broker_name: 'Claude AI (' + (params.broker || 'PDF fallback') + ')',
+    broker_detected: params.broker || 'Unknown',
     market: params.market || 'Unknown',
     currency: params.currency || 'INR',
     headers: [],
     total_rows: params.tradeCount,
     data_rows: params.tradeCount,
+    trades_count: params.tradeCount,
     skipped_rows: 0,
     has_time_column: hasTime,
     date_range_start: params.tradeDate || null,

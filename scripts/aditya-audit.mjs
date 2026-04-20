@@ -43,8 +43,22 @@ async function sb(path) {
 
 const output = {}
 
-// Clerk ID hard-coded from Sandeep (email: varma.inovap@gmail.com, name: Aditya Varma)
-const CLERK_ID = process.argv[2] || 'user_3CaUY8cQgxXavWnCdbj9q6BOzXq'
+// Accept clerk_id (user_XXX) OR email. Defaults to Aditya for continuity.
+const ARG = process.argv[2] || 'user_3CaUY8cQgxXavWnCdbj9q6BOzXq'
+let CLERK_ID = ARG
+
+if (!ARG.startsWith('user_')) {
+  console.log(`Treating arg "${ARG}" as email, resolving clerk_id...`)
+  const matches = await sb(`users?email=eq.${encodeURIComponent(ARG)}&select=clerk_id,email,name,created_at`)
+  if (!Array.isArray(matches) || matches.length === 0) {
+    console.error(`No user found for email ${ARG}. Dumping recent signups:`)
+    const recent = await sb(`users?select=clerk_id,email,name,created_at&order=created_at.desc&limit=15`)
+    console.error(JSON.stringify(recent, null, 2))
+    process.exit(1)
+  }
+  CLERK_ID = matches[0].clerk_id
+  console.log(`  Resolved to clerk_id ${CLERK_ID} (${matches[0].email})`)
+}
 
 console.log(`1. Looking up user by clerk_id ${CLERK_ID}...`)
 output.users = await sb(`users?clerk_id=eq.${encodeURIComponent(CLERK_ID)}&select=*`)

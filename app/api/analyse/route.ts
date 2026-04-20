@@ -805,7 +805,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { trades, kpis, broker, market, trade_date, currency, time_analysis, context, file_hash, file_size_bytes } = body;
+  const { trades, kpis, broker, market, trade_date, currency, time_analysis, context, file_hash, file_size_bytes, raw_file_id } = body;
 
   if (!trades || !Array.isArray(trades) || trades.length === 0) {
     return NextResponse.json({ error: 'No trades provided. Please upload a broker statement.' }, { status: 400 });
@@ -866,10 +866,34 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     try {
       const { userId } = await auth();
       const anonId = userId ? undefined : await getOrCreateAnonId();
-      const effectiveUserId = userId || anonId || 'anonymous';
 
-      // Save raw_files record if we have a file hash (L1 dedup)
-      if (file_hash && effectiveUserId) {
+      // Prefer the raw_file_id that /api/parse already created (authoritative raw data
+      // from the actual uploaded file). Fall back to creating a Claude-style record here
+      // if parse didn't save one (e.g. anonymous at parse time, then signed in by analyse,
+      // or /api/parse was bypassed).
+      let effectiveRawFileId: string | undefined = raw_file_id;
+
+      if (!effectiveRawFileId && userId && file_hash) {
+        try {
+          const { getSupabaseAdmin } = await import('@/lib/supabase');
+          const sb = getSupabaseAdmin();
+          const { data: existing } = await sb
+            .from('raw_files')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('file_hash', file_hash)
+            .maybeSingle();
+          if (existing?.id) {
+            effectiveRawFileId = existing.id;
+            console.log('[Analyse/JSON] Recovered raw_file_id by hash:', effectiveRawFileId);
+          }
+        } catch (lookupErr) {
+          console.error('[Analyse/JSON] raw_files hash lookup failed:', lookupErr);
+        }
+      }
+
+      if (!effectiveRawFileId && userId && file_hash) {
+        // Last-resort fallback — still create a raw_files row from the pre-parsed trades
         const rawResult = await saveClaudeFallbackRawData({
           filename: `parsed-upload-${trade_date || 'unknown'}.csv`,
           fileHash: file_hash,
@@ -880,10 +904,17 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
           tradeDate: trade_date || '',
           tradeCount: trades.length,
           trades,
-        }, effectiveUserId);
+        }, userId);
         if ('id' in rawResult) {
-          console.log('[Analyse/JSON] Saved raw_files record:', rawResult.id);
+          effectiveRawFileId = rawResult.id;
+          console.log('[Analyse/JSON] Created fallback raw_files record:', rawResult.id);
+        } else {
+          console.error(`[Analyse/JSON] raw_files FALLBACK save FAILED: ${rawResult.error} | user=${userId} hash=${file_hash}`);
         }
+      }
+
+      if (userId && !effectiveRawFileId) {
+        console.error(`[Analyse/JSON] No raw_file_id available for session — raw lineage will be lost | user=${userId} hasHash=${!!file_hash} trades=${trades.length}`);
       }
 
       saveResult = await saveSessionsByDay({
@@ -893,9 +924,22 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
           detected_currency: currency || 'INR',
           detected_broker: broker || 'Unknown',
           trade_date: trade_date || '',
+          raw_file_id: effectiveRawFileId,
         },
         plan: 'free', userId: userId || undefined, anonId,
       });
+
+      // Link the raw_files row back to the saved session
+      if (effectiveRawFileId && saveResult?.sessionId && userId) {
+        try {
+          const { getSupabaseAdmin } = await import('@/lib/supabase');
+          const sb = getSupabaseAdmin();
+          await sb.from('raw_files').update({ session_id: saveResult.sessionId }).eq('id', effectiveRawFileId);
+          console.log(`[Analyse/JSON] Linked raw_file ${effectiveRawFileId} to session ${saveResult.sessionId}`);
+        } catch (linkErr) {
+          console.error('[Analyse/JSON] Failed to link raw_file to session:', linkErr);
+        }
+      }
     } catch (e) {
       console.error('Session save failed (non-blocking):', e);
     }

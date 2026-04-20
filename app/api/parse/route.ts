@@ -2,7 +2,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { intakeFile, toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis, computeFileHash } from '@/lib/intake';
+import { auth } from '@clerk/nextjs/server';
+import { intakeFile, toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis, computeFileHash, saveRawData } from '@/lib/intake';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 
 /* ═══════════════════════════════════════════
@@ -54,6 +55,39 @@ export async function POST(req: NextRequest) {
       }, { status: 422 });
     }
 
+    // Persist the raw file for authenticated users. This is the ONLY place in the
+    // upload flow that has the original file bytes + parsed rows together — analyse
+    // receives only trades[] via JSON and cannot rebuild the raw.
+    let rawFileId: string | undefined;
+    try {
+      const { userId } = await auth();
+      if (userId) {
+        // Cap rows to prevent JSONB bloat on huge multi-day statements
+        const MAX_RAW_ROWS = 5000;
+        const trimmed = result.rawFile.rows.length > MAX_RAW_ROWS
+          ? {
+              ...result.rawFile,
+              rows: result.rawFile.rows.slice(0, MAX_RAW_ROWS),
+              warnings: [
+                ...(result.rawFile.warnings || []),
+                `raw_data truncated from ${result.rawFile.rows.length} to ${MAX_RAW_ROWS} rows for storage`,
+              ],
+            }
+          : result.rawFile;
+        const saved = await saveRawData(trimmed, userId);
+        if ('id' in saved) {
+          rawFileId = saved.id;
+          console.log(`[Parse] raw_files row saved: ${rawFileId} (${trimmed.rows.length} rows, user=${userId})`);
+        } else {
+          console.error(`[Parse] raw_files save FAILED: ${saved.error} | file=${file.name} rows=${result.rawFile.rows.length} user=${userId}`);
+        }
+      } else {
+        console.log('[Parse] anonymous upload — skipping raw_files persistence');
+      }
+    } catch (rawErr) {
+      console.error('[Parse] raw_files save THREW:', rawErr);
+    }
+
     return NextResponse.json({
       broker,
       market,
@@ -61,6 +95,7 @@ export async function POST(req: NextRequest) {
       currency,
       file_hash: fileHash,
       file_size_bytes: bytes.byteLength,
+      raw_file_id: rawFileId,
       total_trades_in_file: result.trades.length,
       trades_shown: result.trades.length,
       kpis: legacyKPIs,
