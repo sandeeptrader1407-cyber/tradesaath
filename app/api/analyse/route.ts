@@ -546,6 +546,13 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   // ─── Fall back to Claude AI extraction if local parse failed ───
   if (trades.length === 0) {
+    // Block free-tier users from triggering expensive Claude API calls
+    if (userPlan === 'free') {
+      return NextResponse.json(
+        { error: 'AI extraction requires a paid plan. Please upgrade to unlock AI-powered file parsing.', code: 'PLAN_REQUIRED', upgradeUrl: '/pricing' },
+        { status: 403 },
+      );
+    }
     console.log(`[UPLOAD] Claude AI fallback triggered for ${files.length} file(s)`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anthropic SDK content blocks
     const userContent: any[] = [];
@@ -637,7 +644,10 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   // Run pure-code pattern detection — instant, free, deterministic.
   const detection = detectPatterns(trades);
   // Optional tiny Haiku coaching line (~₹0.10). Non-blocking on failure.
-  const coaching = await generateAICoaching(apiKey, detection).catch(() => undefined);
+  // Skip coaching for free-tier users to avoid unnecessary Claude API costs.
+  const coaching = userPlan === 'free'
+    ? undefined
+    : await generateAICoaching(apiKey, detection).catch(() => undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- analysis JSONB shape
   const analysis: any = buildAnalysisJSON({ trades, trade_date: extracted.trade_date }, detection, coaching);
   // Stamp per-trade tags onto trades so the client-side UI can render immediately.
@@ -894,7 +904,10 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
 
   // Run pure-code analysis — instant, free.
   const detection = detectPatterns(trades);
-  const coaching = await generateAICoaching(apiKey, detection).catch(() => undefined);
+  // Skip coaching for free-tier users to avoid unnecessary Claude API costs.
+  const coaching = userPlanJSON === 'free'
+    ? undefined
+    : await generateAICoaching(apiKey, detection).catch(() => undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- full analysis JSONB
   const codeAnalysis: any = buildAnalysisJSON({ trades, trade_date }, detection, coaching);
 
