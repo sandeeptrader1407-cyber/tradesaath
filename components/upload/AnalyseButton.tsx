@@ -58,7 +58,7 @@ export default function AnalyseButton() {
     if (statusRef.current) statusRef.current.textContent = msg
   }
 
-  const runAIAnalysis = async (allTrades: unknown[], broker: string, market: string, tradeDate: string, currency: string, fileHash?: string, fileSizeBytes?: number) => {
+  const runAIAnalysis = async (allTrades: unknown[], broker: string, market: string, tradeDate: string, currency: string, fileHash?: string, fileSizeBytes?: number, rawFileId?: string) => {
     setAnalysisState("ai_running")
     setStatus("Running AI psychology analysis...")
     try {
@@ -75,6 +75,7 @@ export default function AnalyseButton() {
           context,
           file_hash: fileHash || undefined,
           file_size_bytes: fileSizeBytes || undefined,
+          raw_file_id: rawFileId || undefined,
         }),
       })
 
@@ -128,6 +129,7 @@ export default function AnalyseButton() {
       let currency = ""
       let fileHash = ""
       let fileSizeBytes = 0
+      let rawFileId: string | undefined
       const failedFiles: string[] = []
 
       for (const file of files) {
@@ -145,6 +147,7 @@ export default function AnalyseButton() {
               currency = parsed.currency || currency
               if (parsed.file_hash) fileHash = parsed.file_hash
               if (parsed.file_size_bytes) fileSizeBytes = parsed.file_size_bytes
+              if (parsed.raw_file_id && !rawFileId) rawFileId = parsed.raw_file_id
             } else {
               failedFiles.push(file.name)
             }
@@ -232,7 +235,7 @@ export default function AnalyseButton() {
       showToast.success(`${allTrades.length} trades parsed! Running AI analysis...`)
 
       // Step 3: Auto-trigger AI analysis in background
-      runAIAnalysis(allTrades, broker, market, tradeDate, currency, fileHash, fileSizeBytes)
+      runAIAnalysis(allTrades, broker, market, tradeDate, currency, fileHash, fileSizeBytes, rawFileId)
 
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Analysis failed"
