@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
+export const runtime = 'nodejs'
 export const maxDuration = 60
 
 function getClient() {
