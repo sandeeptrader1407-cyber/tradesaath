@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const rl = rateLimit(`coach:${clerkId}`, 10, 60 * 60 * 1000)
+    const rl = await rateLimit(`coach:${clerkId}`, 10, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const body = await req.json()

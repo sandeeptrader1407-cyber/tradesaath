@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const rl = rateLimit(`chat:${clerkId}`, 30, 60 * 60 * 1000)
+    const rl = await rateLimit(`chat:${clerkId}`, 30, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const { data: planData } = await supabaseAdmin

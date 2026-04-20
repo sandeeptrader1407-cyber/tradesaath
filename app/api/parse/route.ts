@@ -15,7 +15,7 @@ import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
 export async function POST(req: NextRequest) {
   // Rate limit: 20 per IP per 15 min (local parse, cheaper)
   const ip = getClientIp(req);
-  const rl = rateLimit(`parse:${ip}`, 20, 15 * 60 * 1000);
+  const rl = await rateLimit(`parse:${ip}`, 20, 15 * 60 * 1000);
   if (!rl.success) return rateLimitResponse(rl.resetIn);
 
   try {

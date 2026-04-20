@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit: 5 attempts per user per hour
-    const rl = rateLimit(`coupon:${userId}`, 5, 60 * 60 * 1000)
+    const rl = await rateLimit(`coupon:${userId}`, 5, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const body = await req.json().catch(() => ({}))
