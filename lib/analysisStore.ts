@@ -91,7 +91,7 @@ interface AnalysisStore {
 
 function computeKPIs(trades: Trade[]): KPIs {
   const wins = trades.filter(t => t.pnl > 0)
-  const losses = trades.filter(t => t.pnl <= 0)
+  const losses = trades.filter(t => t.pnl < 0)
   const grossWin = wins.reduce((s, t) => s + t.pnl, 0)
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0))
   const buyValue = trades.reduce((s, t) => {

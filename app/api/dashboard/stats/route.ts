@@ -599,7 +599,7 @@ export async function GET(req: NextRequest) {
       totalMistakeCost,
       counterfactualPnl,
       actualAllTimePnl,
-      actualMonthPnl: actualAllTimePnl,
+      actualMonthPnl: monthPnl,
       tradesByTimeDay,
       hasRealTimeData,
       currency,

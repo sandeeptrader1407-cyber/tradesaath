@@ -550,11 +550,16 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 
   // ─── Fall back to Claude AI extraction if local parse failed ───
   if (trades.length === 0) {
-    // Block free-tier users from triggering expensive Claude API calls
+    // Free-tier users: suggest supported formats instead of calling expensive Claude AI
     if (userPlan === 'free') {
       return NextResponse.json(
-        { error: 'AI extraction requires a paid plan. Please upgrade to unlock AI-powered file parsing.', code: 'PLAN_REQUIRED', upgradeUrl: '/pricing' },
-        { status: 403 },
+        {
+          error: 'We couldn\'t parse this file format automatically. Try exporting as CSV from your broker, or upgrade to unlock AI-powered parsing for any file type.',
+          code: 'PARSE_FAILED_FREE',
+          upgradeUrl: '/pricing',
+          suggestions: ['Export trades as CSV from your broker platform', 'Use a supported broker format (Zerodha, Groww, Angel One, etc.)', 'Upgrade to unlock AI parsing for PDFs, screenshots, and unsupported formats'],
+        },
+        { status: 422 },
       );
     }
     console.log(`[UPLOAD] Claude AI fallback triggered for ${files.length} file(s)`);

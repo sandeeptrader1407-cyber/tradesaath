@@ -12,7 +12,7 @@ export function calculateKPIs(trades: ParsedTrade[]): ParsedKPIs {
   }
 
   const wins = trades.filter(t => t.pnl > 0);
-  const losses = trades.filter(t => t.pnl <= 0);
+  const losses = trades.filter(t => t.pnl < 0);
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = losses.reduce((s, t) => s + t.pnl, 0);
   const netPnl = grossProfit + grossLoss;

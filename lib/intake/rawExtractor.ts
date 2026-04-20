@@ -399,11 +399,12 @@ export function normalizeDate(raw: string): string {
   const s = raw.trim();
 
   // Unix timestamp (seconds or milliseconds)
+  // Use IST offset (+5:30) so late-night Indian trades don't shift to next day
   const unixNum = parseFloat(s);
   if (!isNaN(unixNum) && /^\d{10,13}$/.test(s)) {
     const ms = s.length === 10 ? unixNum * 1000 : unixNum;
-    const d = new Date(ms);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    const ist = new Date(ms + 5.5 * 60 * 60 * 1000);
+    if (!isNaN(ist.getTime())) return ist.toISOString().split('T')[0];
   }
 
   // ISO 8601: 2024-03-01T09:16:32Z or 2024-03-01 09:16:32
@@ -414,19 +415,20 @@ export function normalizeDate(raw: string): string {
   const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
 
-  // DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
-  const dmy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
-
-  // MM-DD-YYYY (US) — ambiguous, assume if month <= 12 and day > 12
-  const mdy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (mdy) {
-    const m = parseInt(mdy[1]), d = parseInt(mdy[2]);
-    if (m <= 12 && d > 12) {
-      return `${mdy[3]}-${mdy[1].padStart(2, '0')}-${mdy[2].padStart(2, '0')}`;
+  // DD-MM-YYYY or MM-DD-YYYY — disambiguate by checking which part > 12
+  const twoPartDate = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (twoPartDate) {
+    const a = parseInt(twoPartDate[1]), b = parseInt(twoPartDate[2]);
+    if (a > 12 && b <= 12) {
+      // a must be day, b is month → DD-MM-YYYY
+      return `${twoPartDate[3]}-${twoPartDate[2].padStart(2, '0')}-${twoPartDate[1].padStart(2, '0')}`;
     }
-    // Default to DD-MM-YYYY (more common globally)
-    return `${mdy[3]}-${mdy[2].padStart(2, '0')}-${mdy[1].padStart(2, '0')}`;
+    if (b > 12 && a <= 12) {
+      // b must be day, a is month → MM-DD-YYYY
+      return `${twoPartDate[3]}-${twoPartDate[1].padStart(2, '0')}-${twoPartDate[2].padStart(2, '0')}`;
+    }
+    // Both <= 12: ambiguous — default to DD-MM-YYYY (more common globally + Indian standard)
+    return `${twoPartDate[3]}-${twoPartDate[2].padStart(2, '0')}-${twoPartDate[1].padStart(2, '0')}`;
   }
 
   // Excel serial date
@@ -469,13 +471,13 @@ export function normalizeTime(raw: string): string {
   const hhmm = s.match(/(\d{1,2}):(\d{2})/);
   if (hhmm) return `${hhmm[1].padStart(2, '0')}:${hhmm[2]}`;
 
-  // Unix timestamp — extract time
+  // Unix timestamp — extract time in IST (+5:30)
   const unixNum = parseFloat(s);
   if (!isNaN(unixNum) && /^\d{10,13}$/.test(s)) {
     const ms = s.length === 10 ? unixNum * 1000 : unixNum;
-    const d = new Date(ms);
-    if (!isNaN(d.getTime())) {
-      return `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+    const ist = new Date(ms + 5.5 * 60 * 60 * 1000);
+    if (!isNaN(ist.getTime())) {
+      return `${ist.getUTCHours().toString().padStart(2, '0')}:${ist.getUTCMinutes().toString().padStart(2, '0')}`;
     }
   }
 
