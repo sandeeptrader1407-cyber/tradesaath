@@ -34,7 +34,7 @@ const TRADE_LIMITS: Record<PlanType, number> = {
 
 const DISPLAY_NAMES: Record<PlanType, string> = {
   free: 'Free',
-  single: 'Single Report',
+  single: 'Starter',
   pro_monthly: 'Pro Monthly',
   pro_yearly: 'Pro Yearly',
 }

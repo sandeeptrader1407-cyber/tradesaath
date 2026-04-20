@@ -15,7 +15,7 @@ export default function PaywallGate({ tradeCount }: { tradeCount: number }) {
   const { user } = useUser()
 
   const PLANS = [
-    { name: 'Single Report', key: 'single' as const, price: '99', period: 'one-time', desc: 'all trades', badge: '' },
+    { name: 'Starter', key: 'single' as const, price: '99', period: 'one-time', desc: '50 sessions', badge: '' },
     { name: 'Pro Monthly', key: 'pro_monthly' as const, price: '799', period: '/month', desc: 'unlimited', badge: '' },
     { name: 'Pro Yearly', key: 'pro_yearly' as const, price: '499', period: '/month', desc: 'unlimited', badge: 'Save 38%' },
   ]

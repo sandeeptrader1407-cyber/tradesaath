@@ -482,6 +482,34 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     console.warn('[UPLOAD] Duplicate check failed (non-blocking):', dupErr);
   }
 
+  // ─── Quota check for Single (Starter) plan ───
+  let userPlan = 'free';
+  try {
+    const { userId: quotaUserId } = await auth();
+    if (quotaUserId) {
+      const { getSupabaseAdmin } = await import('@/lib/supabase');
+      const sb = getSupabaseAdmin();
+      const { data: planRow } = await sb
+        .from('user_plans')
+        .select('plan, session_quota, sessions_used')
+        .eq('user_id', quotaUserId)
+        .maybeSingle();
+
+      if (planRow) {
+        userPlan = planRow.plan || 'free';
+        // Single plan has a finite quota; pro plans have NULL (unlimited)
+        if (planRow.session_quota !== null && planRow.sessions_used >= planRow.session_quota) {
+          return NextResponse.json({
+            error: `You've used all ${planRow.session_quota} analyses in your Starter plan. Upgrade to Pro for unlimited analyses.`,
+            code: 'QUOTA_EXHAUSTED',
+          }, { status: 403 });
+        }
+      }
+    }
+  } catch (quotaErr) {
+    console.warn('[UPLOAD] Quota check failed (non-blocking):', quotaErr);
+  }
+
   // ─── Try Module 1 intake pipeline first (free, instant, deterministic) ───
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic trade shape
   let trades: any[] = [];
@@ -722,11 +750,30 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         raw_file_id: rawFileId,
         file_name: fileBuffers[0]?.file.name || 'upload',
       },
-      plan: 'free', userId: userId || undefined, anonId, files,
+      plan: userPlan, userId: userId || undefined, anonId, files,
     });
     savedSessionId = saveResult.sessionId;
     dedupStats = saveResult.dedupStats;
     console.log(`[UPLOAD] Session saved: ${savedSessionId || 'none'}, rawFileId: ${rawFileId || 'none'}, dedup: added=${dedupStats?.tradesAdded ?? 'n/a'} skipped=${dedupStats?.tradesSkipped ?? 0} merged=${dedupStats?.sessionsMerged ?? 0}`);
+
+    // Increment session usage for single (starter) plan
+    if (savedSessionId && userId && userPlan === 'single') {
+      try {
+        const { getSupabaseAdmin } = await import('@/lib/supabase');
+        const sbQuota = getSupabaseAdmin();
+        const { data: curr } = await sbQuota
+          .from('user_plans')
+          .select('sessions_used')
+          .eq('user_id', userId)
+          .single();
+        await sbQuota
+          .from('user_plans')
+          .update({ sessions_used: (curr?.sessions_used || 0) + 1 })
+          .eq('user_id', userId);
+      } catch (quotaErr) {
+        console.error('[UPLOAD] Failed to increment session quota (non-blocking):', quotaErr);
+      }
+    }
 
     // Link raw_file_id to session (update raw_files row with session_id)
     if (rawFileId && savedSessionId && userId) {
@@ -817,6 +864,30 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
   }
 
   console.log(`=== ANALYSE: ${trades.length} pre-parsed trades via JSON (code analysis) ===`);
+
+  // Resolve user plan for session save + quota check
+  let userPlanJSON = 'free';
+  const { userId: quotaUserIdJSON } = await auth();
+  if (quotaUserIdJSON) {
+    try {
+      const { getSupabaseAdmin } = await import('@/lib/supabase');
+      const sb = getSupabaseAdmin();
+      const { data: planRow } = await sb
+        .from('user_plans')
+        .select('plan, session_quota, sessions_used')
+        .eq('user_id', quotaUserIdJSON)
+        .maybeSingle();
+      if (planRow) {
+        userPlanJSON = planRow.plan || 'free';
+        if (planRow.session_quota !== null && planRow.sessions_used >= planRow.session_quota) {
+          return NextResponse.json({
+            error: `You've used all ${planRow.session_quota} analyses in your Starter plan. Upgrade to Pro for unlimited analyses.`,
+            code: 'QUOTA_EXHAUSTED',
+          }, { status: 403 });
+        }
+      }
+    } catch { /* non-blocking */ }
+  }
 
   // Silence unused warnings while keeping back-compat signature.
   void contextStr; void kpis; void time_analysis;
@@ -926,8 +997,27 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
           trade_date: trade_date || '',
           raw_file_id: effectiveRawFileId,
         },
-        plan: 'free', userId: userId || undefined, anonId,
+        plan: userPlanJSON, userId: userId || undefined, anonId,
       });
+
+      // Increment session usage for single (starter) plan — JSON path
+      if (saveResult?.sessionId && userId && userPlanJSON === 'single') {
+        try {
+          const { getSupabaseAdmin } = await import('@/lib/supabase');
+          const sbQ = getSupabaseAdmin();
+          const { data: curr } = await sbQ
+            .from('user_plans')
+            .select('sessions_used')
+            .eq('user_id', userId)
+            .single();
+          await sbQ
+            .from('user_plans')
+            .update({ sessions_used: (curr?.sessions_used || 0) + 1 })
+            .eq('user_id', userId);
+        } catch (qErr) {
+          console.error('[Analyse/JSON] Failed to increment session quota:', qErr);
+        }
+      }
 
       // Link the raw_files row back to the saved session
       if (effectiveRawFileId && saveResult?.sessionId && userId) {

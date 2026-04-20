@@ -1,11 +1,12 @@
 export const PLANS = {
   single: {
     id: 'single',
-    name: 'Single Report',
+    name: 'Starter',
     price: 9900,        // paise (₹99)
     displayPrice: '₹99',
-    description: 'One-time · full session analysis',
+    description: 'One-time · unlocks past sessions + 50 future',
     tradeLimit: 99,
+    sessionQuota: 50,
   },
   pro_monthly: {
     id: 'pro_monthly',
