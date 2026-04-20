@@ -145,6 +145,62 @@ export const BROKER_REGISTRY: BrokerDef[] = [
     keywords: ['etoro', 'copy trader', 'units', 'open date', 'close date'],
     columnMap: { action: 'symbol', type: 'tradeType', units: 'quantity', 'open rate': 'price', profit: 'pnl' },
   },
+  // ─── Crypto Exchanges ───
+  {
+    id: 'binance',
+    name: 'Binance',
+    keywords: ['binance', 'binance.com', 'realized_profit', 'trade_id', 'base_asset', 'quote_asset', 'usdt'],
+    columnMap: { symbol: 'symbol', pair: 'symbol', side: 'tradeType', qty: 'quantity', quantity: 'quantity', 'executed qty': 'quantity', price: 'price', 'realized profit': 'pnl', realized_profit: 'pnl', fee: 'fees' },
+  },
+  {
+    id: 'coinbase',
+    name: 'Coinbase',
+    keywords: ['coinbase', 'coinbase pro', 'coinbase advanced', 'portfolio', 'cbpro'],
+    columnMap: { product: 'symbol', asset: 'symbol', side: 'tradeType', size: 'quantity', 'fill size': 'quantity', price: 'price', 'fill price': 'price', fee: 'fees', total: 'amount' },
+  },
+  {
+    id: 'kraken',
+    name: 'Kraken',
+    keywords: ['kraken', 'kraken.com', 'txid', 'refid', 'aclass'],
+    columnMap: { pair: 'symbol', type: 'tradeType', vol: 'quantity', price: 'price', fee: 'fees', cost: 'amount' },
+  },
+  // ─── Additional International Brokers ───
+  {
+    id: 'fidelity',
+    name: 'Fidelity',
+    keywords: ['fidelity', 'fidelity investments', 'fidelity.com', 'run date', 'settlement date', 'security description'],
+    columnMap: { symbol: 'symbol', 'security description': 'symbol', action: 'tradeType', quantity: 'quantity', price: 'price', amount: 'amount', commission: 'fees' },
+  },
+  {
+    id: 'schwab',
+    name: 'Charles Schwab',
+    keywords: ['schwab', 'charles schwab', 'schwab.com', 'schwab one'],
+    columnMap: { symbol: 'symbol', description: 'symbol', action: 'tradeType', quantity: 'quantity', price: 'price', amount: 'amount', 'fees & comm': 'fees' },
+  },
+  {
+    id: 'degiro',
+    name: 'DEGIRO',
+    keywords: ['degiro', 'flatex degiro', 'product', 'isin', 'beurs'],
+    columnMap: { product: 'symbol', 'buy/sell': 'tradeType', quantity: 'quantity', 'koers': 'price', price: 'price', 'transaction costs': 'fees' },
+  },
+  {
+    id: 'ig',
+    name: 'IG',
+    keywords: ['ig.com', 'ig group', 'ig markets', 'ig index', 'deal id', 'deal reference'],
+    columnMap: { market: 'symbol', direction: 'tradeType', size: 'quantity', 'opening level': 'price', 'closing level': 'price', 'profit/loss': 'pnl' },
+  },
+  {
+    id: 'saxo',
+    name: 'Saxo Bank',
+    keywords: ['saxo', 'saxo bank', 'saxotrader', 'instrument id'],
+    columnMap: { instrument: 'symbol', 'buy/sell': 'tradeType', amount: 'quantity', price: 'price', 'p/l': 'pnl', commission: 'fees' },
+  },
+  {
+    id: 'etrade',
+    name: 'E*TRADE',
+    keywords: ['etrade', 'e*trade', 'e-trade', 'morgan stanley'],
+    columnMap: { symbol: 'symbol', 'transaction type': 'tradeType', quantity: 'quantity', price: 'price', amount: 'amount', commission: 'fees' },
+  },
 ]
 
 /**
@@ -195,6 +251,24 @@ export const BROKER_INSTANT_MATCH: Record<string, string> = {
   'trading212': 'trading212', 'trading 212': 'trading212',
   // eToro
   'etoro': 'etoro',
+  // Binance
+  'binance': 'binance', 'binance.com': 'binance', 'base_asset': 'binance',
+  // Coinbase
+  'coinbase': 'coinbase', 'coinbase pro': 'coinbase', 'coinbase advanced': 'coinbase',
+  // Kraken
+  'kraken': 'kraken', 'kraken.com': 'kraken',
+  // Fidelity
+  'fidelity': 'fidelity', 'fidelity investments': 'fidelity',
+  // Charles Schwab
+  'charles schwab': 'schwab', 'schwab one': 'schwab',
+  // DEGIRO
+  'degiro': 'degiro', 'flatex degiro': 'degiro',
+  // IG
+  'ig markets': 'ig', 'ig group': 'ig', 'ig index': 'ig',
+  // Saxo Bank
+  'saxo bank': 'saxo', 'saxotrader': 'saxo',
+  // E*TRADE
+  'etrade': 'etrade', 'e*trade': 'etrade', 'e-trade': 'etrade',
 }
 
 /** Lookup a broker by id from the registry */

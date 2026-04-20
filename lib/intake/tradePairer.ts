@@ -148,7 +148,7 @@ interface PreparedRow {
 }
 
 /** Prepare raw rows for pairing */
-function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
+function prepareRows(rawRows: RawTradeRow[], market?: string): PreparedRow[] {
   const prepared: PreparedRow[] = [];
 
   for (const row of rawRows) {
@@ -159,7 +159,7 @@ function prepareRows(rawRows: RawTradeRow[]): PreparedRow[] {
     const side = normSide(m.side);
     const qty = parseNum(m.qty);
     const price = parseNum(m.price);
-    const date = m.date ? normalizeDate(m.date) : UNKNOWN_DATE;
+    const date = m.date ? normalizeDate(m.date, market) : UNKNOWN_DATE;
     const time = m.time ? normalizeTime(m.time) : '';
     const pnlStr = m.pnl;
     const pnl = pnlStr ? parseNum(pnlStr) : undefined;
@@ -276,8 +276,8 @@ function buildPrePairedTrades(prepared: PreparedRow[], rawRows: RawTradeRow[]): 
  * Pair raw trade rows into StandardTrade[].
  * Uses FIFO matching within (symbol + date) groups.
  */
-export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
-  const prepared = prepareRows(rawRows);
+export function pairRawTrades(rawRows: RawTradeRow[], market?: string): StandardTrade[] {
+  const prepared = prepareRows(rawRows, market);
 
   // ── Pre-paired detection ──
   // If most rows have both entry and exit prices, treat as pre-paired CSV
@@ -431,7 +431,7 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
           exitPrice: 0,
           pnl,
           cumPnl: 0,
-          date: m.date ? normalizeDate(m.date) : UNKNOWN_DATE,
+          date: m.date ? normalizeDate(m.date, market) : UNKNOWN_DATE,
           entryTime: time,
           exitTime: '',
           holdingMinutes: 0,

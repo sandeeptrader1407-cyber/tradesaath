@@ -85,7 +85,7 @@ export async function intakeFile(
     }
 
     // Step 4: Pair trades
-    const trades = pairRawTrades(rawFile.rows);
+    const trades = pairRawTrades(rawFile.rows, rawFile.market);
     console.log(`[Intake] ${trades.length} paired trades`);
 
     // Step 5: Validate
