@@ -41,6 +41,10 @@ const BASE_SYSTEM_PROMPT = `You are Saathi — the trader's companion, confidant
 - NEVER give generic advice. If you can't make it specific to their data, ask them for more context instead.`
 
 export async function POST(req: NextRequest) {
+  if (process.env.DISABLE_AI_ANALYSIS === 'true') {
+    return NextResponse.json({ error: 'AI analysis temporarily unavailable', code: 'AI_DISABLED' }, { status: 503 })
+  }
+
   try {
     const { userId: clerkId } = await auth()
     if (!clerkId) {

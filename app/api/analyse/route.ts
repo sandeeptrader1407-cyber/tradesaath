@@ -405,6 +405,10 @@ export async function POST(req: NextRequest) {
   const rl = await rateLimit(`analyse:${ip}`, 5, 15 * 60 * 1000);
   if (!rl.success) return rateLimitResponse(rl.resetIn);
 
+  if (process.env.DISABLE_AI_ANALYSIS === 'true') {
+    return NextResponse.json({ error: 'AI analysis temporarily unavailable', code: 'AI_DISABLED' }, { status: 503 });
+  }
+
   const startTime = Date.now();
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
