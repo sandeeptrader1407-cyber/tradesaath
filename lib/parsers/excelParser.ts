@@ -25,14 +25,23 @@ export function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[]
     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as (string | number | null)[][];
     if (jsonData.length < 2) continue;
 
-    // Find header row — look for row with known column names (skip metadata rows)
-    let headerIdx = 0;
-    const hdrPattern = /symbol|instrument|scrip|trade.?time|date.?&?.?time|side|qty|quantity|price|traded.?price/i;
-    for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+    // Find header row — look for row with known column names (skip metadata rows).
+    // ICICI Direct / ISEC / some Axis exports put 30+ rows of client info, date range,
+    // and charges summary ABOVE the actual tradebook header, so we scan the whole sheet
+    // (capped at 200 to avoid pathological inputs) and keep the row with the MOST
+    // column-name hits, not just the first one clearing the threshold.
+    let headerIdx = -1;
+    let bestMatches = 2; // require at least 3 matches to accept a header row
+    const hdrPattern = /symbol|instrument|scrip|contract|trade.?time|date.?&?.?time|buy.?sell|side|qty|quantity|price|traded.?price/i;
+    for (let i = 0; i < Math.min(200, jsonData.length); i++) {
       const row = (jsonData[i] || []).map((c: unknown) => String(c || ''));
       const matches = row.filter(c => hdrPattern.test(c.trim())).length;
-      if (matches >= 3) { headerIdx = i; break; }
+      if (matches > bestMatches) {
+        bestMatches = matches;
+        headerIdx = i;
+      }
     }
+    if (headerIdx < 0) headerIdx = 0;
 
     const headers = (jsonData[headerIdx] || []).map((c: unknown) => String(c || ''));
     const colMap = mapColumns(headers);
@@ -46,6 +55,9 @@ export function parseExcelBuffer(buffer: Buffer): { text: string; rows: AnyRow[]
           const status = (row[statusCol] || '').trim().toLowerCase();
           if (status === 'rejected' || status === 'cancelled' || status === 'canceled' || status === 'pending') continue;
         }
+        // Skip trailing footer/note rows ("NOTE: Data Accurate Till...", "Disclaimer:")
+        const firstCell = (row[0] || '').trim().toLowerCase();
+        if (/^(note|disclaimer|remark|end of|\*)/i.test(firstCell)) continue;
         const trade = parseRow(row, colMap);
         if (trade && trade.symbol) allRows.push(trade);
       }

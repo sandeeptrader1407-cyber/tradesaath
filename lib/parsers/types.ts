@@ -79,8 +79,18 @@ const COL = {
   sellPrice: /^(sell.?price|sell.?rate|sell.?avg|sell.?value)/i,
   pnl: /^(pnl|p.?&.?l|profit|loss|net.?pnl|realized|realised|net.?profit)/i,
   date: /^(date|trade.?date|order.?date|exec.?date)/i,
-  exchange: /^(exchange|segment|market|exch)/i,
-  tradeId: /^(trade.?id|order.?id|deal.?id|exec.?id|id)/i,
+  // exchange column — match only bare "Exchange"/"Segment"/"Market"/"Exch" (optionally
+  // followed by "Name"/"Code"). Prevents accidentally mapping to ICICI Direct's
+  // "Exchange Turnover Charges" tax column which appears before the real one.
+  exchange: /^(exchange|exch)(\s+(name|code))?$|^segment$|^market$/i,
+  // tradeId is the FILL-level ID (unique per execution). In broker files that expose
+  // BOTH columns (ICICI Direct tradebook has "Order ID" AND "Trade ID"), we MUST pick
+  // the fill-level ID — otherwise FIFO pairing collapses every partial fill that
+  // shares a parent order into one record.
+  tradeId: /^(trade.?id|deal.?id|exec.?id|execution.?id|fill.?id)$/i,
+  // orderId is the fallback for brokers that only expose an order-level ID (most
+  // Zerodha tradebooks). parseRow prefers tradeId when both are mapped.
+  orderId: /^(order.?id|order.?no|order.?number)$/i,
   expiry: /^(expiry|expiry.?date|exp)/i,
   strike: /^(strike|strike.?price)/i,
   optType: /^(option.?type|opt.?type|ce.?pe|call.?put|instrument.?type)/i,
@@ -276,10 +286,13 @@ export function parseRow(row: string[], colMap: Record<string, number>): AnyRow 
   }
   if (expiry) result.expiry = expiry;
 
-  // Extract exchange and trade ID when available
+  // Extract exchange and trade ID when available.
+  // Prefer fill-level tradeId over order-level orderId so two fills that share an
+  // order don't collapse during dedup. Falling back to orderId keeps brokers that
+  // only expose an order ID (Zerodha tradebook, etc.) working.
   const exchange = get('exchange');
   if (exchange) result.exchange = exchange;
-  const tradeId = get('tradeId');
+  const tradeId = get('tradeId') || get('orderId');
   if (tradeId) result.trade_id = tradeId;
 
   if (result.symbol && /OPTIDX/i.test(result.symbol)) {
