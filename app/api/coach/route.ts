@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rawSessions } = await supabaseAdmin
       .from('trade_sessions')
-      .select('id, created_at, trade_count, net_pnl, win_rate, win_count, loss_count, analysis')
+      .select('id, created_at, trade_count, net_pnl, win_rate, win_count, loss_count, analysis, trades')
       .eq('user_id', clerkId)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -256,6 +256,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Build recent trade details for richer coaching
+    let recentTradeDetails = ''
+    const recentWithTrades = sessions.slice(0, 3)
+    for (const sess of recentWithTrades) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const trades = (sess as any).trades as any[] | null
+      if (trades && trades.length > 0) {
+        const sessionDate = new Date(sess.created_at).toLocaleDateString('en-IN')
+        const tradeLines = trades.slice(0, 10).map((t: { symbol?: string; side?: string; entry_price?: number; exit_price?: number; pnl?: number; entry_time?: string; exit_time?: string }) =>
+          `  ${t.symbol || '?'} ${t.side || '?'} entry:₹${t.entry_price || 0} exit:₹${t.exit_price || 0} P&L:₹${t.pnl || 0} (${t.entry_time || '?'}→${t.exit_time || '?'})`
+        ).join('\n')
+        recentTradeDetails += `\nSession ${sessionDate} (${trades.length} trades):\n${tradeLines}\n`
+      }
+    }
+
     const dataSummary = `TRADER DATA SUMMARY:
 - Sessions: ${sessions.length} (last ${sessions.length} sessions)
 - Total trades: ${totalTrades}
@@ -267,7 +282,7 @@ export async function POST(req: NextRequest) {
 - Mistake costs: ${Object.entries(costs).sort((a, b) => a[1] - b[1]).map(([n, c]) => `${n}: ₹${c.toLocaleString('en-IN')}`).join(', ') || 'No mistake data yet'}
 - Last session: ${new Date(sessions[0].created_at).toLocaleDateString('en-IN')} — P&L ₹${(sessions[0].total_pnl || 0).toLocaleString('en-IN')}, DQS ${sessions[0].dqs_score || 0}
 
-CRITICAL: When you reference win rate anywhere in the plan, you MUST use ONLY the ALL-TIME WIN RATE shown above (${Math.round(avgWr)}%). NEVER cite a per-session win rate, a single day's win rate, or any other win-rate number. Per-session win rates are unreliable and misleading.${tradeInsightsSummary}`
+CRITICAL: When you reference win rate anywhere in the plan, you MUST use ONLY the ALL-TIME WIN RATE shown above (${Math.round(avgWr)}%). NEVER cite a per-session win rate, a single day's win rate, or any other win-rate number. Per-session win rates are unreliable and misleading.${tradeInsightsSummary}${recentTradeDetails ? `\n\nRECENT INDIVIDUAL TRADES (use these for specific coaching):\n${recentTradeDetails}` : ''}`
 
     const client = getClient()
     const message = await client.messages.create({
