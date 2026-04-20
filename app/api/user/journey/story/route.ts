@@ -150,6 +150,10 @@ CRITICAL DISAMBIGUATION: "Total Net P&L" and "Maximum Drawdown" are DIFFERENT nu
 }
 
 export async function POST(request: Request) {
+  if (process.env.DISABLE_AI_ANALYSIS === 'true') {
+    return NextResponse.json({ error: 'AI analysis temporarily unavailable', code: 'AI_DISABLED' }, { status: 503 })
+  }
+
   try {
     const { userId } = await auth()
     if (!userId) {

@@ -151,6 +151,10 @@ JSON format:
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.DISABLE_AI_ANALYSIS === 'true') {
+    return NextResponse.json({ error: 'AI analysis temporarily unavailable', code: 'AI_DISABLED' }, { status: 503 })
+  }
+
   try {
     const { userId: clerkId } = await auth()
     if (!clerkId) {
