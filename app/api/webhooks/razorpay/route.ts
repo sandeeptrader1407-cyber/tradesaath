@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       // Idempotency: check if already processed
       const { data: existing } = await supabaseAdmin
         .from('payments')
-        .select('status')
+        .select('status, amount')
         .eq('razorpay_payment_id', razorpayPaymentId)
         .eq('status', 'completed')
         .maybeSingle()
@@ -61,6 +61,20 @@ export async function POST(req: NextRequest) {
       if (existing) {
         console.log(`[Razorpay Webhook] Payment ${razorpayPaymentId} already completed — skipping`)
         return NextResponse.json({ received: true, duplicate: true })
+      }
+
+      // Verify payment amount matches what we expected (prevent amount tampering)
+      const { data: orderRow } = await supabaseAdmin
+        .from('payments')
+        .select('amount')
+        .eq('razorpay_order_id', razorpayOrderId)
+        .maybeSingle()
+
+      const paidAmountPaise = payment.amount as number
+      const expectedAmountPaise = orderRow?.amount ?? null
+      if (expectedAmountPaise && paidAmountPaise < expectedAmountPaise) {
+        console.error(`[Razorpay Webhook] Amount mismatch! Expected ${expectedAmountPaise} paise, got ${paidAmountPaise} paise for order ${razorpayOrderId}`)
+        return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 })
       }
 
       // Update payment record (created by create-order)

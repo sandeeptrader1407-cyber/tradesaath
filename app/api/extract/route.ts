@@ -88,6 +88,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large: maximum 10MB per file.' }, { status: 400 })
+    }
+
     console.log(`Extract request: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`)
 
     const arrayBuffer = await file.arrayBuffer()
