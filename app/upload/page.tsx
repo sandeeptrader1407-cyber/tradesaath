@@ -64,7 +64,7 @@ export default function UploadPage() {
       const p = usePlanStore.getState().plan
       if (p === 'pro_monthly') return 'Pro Monthly'
       if (p === 'pro_yearly') return 'Pro Yearly'
-      if (p === 'single') return 'Single Report'
+      if (p === 'single') return 'Starter'
       return 'Free tier'
     })()
 

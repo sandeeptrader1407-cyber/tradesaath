@@ -124,6 +124,9 @@ export async function POST(req: NextRequest) {
             razorpay_payment_id: razorpay_payment_id,
             plan_started_at: new Date().toISOString(),
             plan_expires_at: expiresAt?.toISOString() || null,
+            // Single plan: 50 session quota; Pro plans: unlimited (NULL)
+            session_quota: plan === 'single' ? 50 : null,
+            sessions_used: 0,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' })
 

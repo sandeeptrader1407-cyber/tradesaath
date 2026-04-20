@@ -98,15 +98,15 @@ export default function Pricing() {
               disabled={payLoading}
               onClick={() => handleBuy('single')}
             >
-              {payLoading ? 'Processing...' : 'Buy Report'}
+              {payLoading ? 'Processing...' : 'Get Starter'}
             </button>
             <ul className="plan-feats">
-              <li>Full session analysis (one-time)</li>
+              <li>Unlocks all past sessions</li>
+              <li>50 future session analyses</li>
               <li>Per-trade technical breakdown</li>
               <li>Full psychology coaching</li>
               <li>Counterfactual scenarios</li>
               <li className="no">Journal &amp; history</li>
-              <li className="no">Trading Journey</li>
               <li className="no">Saathi coaching</li>
             </ul>
           </div>
