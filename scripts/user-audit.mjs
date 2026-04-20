@@ -1,5 +1,9 @@
-// Aditya data-accuracy audit — dumps everything needed to audit-output.json
-// Run from repo root:  node scripts/aditya-audit.mjs
+// User data-accuracy audit — dumps everything needed to audit-output.json
+// Run from repo root:
+//   node scripts/user-audit.mjs <email-or-clerk_id>
+// Examples:
+//   node scripts/user-audit.mjs sandeep.trader1407@gmail.com
+//   node scripts/user-audit.mjs user_3BDccKsUDZy98p92nq7cH7lZvSk
 // Reads credentials from .env.local, no install required (uses native fetch).
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -43,8 +47,12 @@ async function sb(path) {
 
 const output = {}
 
-// Accept clerk_id (user_XXX) OR email. Defaults to Aditya for continuity.
-const ARG = process.argv[2] || 'user_3CaUY8cQgxXavWnCdbj9q6BOzXq'
+// Require an email or clerk_id — no more hard-coded defaults.
+const ARG = process.argv[2]
+if (!ARG) {
+  console.error('Usage: node scripts/user-audit.mjs <email-or-clerk_id>')
+  process.exit(1)
+}
 let CLERK_ID = ARG
 
 if (!ARG.startsWith('user_')) {

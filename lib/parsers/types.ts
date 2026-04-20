@@ -97,13 +97,24 @@ export function detectMarket(text: string): string {
 }
 
 // Currency detection
+// NOTE: uses word-boundary regex for 3-letter codes so "European", "Europe", etc.
+// don't false-match EUR. Indian-market signals (NSE/BSE/NIFTY/rupee symbol/Indian
+// brokers) force INR regardless of stray substrings in option metadata.
 export function detectCurrency(text: string): string {
   const t = text.toLowerCase();
-  if (t.includes('inr') || t.includes('rs') || t.includes('rupee')) return 'INR';
-  if (t.includes('usd') || t.includes('$')) return 'USD';
-  if (t.includes('eur')) return 'EUR';
-  if (t.includes('gbp')) return 'GBP';
-  if (t.includes('jpy') || t.includes('yen')) return 'JPY';
+  // Indian-market signals take priority — most of our users are Indian brokers
+  if (
+    /\binr\b/.test(t) ||
+    t.includes('\u20B9') || // ₹
+    /\brs\.?\b/.test(t) ||
+    t.includes('rupee') ||
+    /\b(nse|bse|nifty|sensex|bank\s*nifty)\b/.test(t) ||
+    /\b(zerodha|upstox|groww|angel|icici\s*direct|hdfc\s*sec|kotak\s*sec|5paisa|sharekhan|dhan|fyers|alice\s*blue|paytm\s*money|motilal|iifl)\b/.test(t)
+  ) return 'INR';
+  if (/\busd\b/.test(t) || t.includes('$')) return 'USD';
+  if (/\beur\b/.test(t) || t.includes('\u20AC')) return 'EUR';
+  if (/\bgbp\b/.test(t) || t.includes('\u00A3')) return 'GBP';
+  if (/\bjpy\b/.test(t) || t.includes('yen') || t.includes('\u00A5')) return 'JPY';
   return '';  // Let downstream infer from detected market
 }
 

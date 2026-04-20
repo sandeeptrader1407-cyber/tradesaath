@@ -22,6 +22,10 @@ export function computeTradeSignature(trade: {
   quantity?: number; qty?: number;
   entryPrice?: number; entry_price?: number; price?: number;
   exitPrice?: number; exit_price?: number;
+  // Raw row indices the trade was built from. When present, they make two
+  // legitimate fills with identical time/price/qty distinguishable — prevents
+  // intra-batch dedup from silently eating partial fills that share a timestamp.
+  sourceRows?: number[];
 }): string {
   // Use broker's tradeId if available (most reliable)
   const tid = trade.tradeId || trade.trade_id;
@@ -38,7 +42,14 @@ export function computeTradeSignature(trade: {
   const qty = trade.quantity || trade.qty || 0;
   const entry = trade.entryPrice || trade.entry_price || trade.price || 0;
   const exit = trade.exitPrice || trade.exit_price || 0;
-  return [date, time, sym, side, qty, entry.toFixed(2), exit.toFixed(2)].join('|');
+  // Include sourceRows so trades derived from DIFFERENT raw rows never collide,
+  // even if broker recorded two identical-timestamp partial fills. Re-uploads of
+  // the same file still match because rowIndex is stable per file content (and
+  // file_hash dedup upstream blocks the re-upload before this ever runs).
+  const rows = Array.isArray(trade.sourceRows) && trade.sourceRows.length > 0
+    ? trade.sourceRows.slice().sort((a, b) => a - b).join(',')
+    : '';
+  return [date, time, sym, side, qty, entry.toFixed(2), exit.toFixed(2), rows].join('|');
 }
 
 /**
