@@ -19,9 +19,10 @@ export const PLANS = {
   pro_yearly: {
     id: 'pro_yearly',
     name: 'Pro Yearly',
-    price: 49900,       // paise (₹499/mo)
-    displayPrice: '₹499/mo',
-    description: '₹5,988/yr · save 38%',
+    price: 598800,             // paise (₹5,988 — actual yearly charge)
+    displayPrice: '₹5,988/yr',
+    monthlyEquivalent: '₹499/mo',
+    description: 'Billed ₹5,988 once per year · save 38% vs monthly',
     tradeLimit: 99,
     durationDays: 365,
   },
