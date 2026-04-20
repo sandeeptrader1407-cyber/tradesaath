@@ -100,9 +100,10 @@ const COL = {
 export function detectMarket(text: string): string {
   const t = text.toLowerCase();
   if (t.includes('nse') || t.includes('bse') || t.includes('nifty') || t.includes('banknifty') || t.includes('sensex')) return 'NSE';
-  if (t.includes('nyse') || t.includes('nasdaq')) return 'NYSE';
+  if (t.includes('nyse') || t.includes('nasdaq') || t.includes('fidelity') || t.includes('schwab') || t.includes('robinhood') || t.includes('webull') || t.includes('etrade') || t.includes('e*trade')) return 'NYSE';
   if (t.includes('forex') || t.includes('fx')) return 'Forex';
-  if (t.includes('crypto') || t.includes('btc') || t.includes('eth')) return 'Crypto';
+  if (t.includes('binance') || t.includes('coinbase') || t.includes('kraken') || t.includes('crypto') || t.includes('btc') || t.includes('eth') || t.includes('usdt')) return 'Crypto';
+  if (t.includes('degiro') || t.includes('saxo') || t.includes('ig markets') || t.includes('trading212') || t.includes('etoro')) return 'EU';
   return 'Unknown';
 }
 

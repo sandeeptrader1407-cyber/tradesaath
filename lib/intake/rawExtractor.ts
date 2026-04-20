@@ -393,8 +393,10 @@ export function cleanNumeric(val: string): string {
   return s;
 }
 
-/** Normalize a date string to YYYY-MM-DD (best effort, supports 10+ formats) */
-export function normalizeDate(raw: string): string {
+/** Normalize a date string to YYYY-MM-DD (best effort, supports 10+ formats).
+ *  Optional market hint: 'NYSE' or 'Crypto' → MM/DD/YYYY default for ambiguous dates.
+ *  Otherwise defaults to DD/MM/YYYY (Indian/global standard). */
+export function normalizeDate(raw: string, market?: string): string {
   if (!raw) return '';
   const s = raw.trim();
 
@@ -427,7 +429,13 @@ export function normalizeDate(raw: string): string {
       // b must be day, a is month → MM-DD-YYYY
       return `${twoPartDate[3]}-${twoPartDate[1].padStart(2, '0')}-${twoPartDate[2].padStart(2, '0')}`;
     }
-    // Both <= 12: ambiguous — default to DD-MM-YYYY (more common globally + Indian standard)
+    // Both <= 12: ambiguous — use market hint to decide
+    const usFormat = market === 'NYSE' || market === 'Crypto' || market === 'Forex';
+    if (usFormat) {
+      // MM-DD-YYYY (US standard)
+      return `${twoPartDate[3]}-${twoPartDate[1].padStart(2, '0')}-${twoPartDate[2].padStart(2, '0')}`;
+    }
+    // DD-MM-YYYY (Indian/global standard)
     return `${twoPartDate[3]}-${twoPartDate[2].padStart(2, '0')}-${twoPartDate[1].padStart(2, '0')}`;
   }
 
