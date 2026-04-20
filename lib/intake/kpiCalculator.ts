@@ -17,7 +17,7 @@ export function calculateIntakeKPIs(trades: StandardTrade[]): IntakeKPIs {
   }
 
   const wins = trades.filter(t => t.pnl > 0);
-  const losses = trades.filter(t => t.pnl <= 0);
+  const losses = trades.filter(t => t.pnl < 0);
   const openPositions = trades.filter(t => t.tag === 'open').length;
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = losses.reduce((s, t) => s + t.pnl, 0);

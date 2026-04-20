@@ -111,20 +111,26 @@ export function pairClaudeTrades(
         continue;
       }
 
-      const buyPrice = buy.entry_price || buy.price || 0;
-      const sellPrice = sell.entry_price || sell.price || 0;
+      const buyPrice = buy.exit_price || buy.entry_price || buy.price || 0;
+      const sellPrice = sell.exit_price || sell.entry_price || sell.price || 0;
       const pnl = Math.round((sellPrice - buyPrice) * matchQty * 100) / 100;
+
+      // Determine trade direction: if BUY came before SELL chronologically, it's a long.
+      // Otherwise it's a short. Fallback: check which bucket has the earlier time.
+      const buyTime = buy.entry_time || buy.time || '';
+      const sellTime = sell.entry_time || sell.time || '';
+      const isShort = sellTime && buyTime ? sellTime < buyTime : false;
 
       // Create paired trade
       paired.push({
         symbol: buy.symbol || sell.symbol,
-        side: 'BUY',
+        side: isShort ? 'SELL' : 'BUY',
         quantity: matchQty,
         qty: matchQty,
-        entry_price: buyPrice,
-        exit_price: sellPrice,
-        entry_time: buy.entry_time || buy.time || '',
-        exit_time: sell.entry_time || sell.time || '',
+        entry_price: isShort ? sellPrice : buyPrice,
+        exit_price: isShort ? buyPrice : sellPrice,
+        entry_time: isShort ? sellTime : buyTime,
+        exit_time: isShort ? buyTime : sellTime,
         pnl,
         trade_date: buy.trade_date || buy.date || sell.trade_date || sell.date || '',
         trade_index: tradeIndex++,
