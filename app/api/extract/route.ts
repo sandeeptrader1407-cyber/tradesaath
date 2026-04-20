@@ -4,6 +4,7 @@ import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit'
 import { intakeFile, toLegacyTrade } from '@/lib/intake'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY
