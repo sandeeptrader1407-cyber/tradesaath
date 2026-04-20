@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const ip = getClientIp(request as unknown as Request)
-    const rl = rateLimit(`analyse-session:${userId}:${ip}`, 200, 15 * 60 * 1000)
+    const rl = await rateLimit(`analyse-session:${userId}:${ip}`, 200, 15 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const body = await request.json().catch(() => ({}))

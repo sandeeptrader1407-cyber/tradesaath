@@ -72,7 +72,7 @@ If you cannot extract structured trade data, return:
 export async function POST(req: NextRequest) {
   // Rate limit: 5 per IP per 15 min (Claude API cost protection)
   const ip = getClientIp(req)
-  const rl = rateLimit(`extract:${ip}`, 5, 15 * 60 * 1000)
+  const rl = await rateLimit(`extract:${ip}`, 5, 15 * 60 * 1000)
   if (!rl.success) return rateLimitResponse(rl.resetIn)
 
   try {

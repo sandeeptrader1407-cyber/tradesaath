@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit: 5 per user per hour (prevent payment spam)
-    const rl = rateLimit(`payment:${clerkId}`, 5, 60 * 60 * 1000)
+    const rl = await rateLimit(`payment:${clerkId}`, 5, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
     const { plan } = await req.json()
