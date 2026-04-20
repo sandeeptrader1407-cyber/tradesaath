@@ -121,7 +121,7 @@ export default function Pricing() {
               </>
             ) : (
               <>
-                <div className="plan-price">{PLANS.pro_yearly.displayPrice.replace('/mo', '')}<span>/mo</span></div>
+                <div className="plan-price">₹499<span>/mo</span></div>
                 <div className="plan-billed">{PLANS.pro_yearly.description}</div>
               </>
             )}
