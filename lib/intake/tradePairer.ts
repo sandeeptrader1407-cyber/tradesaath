@@ -329,9 +329,11 @@ export function pairRawTrades(rawRows: RawTradeRow[]): StandardTrade[] {
       const entryPrice = open.price;
       const exitPrice = close.price;
 
-      const pnl = isShort
-        ? Math.round((entryPrice - exitPrice) * matchQty * 100) / 100
-        : Math.round((exitPrice - entryPrice) * matchQty * 100) / 100;
+      const grossPnl = isShort
+        ? (entryPrice - exitPrice) * matchQty
+        : (exitPrice - entryPrice) * matchQty;
+      const tradeFees = Math.round((open.fees + close.fees) * 100) / 100;
+      const pnl = Math.round((grossPnl - tradeFees) * 100) / 100;
 
       const entryTime = normalizeTime(open.time);
       const exitTime = normalizeTime(close.time);
