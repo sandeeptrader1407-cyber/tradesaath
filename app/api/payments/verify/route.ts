@@ -48,6 +48,35 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Razorpay] Payment verified: ${razorpay_payment_id} for order ${razorpay_order_id}`)
 
+    // --- Ownership check: the authenticated user must own this payment ---
+    const { userId: clerkId } = await auth()
+    if (!clerkId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Fetch the payment record — check ownership + idempotency in one query
+    const { data: payment, error: payErr } = await supabaseAdmin
+      .from('payments')
+      .select('clerk_id, plan, status')
+      .eq('razorpay_order_id', razorpay_order_id)
+      .single()
+
+    if (payErr || !payment) {
+      console.error(`[Razorpay] Payment record not found for order ${razorpay_order_id}`)
+      return NextResponse.json({ error: 'Payment record not found' }, { status: 404 })
+    }
+
+    if (payment.clerk_id !== clerkId) {
+      console.error(`[Razorpay] Ownership mismatch: payment belongs to ${payment.clerk_id}, request from ${clerkId}`)
+      return NextResponse.json({ error: 'Payment ownership mismatch' }, { status: 403 })
+    }
+
+    // Idempotency: if already completed, return success without re-processing
+    if (payment.status === 'completed') {
+      console.log(`[Razorpay] Payment ${razorpay_order_id} already completed — idempotent return`)
+      return NextResponse.json({ success: true, paymentId: razorpay_payment_id })
+    }
+
     // Update payment status in Supabase
     try {
       await supabaseAdmin
@@ -63,22 +92,9 @@ export async function POST(req: NextRequest) {
       console.error('Failed to update payment in DB:', dbErr)
     }
 
-    // Update user plan if authenticated
+    // Update user plan (payment already fetched above with ownership check)
     try {
-      const { userId: clerkId } = await auth()
-      if (clerkId) {
-        // Get the plan from the payment record
-        const { data: payment } = await supabaseAdmin
-          .from('payments')
-          .select('plan')
-          .eq('razorpay_order_id', razorpay_order_id)
-          .single()
-
-        // Always use the DB plan — never trust client-provided plan
-        const plan = payment?.plan || 'single'
-        if (!payment?.plan) {
-          console.warn(`[Razorpay] Payment record missing plan for order ${razorpay_order_id}, defaulting to: ${plan}`)
-        }
+        const plan = payment.plan || 'single'
 
         // UPSERT: handles case where user row doesn't exist yet (webhook race)
         const { error: upsertErr } = await supabaseAdmin
@@ -126,7 +142,6 @@ export async function POST(req: NextRequest) {
             .update({ plan, payment_id: razorpay_payment_id })
             .eq('id', latestSession.id)
         }
-      }
     } catch (userErr) {
       console.error('Failed to update user plan (non-critical):', userErr)
     }
