@@ -11,6 +11,9 @@ import {
 } from '@/lib/kpi/computeKPIs'
 import { marketToCurrency } from '@/lib/utils/currency'
 
+export const runtime = 'nodejs'
+export const maxDuration = 30
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth()
