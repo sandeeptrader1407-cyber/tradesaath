@@ -52,7 +52,6 @@ export default function SessionDetail({ session }: Props) {
     return (
       <div className="flex items-center justify-center h-full py-20">
         <div className="text-center">
-          <div className="text-3xl mb-3">📋</div>
           <p className="text-sm" style={{ color: "var(--text2)" }}>Select a session to view details</p>
         </div>
       </div>

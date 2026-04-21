@@ -47,12 +47,12 @@ export default function TradePreview({ result, onConfirm, onReject }: TradePrevi
         )}
         {broker === 'generic' && !requiresClaudeFallback && (
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>
-            ⚡ Broker not listed — smart detection used
+            Broker not listed — smart detection used
           </span>
         )}
         {requiresClaudeFallback && (
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue, #5b8def)' }}>
-            🤖 PDF/Image — AI extraction will run
+            PDF/Image — AI extraction will run
           </span>
         )}
         <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 'auto' }}>
@@ -123,7 +123,6 @@ export default function TradePreview({ result, onConfirm, onReject }: TradePrevi
       {/* ─── No trades message for Claude fallback ─── */}
       {trades.length === 0 && requiresClaudeFallback && (
         <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--muted2, #888)' }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>🤖</div>
           <div style={{ fontSize: 13 }}>AI will extract trades from your file during analysis</div>
         </div>
       )}

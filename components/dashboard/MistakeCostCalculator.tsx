@@ -2,7 +2,7 @@
 
 interface MistakeBreakdown {
   type: string
-  icon: string
+  icon?: string
   count: number
   cost: number
 }
@@ -48,7 +48,6 @@ export default function MistakeCostCalculator({
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">{pendingCount > 0 ? "⏳" : "💡"}</div>
           <p className="text-sm font-semibold" style={{ color: pendingCount > 0 ? "#f59e0b" : "var(--text2)" }}>
             {pendingCount > 0 ? "Analysis pending" : "No mistake data available yet."}
           </p>
@@ -77,7 +76,6 @@ export default function MistakeCostCalculator({
           <div className="space-y-3 mb-4">
             {mistakes.map((m) => (
               <div key={m.type} className="flex items-center gap-3">
-                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{m.icon}</span>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium" style={{ color: "var(--text)" }}>
@@ -109,7 +107,6 @@ export default function MistakeCostCalculator({
           {/* Counterfactual line */}
           <div className="rounded-lg p-3" style={{ background: "rgba(34,197,94,.06)", border: "1px solid rgba(34,197,94,.12)" }}>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: 14 }}>✨</span>
               <div>
                 <div className="text-xs" style={{ color: "var(--text2)" }}>
                   Without the excess from these mistakes, your P&L would be

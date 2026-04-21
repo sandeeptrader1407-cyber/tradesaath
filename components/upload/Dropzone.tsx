@@ -104,34 +104,36 @@ export default function Dropzone() {
         onClick={() => !atLimit && inputRef.current?.click()}
         className="flex flex-col items-center justify-center gap-3 px-4 py-8 md:px-6 md:py-10 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200"
         style={{
-          background: isDragging ? 'var(--accent2)' : 'var(--s1)',
-          borderColor: isDragging ? 'var(--accent)' : 'var(--border2)',
+          background: isDragging ? '#F0F5FB' : 'var(--color-surface)',
+          borderColor: isDragging ? 'var(--color-accent)' : 'var(--color-border-strong)',
           opacity: atLimit ? 0.5 : 1,
           cursor: atLimit ? 'not-allowed' : 'pointer',
+          border: '1.5px dashed',
+          borderRadius: 10,
+          padding: '40px 24px',
+          textAlign: 'center',
         }}
       >
-        <span className="text-4xl">{String.fromCodePoint(0x1F4C2)}</span>
+        <p style={{ fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)', fontSize: 14, color: 'var(--color-muted)', marginBottom: 8 }}>
+          Drop your broker statement here
+        </p>
+        <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '12px auto', maxWidth: 240 }} />
+        <p style={{ fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)', fontSize: 13, color: 'var(--color-muted)', marginBottom: 12 }}>
+          CSV, XLSX, or PDF — up to 10 MB
+        </p>
 
-        <div className="text-center">
-          <p className="text-base font-medium" style={{ color: 'var(--text)' }}>
-            Drop files here or click to browse
-          </p>
-          <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-            PDF, CSV, Excel, screenshots — up to 40 files · 10MB each · any broker worldwide
-          </p>
-        </div>
-
-        {/* File type tags */}
-        <div className="flex flex-wrap justify-center gap-2 mt-2">
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
           {TYPE_TAGS.map((tag) => (
             <span
               key={tag}
-              className="px-2 py-0.5 text-[11px] font-medium rounded-md"
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                background: 'var(--s3)',
-                color: 'var(--muted2)',
-                border: '1px solid var(--border)',
+                fontFamily: 'var(--font-dm-mono, DM Mono, monospace)',
+                fontSize: 10,
+                padding: '2px 8px',
+                borderRadius: 4,
+                background: 'var(--s2)',
+                color: 'var(--color-muted)',
+                border: '0.5px solid var(--color-border)',
               }}
             >
               {tag}

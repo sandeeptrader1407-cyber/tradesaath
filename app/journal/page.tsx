@@ -212,7 +212,7 @@ function JournalContent() {
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--red)' }}>
                         {"\u20B9"}{p.cost.toLocaleString('en-IN')}
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: t.color }}>{t.icon} {t.label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: t.color }}>{t.label}</span>
                     </div>
                   )
                 })}

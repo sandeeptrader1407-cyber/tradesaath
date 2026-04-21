@@ -25,7 +25,7 @@ export default function MomentumIndicators() {
     <div className="rounded-xl border bg-[var(--s1)] border-[var(--border)] p-5">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-base font-fraunces text-[var(--text)]">
-          📊 Session Momentum Indicators
+          Session Momentum Indicators
         </h2>
         <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
           FREE

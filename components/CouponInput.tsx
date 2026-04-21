@@ -57,8 +57,8 @@ export default function CouponInput({ onSuccess, compact = false, className }: C
       }
 
       const days = Number(data.durationDays) || 0
-      const okMsg = `Pro plan activated for ${days} days!`
-      showToast.success(`\uD83C\uDF89 ${okMsg}`)
+      const okMsg = `Pro plan activated for ${days} days.`
+      showToast.success(okMsg)
       setSuccess(okMsg)
       setCode('')
       refreshPlan()

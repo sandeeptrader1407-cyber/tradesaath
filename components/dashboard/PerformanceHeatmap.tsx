@@ -112,8 +112,8 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">{"\uD83D\uDDD3\uFE0F"}</div>
-          <p className="text-sm" style={{ color: "var(--text2)" }}>
+          <p className="t-h3" style={{ marginBottom: 6, color: 'var(--color-ink)' }}>No time data.</p>
+          <p className="t-caption" style={{ color: "var(--color-muted)" }}>
             {!hasRealTimeData
               ? "Time data not available in uploaded files."
               : "Needs at least 5 trades to generate heatmap."}

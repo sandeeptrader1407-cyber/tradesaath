@@ -22,7 +22,7 @@ export default function ViciousCycle() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-base font-fraunces text-[var(--text)]">
-          🔄 Vicious Cycle Detector
+          Vicious Cycle Detector
         </h2>
         <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
           FREE
@@ -40,10 +40,9 @@ export default function ViciousCycle() {
               className={`rounded-lg bg-[var(--s2)] p-3 border-t-[3px] transition-opacity ${isDimmed ? 'opacity-40' : ''}`}
               style={{ borderTopColor: borderColor }}
             >
-              {/* Icon + Stage Name */}
-              <div className="flex items-start gap-2 mb-3">
-                <span className="text-lg">{cycle.icon}</span>
-                <span className="text-xs font-outfit text-[var(--text)] leading-tight flex-1">
+              {/* Stage Name */}
+              <div className="mb-3">
+                <span className="text-xs font-outfit text-[var(--text)] leading-tight">
                   {cycle.stage}
                 </span>
               </div>

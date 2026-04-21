@@ -51,7 +51,7 @@ export default function GoalTracking({
   return (
     <div className="p-4 md:p-5 rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <span style={{ fontSize: 15, fontWeight: 600 }}>🎯 Goal Tracking</span>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>Goal Tracking</span>
         <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, backgroundColor: 'rgba(240,180,41,0.1)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.2)', fontFamily: 'monospace', letterSpacing: 1 }}>PRO</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -39,7 +39,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Recent Trades */}
       <div className="p-4 rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>📈 Recent Trades</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Recent Trades</div>
         {recentTrades.length === 0 ? (
           <div style={{ fontSize: 12, opacity: 0.4, padding: '20px 0', textAlign: 'center' }}>No trades yet — upload your first file</div>
         ) : (
@@ -75,7 +75,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
 
       {/* Recent Sessions */}
       <div className="p-4 rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>📋 Recent Sessions</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Recent Sessions</div>
         {recentSessions.length === 0 ? (
           <div style={{ fontSize: 12, opacity: 0.4, padding: '20px 0', textAlign: 'center' }}>No sessions yet — analyse your first trade file</div>
         ) : (

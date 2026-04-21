@@ -178,7 +178,7 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                       </span>
                     )}
                   </div>
-                  {locked && <span className="text-lg">{"\uD83D\uDD12"}</span>}
+                  {locked && <span className="badge badge-pending" style={{ fontSize: 9 }}>Locked</span>}
                   <div className="text-[var(--text2)] text-lg">{isExpanded ? "\u25BE" : "\u25B8"}</div>
                 </div>
               </div>
@@ -248,79 +248,77 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                 </div>
 
                 {trade.quick_summary && (
-                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #5b8def', backgroundColor: 'rgba(91,141,239,0.06)', padding: 12, borderRadius: 8 }}>
-                    <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\u2713"} Quick Summary</h3>
-                    <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.quick_summary)}</div>
+                  <div className="detail-section ds-ta" style={{ marginBottom: 10 }}>
+                    <p className="label" style={{ marginBottom: 4 }}>Quick summary</p>
+                    <div className="t-body">{parseMarkdownBold(trade.quick_summary)}</div>
                     {trade.cycle_stage && (
-                      <div className="mt-2 text-[10px] px-2 py-0.5 rounded-full bg-[var(--s3)] text-[var(--muted)] inline-block">
+                      <span className="badge badge-pending" style={{ marginTop: 8, display: 'inline-block' }}>
                         Cycle: {trade.cycle_stage}
-                      </div>
+                      </span>
                     )}
                   </div>
                 )}
 
                 {trade.psychology_coaching && (
-                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #9d7af7', backgroundColor: 'rgba(157,122,247,0.06)', padding: 12, borderRadius: 8 }}>
-                    <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83E\uDDE0"} Psychology Coaching</h3>
-                    <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.psychology_coaching)}</div>
+                  <div className="detail-section ds-psych" style={{ marginBottom: 10 }}>
+                    <p className="label" style={{ marginBottom: 4 }}>Psychology</p>
+                    <div className="t-body">{parseMarkdownBold(trade.psychology_coaching)}</div>
                   </div>
                 )}
 
                 {trade.counterfactual && (
-                  <div className="pl-4 py-3 mb-4 rounded-lg" style={{ borderLeft: '3px solid #3ee8c4', backgroundColor: 'rgba(62,232,196,0.06)', padding: 12, borderRadius: 8 }}>
-                    <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83D\uDD04"} What You Should Have Done</h3>
-                    <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.counterfactual)}</div>
+                  <div className="detail-section ds-counter" style={{ marginBottom: 10 }}>
+                    <p className="label" style={{ marginBottom: 4 }}>Recommended action</p>
+                    <div className="t-body">{parseMarkdownBold(trade.counterfactual)}</div>
                   </div>
                 )}
 
                 {trade.technical_analysis && (
-                  <div className="text-center my-4">
+                  <div style={{ textAlign: 'center', margin: '12px 0' }}>
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeepDiveOpen((prev) => ({ ...prev, [idx]: !prev[idx] })); }}
-                      className="text-xs px-4 py-2 rounded-lg bg-[var(--s2)] text-[var(--text2)] hover:bg-[var(--s3)] transition-colors border border-[var(--border)]"
+                      className="deep-dive-btn"
                     >
-                      {isDeepDive ? "\u25B2 Hide" : "\u25BC Show"} Deep Dive
+                      {isDeepDive ? 'Hide deep dive' : 'Show deep dive'}
                     </button>
                   </div>
                 )}
 
                 {isDeepDive && trade.technical_analysis && (
-                  <div className="space-y-4 mt-4 pt-4 border-t border-[var(--border)]">
-                    <div className="pl-4 py-3 rounded-lg" style={{ borderLeft: '3px solid #5b8def', backgroundColor: 'rgba(91,141,239,0.06)', padding: 12, borderRadius: 8 }}>
-                      <h3 className="text-xs font-bold text-[var(--text)] mb-2">{"\uD83D\uDCCA"} Technical Analysis</h3>
-                      <div className="text-sm text-[var(--text2)] leading-relaxed">{parseMarkdownBold(trade.technical_analysis)}</div>
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid var(--color-border)' }}>
+                    <div className="detail-section ds-ta" style={{ marginBottom: 10 }}>
+                      <p className="label" style={{ marginBottom: 4 }}>Technical analysis</p>
+                      <div className="t-body">{parseMarkdownBold(trade.technical_analysis)}</div>
                     </div>
 
                     {trade.cycle_stage && (
-                      <div className="p-4 rounded-lg bg-[var(--s2)] border border-[var(--border)]">
-                        <h3 className="text-xs font-bold text-[var(--text)] mb-3">{"\uD83D\uDD04"} Vicious Cycle Position</h3>
-                        <div className="flex flex-wrap gap-2">
+                      <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--s2)', border: '0.5px solid var(--color-border)', marginBottom: 10 }}>
+                        <p className="label" style={{ marginBottom: 10 }}>Vicious cycle position</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {[
-                            { label: "Disciplined Win", icon: "\u2713", color: "var(--green)" },
-                            { label: "Overconfidence", icon: "\uD83D\uDE0F", color: "var(--gold)" },
-                            { label: "Larger Position", icon: "\u2195", color: "#ff9500" },
-                            { label: "Market Goes Against", icon: "\u2194", color: "#e87940" },
-                            { label: "Hope & Hold", icon: "\uD83D\uDE4F", color: "var(--purple)" },
-                            { label: "Averaging Down", icon: "\u2193", color: "var(--red)" },
-                            { label: "Panic Exit", icon: "\u26A1", color: "#e879a0" },
-                            { label: "Revenge Trade", icon: "\uD83D\uDD25", color: "#f05d6c" },
-                            { label: "Decision Fatigue", icon: "\uD83D\uDE35", color: "var(--muted)" },
-                            { label: "FOMO Re-entry", icon: "\u26A0", color: "var(--gold)" },
-                          ].map((stage) => {
-                            const isActive = trade.cycle_stage?.toLowerCase().includes(stage.label.toLowerCase());
+                            "Disciplined Win", "Overconfidence", "Larger Position",
+                            "Market Goes Against", "Hope & Hold", "Averaging Down",
+                            "Panic Exit", "Revenge Trade", "Decision Fatigue", "FOMO Re-entry",
+                          ].map((label) => {
+                            const isActive = trade.cycle_stage?.toLowerCase().includes(label.toLowerCase());
                             return (
-                              <div
-                                key={stage.label}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all"
+                              <span
+                                key={label}
                                 style={{
-                                  background: isActive ? stage.color + "22" : "var(--s3)",
-                                  color: isActive ? stage.color : "var(--muted)",
-                                  opacity: isActive ? 1 : 0.3,
-                                  border: isActive ? "1.5px solid " + stage.color : "1.5px solid transparent",
+                                  display: 'inline-block',
+                                  padding: '3px 10px',
+                                  borderRadius: 4,
+                                  fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)',
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  background: isActive ? 'rgba(192,57,43,.08)' : 'var(--color-surface)',
+                                  color: isActive ? 'var(--color-loss)' : 'var(--color-muted)',
+                                  border: isActive ? '0.5px solid var(--color-loss)' : '0.5px solid var(--color-border)',
+                                  opacity: isActive ? 1 : 0.5,
                                 }}
                               >
-                                <span>{stage.icon}</span> {stage.label}
-                              </div>
+                                {label}
+                              </span>
                             );
                           })}
                         </div>
@@ -329,23 +327,25 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                   </div>
                 )}
 
-                <div className="mt-4">
-                  <label className="text-xs font-bold text-[var(--text)] mb-2 block">{"\uD83D\uDCDD"} Your Reflection</label>
-                  <p className="text-[10px] text-[var(--muted)] mb-2">What were you thinking? How did you feel during this trade?</p>
+                <div style={{ marginTop: 16 }}>
+                  <label className="label" style={{ marginBottom: 6, display: 'block' }}>Your reflection</label>
+                  <p className="t-caption" style={{ marginBottom: 8 }}>What were you thinking? How did this trade feel?</p>
                   <textarea
                     disabled={locked}
-                    placeholder="Your notes for this trade..."
+                    placeholder="Notes for this trade..."
                     value={tradeNotes[idx] || ""}
                     onChange={(e) => { setTradeNotes({ ...tradeNotes, [idx]: e.target.value }); saveNote(idx, e.target.value); }}
-                    className="w-full text-sm bg-[var(--s2)] border border-[var(--border)] rounded-lg p-3 text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--border2)] resize-none"
+                    className="input ctx-textarea"
                     rows={3}
-                  ></textarea>
+                  />
                 </div>
 
                 {locked && (
-                  <div className="absolute inset-0 rounded-b-xl bg-black/30 flex flex-col items-center justify-center gap-2">
-                    <div className="text-3xl">{"\uD83D\uDD12"}</div>
-                    <div className="text-sm font-bold text-white text-center">Upgrade to unlock</div>
+                  <div className="trade-lock-overlay" style={{ borderRadius: '0 0 10px 10px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontFamily: 'var(--font-dm-serif, DM Serif Display, serif)', fontSize: 18, color: 'var(--color-ink)', marginBottom: 8 }}>Upgrade to unlock.</p>
+                      <p className="t-caption">Full trade analysis is available on paid plans.</p>
+                    </div>
                   </div>
                 )}
               </div>

@@ -18,19 +18,19 @@ export default function Hero() {
           warnings, and a personalised roadmap. Compare your discipline against 800+ traders.
         </p>
         <div className="hero-markets">
-          <span>🇮🇳 NSE / BSE</span>
-          <span>🇺🇸 NYSE / NASDAQ</span>
-          <span>🇬🇧 LSE</span>
-          <span>🌍 Forex</span>
-          <span>₿ Crypto</span>
-          <span>🥇 Commodities</span>
-          <span>🇦🇺 ASX</span>
-          <span>🇸🇬 SGX</span>
+          <span>NSE / BSE</span>
+          <span>NYSE / NASDAQ</span>
+          <span>LSE</span>
+          <span>Forex</span>
+          <span>Crypto</span>
+          <span>Commodities</span>
+          <span>ASX</span>
+          <span>SGX</span>
         </div>
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 8 }}>
           <a href="#sec-app" className="btn btn-accent btn-lg">
-            🔍 Analyse My Trades Free
+            Analyse My Trades Free
           </a>
           <a href="#pricing" className="btn btn-ghost btn-lg">
             See Pricing →

@@ -40,26 +40,24 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             margin: '16px 0',
           }}
         >
-          <div style={{ fontSize: 40, marginBottom: 12 }}>{String.fromCodePoint(0x1F6E0)}</div>
-          <h3
-            className="text-lg font-semibold mb-2"
-            style={{ color: 'var(--text)', fontFamily: "'Fraunces', serif" }}
-          >
-            Something went wrong
-          </h3>
-          <p className="text-sm mb-4" style={{ color: 'var(--text2)' }}>
-            This section encountered an error. Your data is safe.
+          <p style={{
+            fontFamily: 'var(--font-dm-serif, DM Serif Display, serif)',
+            fontSize: 20, fontWeight: 400, color: 'var(--color-ink)',
+            marginBottom: 8,
+          }}>
+            Something went wrong.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)',
+            fontSize: 14, color: 'var(--color-muted)', marginBottom: 20, lineHeight: 1.7,
+          }}>
+            This section encountered an error. Your data has not been affected.
           </p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-5 py-2 rounded-lg text-sm font-semibold"
-            style={{
-              background: 'var(--accent)',
-              color: '#0a0e17',
-              cursor: 'pointer',
-            }}
+            className="btn btn-ghost btn-sm"
           >
-            Try Again
+            Retry
           </button>
         </div>
       )

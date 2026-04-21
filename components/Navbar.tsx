@@ -1,34 +1,44 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  SignUpButton,
-  UserButton,
-  useUser,
-} from '@clerk/nextjs'
+import { SignUpButton, useUser } from '@clerk/nextjs'
 import ClerkErrorBoundary from './ClerkErrorBoundary'
 import { usePlan } from '@/lib/planStore'
 
+/* ─── Helpers ─────────────────────────────────────────────────────── */
+
+function initials(name: string | null | undefined): string {
+  if (!name) return '—'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+/* ─── Auth buttons ────────────────────────────────────────────────── */
+
 function ClerkAuthButtons() {
-  const { isSignedIn, isLoaded } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
     return (
-      <>
-        <UserButton />
-      </>
+      <div
+        className="nav-initials"
+        title={user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ''}
+      >
+        {initials(user?.fullName ?? user?.firstName)}
+      </div>
     )
   }
 
   return (
     <>
-      <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">Sign In</Link>
+      <Link href="/sign-in" className="nav-auth-btn">Sign in</Link>
       <SignUpButton mode="redirect">
-        <button className="btn btn-accent btn-sm nav-getstarted-btn">Get Started</button>
+        <button className="nav-getstarted-btn">Get started</button>
       </SignUpButton>
     </>
   )
@@ -36,13 +46,15 @@ function ClerkAuthButtons() {
 
 function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
   const { isSignedIn, isLoaded } = useUser()
-
   if (!isLoaded || isSignedIn) return null
-
   return (
-    <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">Sign In</Link>
+    <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">
+      Sign in
+    </Link>
   )
 }
+
+/* ─── Nav links ───────────────────────────────────────────────────── */
 
 function NavLinks() {
   const { isSignedIn, isLoaded } = useUser()
@@ -54,15 +66,29 @@ function NavLinks() {
   if (isSignedIn) {
     return (
       <>
-        <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>{'\uD83D\uDCCA'} Dashboard</Link>
-        <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
-          {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
+        <Link
+          href="/dashboard"
+          className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}
+        >
+          Dashboard
         </Link>
-        <Link href={isPaid ? '/journey' : '#'} className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-50' : ''}`}>
-          {'\uD83D\uDDFA\uFE0F'} Journey{!isPaid && ' \uD83D\uDD12'}
+        <Link
+          href={isPaid ? '/journal' : '#'}
+          className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50 cursor-not-allowed' : ''}`}
+        >
+          Journal
         </Link>
-        <Link href={isPro ? '/coach' : '#'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50' : ''}`}>
-          {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
+        <Link
+          href={isPaid ? '/journey' : '#'}
+          className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-50 cursor-not-allowed' : ''}`}
+        >
+          Journey
+        </Link>
+        <Link
+          href={isPro ? '/coach' : '#'}
+          className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50 cursor-not-allowed' : ''}`}
+        >
+          Saathi
         </Link>
       </>
     )
@@ -70,10 +96,10 @@ function NavLinks() {
 
   return (
     <>
-      <a href="#how" className="nav-landing-link">How It Works</a>
+      <a href="#how"      className="nav-landing-link">How it works</a>
       <a href="#features" className="nav-landing-link">Features</a>
-      <a href="#pricing" className="nav-landing-link">Pricing</a>
-      <a href="#faq" className="nav-landing-link">FAQ</a>
+      <a href="#pricing"  className="nav-landing-link">Pricing</a>
+      <a href="#faq"      className="nav-landing-link">FAQ</a>
     </>
   )
 }
@@ -87,104 +113,63 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
   if (isSignedIn) {
     return (
       <>
-        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">{'\uD83D\uDCCA'} Dashboard</Link>
-        <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
-          {'\uD83D\uDCD3'} Journal{!isPaid && ' \uD83D\uDD12'}
-        </Link>
-        <Link href={isPaid ? '/journey' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>
-          {'\uD83D\uDDFA\uFE0F'} Journey{!isPaid && ' \uD83D\uDD12'}
-        </Link>
-        <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>
-          {'\uD83E\uDD1D'} Saathi{!isPro && ' \uD83D\uDD12'}
-        </Link>
+        <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">Dashboard</Link>
+        <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journal</Link>
+        <Link href={isPaid ? '/journey' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journey</Link>
+        <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>Saathi</Link>
       </>
     )
   }
 
   return (
     <>
-      <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
+      <a href="#how"      onClick={closeMenu} className="nav-landing-link">How it works</a>
       <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
-      <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
-      <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+      <a href="#pricing"  onClick={closeMenu} className="nav-landing-link">Pricing</a>
+      <a href="#faq"      onClick={closeMenu} className="nav-landing-link">FAQ</a>
     </>
   )
 }
 
-function LogoLink() {
-  // Per V12 spec: logo always goes to landing page (goHome behavior)
-  return (
-    <Link className="nav-logo" href="/">
-      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#3ee8c4', marginRight: 8, animation: 'pulse-dot 2s ease-in-out infinite', verticalAlign: 'middle' }} />TradeSaath
-    </Link>
-  )
-}
+/* ─── Navbar ──────────────────────────────────────────────────────── */
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [isDayMode, setIsDayMode] = useState(false)
-
-  useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    if (saved === 'day') {
-      document.body.classList.add('day')
-      setIsDayMode(true)
-    }
-  }, [])
-
-  function toggleTheme() {
-    const isDay = document.body.classList.toggle('day')
-    setIsDayMode(isDay)
-    localStorage.setItem('theme', isDay ? 'day' : 'night')
-  }
-
-  function toggleMenu() {
-    setMenuOpen((prev) => !prev)
-  }
-
-  function closeMenu() {
-    setMenuOpen(false)
-  }
 
   return (
     <>
-      <style>{`@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }`}</style>
       <nav>
-        <LogoLink />
+        <Link className="nav-logo" href="/">TradeSaath</Link>
+
         <div className="nav-links">
           <ClerkErrorBoundary fallback={
             <>
-              <a href="#how" className="nav-landing-link">How It Works</a>
+              <a href="#how"      className="nav-landing-link">How it works</a>
               <a href="#features" className="nav-landing-link">Features</a>
-              <a href="#pricing" className="nav-landing-link">Pricing</a>
-              <a href="#faq" className="nav-landing-link">FAQ</a>
+              <a href="#pricing"  className="nav-landing-link">Pricing</a>
+              <a href="#faq"      className="nav-landing-link">FAQ</a>
             </>
           }>
             <NavLinks />
           </ClerkErrorBoundary>
         </div>
-        <div className="nav-right">
-          <button className="theme-btn" onClick={toggleTheme}>
-            <span>{isDayMode ? '☀️' : '🌙'}</span>
-            <span>{isDayMode ? 'Night' : 'Day'}</span>
-          </button>
 
-          <ClerkErrorBoundary
-            fallback={
-              <>
-                <Link href="/sign-in" className="btn btn-ghost btn-sm nav-auth-btn">Sign In</Link>
-                <Link href="/sign-up" className="btn btn-accent btn-sm nav-getstarted-btn">Get Started</Link>
-              </>
-            }
-          >
+        <div className="nav-right">
+          <ClerkErrorBoundary fallback={
+            <>
+              <Link href="/sign-in"  className="nav-auth-btn">Sign in</Link>
+              <Link href="/sign-up"  className="nav-getstarted-btn">Get started</Link>
+            </>
+          }>
             <ClerkAuthButtons />
           </ClerkErrorBoundary>
 
           <button
             className={`hamburger${menuOpen ? ' open' : ''}`}
-            onClick={toggleMenu}
+            onClick={() => setMenuOpen((p) => !p)}
+            aria-label="Toggle menu"
           >
-            <span></span><span></span><span></span>
+            <span /><span /><span />
           </button>
         </div>
       </nav>
@@ -192,16 +177,16 @@ export default function Navbar() {
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
         <ClerkErrorBoundary fallback={
           <>
-            <a href="#how" onClick={closeMenu} className="nav-landing-link">How It Works</a>
-            <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
-            <a href="#pricing" onClick={closeMenu} className="nav-landing-link">Pricing</a>
-            <a href="#faq" onClick={closeMenu} className="nav-landing-link">FAQ</a>
+            <a href="#how"      onClick={() => setMenuOpen(false)} className="nav-landing-link">How it works</a>
+            <a href="#features" onClick={() => setMenuOpen(false)} className="nav-landing-link">Features</a>
+            <a href="#pricing"  onClick={() => setMenuOpen(false)} className="nav-landing-link">Pricing</a>
+            <a href="#faq"      onClick={() => setMenuOpen(false)} className="nav-landing-link">FAQ</a>
           </>
         }>
-          <MobileNavLinks closeMenu={closeMenu} />
+          <MobileNavLinks closeMenu={() => setMenuOpen(false)} />
         </ClerkErrorBoundary>
         <ClerkErrorBoundary>
-          <ClerkMobileAuth closeMenu={closeMenu} />
+          <ClerkMobileAuth closeMenu={() => setMenuOpen(false)} />
         </ClerkErrorBoundary>
       </div>
     </>
