@@ -247,20 +247,20 @@ export default function DashboardPage() {
 
   // Build behavioral insight cards from real pattern data (no AI required).
   // Keys cover BOTH the tagLabels names (from trade_analysis) and sessionSummarizer names (from analysis JSONB).
-  const INSIGHT_META: Record<string, { icon: string; color: string }> = {
-    "Revenge Trading": { icon: "\u2694\uFE0F", color: "var(--red)" },
-    "Revenge Trade": { icon: "\u2694\uFE0F", color: "var(--red)" },
-    "FOMO Entries": { icon: "\uD83D\uDD25", color: "var(--red)" },
-    "FOMO Entry": { icon: "\uD83D\uDD25", color: "var(--red)" },
-    "Panic Exits": { icon: "\uD83D\uDCA8", color: "var(--gold)" },
-    "Panic Exit": { icon: "\uD83D\uDCA8", color: "var(--gold)" },
-    "Averaging Down": { icon: "\uD83D\uDCC9", color: "var(--red)" },
-    "Overtrading": { icon: "\uD83D\uDCC8", color: "var(--gold)" },
-    "Oversized Position": { icon: "\uD83C\uDFCB\uFE0F", color: "var(--red)" },
-    "Oversized": { icon: "\uD83C\uDFCB\uFE0F", color: "var(--red)" },
-    "Late Exit": { icon: "\uD83D\uDD51", color: "var(--gold)" },
-    "Vicious Cycle": { icon: "\uD83D\uDD04", color: "var(--red)" },
-    "Decision Fatigue": { icon: "\uD83D\uDE35", color: "var(--gold)" },
+  const INSIGHT_META: Record<string, { color: string }> = {
+    "Revenge Trading":    { color: "var(--color-loss)" },
+    "Revenge Trade":      { color: "var(--color-loss)" },
+    "FOMO Entries":       { color: "var(--color-loss)" },
+    "FOMO Entry":         { color: "var(--color-loss)" },
+    "Panic Exits":        { color: "var(--gold)" },
+    "Panic Exit":         { color: "var(--gold)" },
+    "Averaging Down":     { color: "var(--color-loss)" },
+    "Overtrading":        { color: "var(--gold)" },
+    "Oversized Position": { color: "var(--color-loss)" },
+    "Oversized":          { color: "var(--color-loss)" },
+    "Late Exit":          { color: "var(--gold)" },
+    "Vicious Cycle":      { color: "var(--color-loss)" },
+    "Decision Fatigue":   { color: "var(--gold)" },
   }
 
   // Compute mistake data for MistakeCostCalculator.
@@ -268,7 +268,6 @@ export default function DashboardPage() {
   // otherwise fall back to mistakeTrades (raw |pnl| from trade_analysis table).
   const patternMistakes = (stats?.patterns?.byTag || []).map(p => ({
     type: p.label,
-    icon: INSIGHT_META[p.label]?.icon || "\u26A0\uFE0F",
     count: p.count,
     cost: p.cost,
   }))
@@ -279,19 +278,16 @@ export default function DashboardPage() {
     : (stats?.totalMistakeCost || 0)
 
   const insights = (stats?.patterns?.byTag || []).slice(0, 4).map(p => {
-    const meta = INSIGHT_META[p.label] || { icon: "\u26A0\uFE0F", color: "var(--gold)" }
+    const meta = INSIGHT_META[p.label] || { color: 'var(--gold)' }
     return {
-      icon: meta.icon,
       title: p.label,
       color: meta.color,
       desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost \u20B9${Math.round(p.cost).toLocaleString('en-IN')}.`,
     }
   })
-  // If no insights from patterns, build from mistakeTrades fallback
   const insightsForBI = insights.length > 0 ? insights : (stats?.mistakeTrades || []).slice(0, 4).map(m => {
-    const meta = INSIGHT_META[m.type] || { icon: m.icon || "\u26A0\uFE0F", color: "var(--gold)" }
+    const meta = INSIGHT_META[m.type] || { color: 'var(--gold)' }
     return {
-      icon: meta.icon,
       title: m.type,
       color: meta.color,
       desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged — cost \u20B9${Math.round(m.cost).toLocaleString('en-IN')}.`,
@@ -346,10 +342,9 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => router.push("/upload")}
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shrink-0"
-            style={{ background: "var(--accent)", color: "#071a15" }}
+            className="btn btn-accent btn-sm shrink-0"
           >
-            {"\uD83D\uDCE4"} New Analysis
+            New Analysis
           </button>
         </div>
 
@@ -467,12 +462,11 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-xl border p-5 flex flex-col" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div className="text-xs uppercase tracking-wider mb-3 font-semibold" style={{ color: "var(--text2)" }}>Your #1 Issue</div>
+                <div className="label" style={{ marginBottom: 12 }}>Top issue</div>
                 <div className="flex-1 flex flex-col justify-center">
                   {topMistake ? (
                     <>
-                      <div className="text-2xl mb-2">{topMistake.icon}</div>
-                      <div className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
+                      <div className="t-h3" style={{ color: "var(--color-loss)", marginBottom: 4 }}>
                         {TAG_LABELS[topMistake.type] || topMistake.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                       </div>
                       <div className="text-xs mb-3" style={{ color: "var(--text2)", lineHeight: 1.6 }}>

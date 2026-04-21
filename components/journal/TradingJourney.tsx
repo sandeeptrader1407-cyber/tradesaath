@@ -40,11 +40,11 @@ const PROFILE_SECTIONS = [
 ]
 
 const JOURNEY_STEPS = [
-  { key: "step1Beginning", title: "The Beginning", icon: "\u2728", prompt: "Why did you start trading? What excited you about it?", placeholder: "e.g. I saw a friend make money in F&O and thought I could too..." },
-  { key: "step2DarkDays", title: "The Dark Days", icon: "\u26c8\ufe0f", prompt: "What was your worst period? What happened?", placeholder: "e.g. I blew my first 2L account in 3 months. Revenge traded every day..." },
-  { key: "step3Shift", title: "The Shift", icon: "\u26a1", prompt: "What moment changed your approach?", placeholder: "e.g. One day I looked at my journal and saw 47 revenge trades in a month..." },
-  { key: "step4Today", title: "Today", icon: "\ud83d\udccd", prompt: "Where are you now? What's your current reality?", placeholder: "e.g. I'm profitable 3 out of 4 weeks now. Still struggle with sizing..." },
-  { key: "step5Truth", title: "Your Truth", icon: "\ud83d\udca1", prompt: "What one thing do you know now that you wish you knew then?", placeholder: "e.g. Trading is 90% psychology. No strategy works if you can't follow it." },
+  { key: "step1Beginning", title: "The Beginning", prompt: "Why did you start trading? What excited you about it?", placeholder: "e.g. I saw a friend make money in F&O and thought I could too..." },
+  { key: "step2DarkDays", title: "The Dark Days", prompt: "What was your worst period? What happened?", placeholder: "e.g. I blew my first 2L account in 3 months. Revenge traded every day..." },
+  { key: "step3Shift", title: "The Shift", prompt: "What moment changed your approach?", placeholder: "e.g. One day I looked at my journal and saw 47 revenge trades in a month..." },
+  { key: "step4Today", title: "Today", prompt: "Where are you now? What's your current reality?", placeholder: "e.g. I'm profitable 3 out of 4 weeks now. Still struggle with sizing..." },
+  { key: "step5Truth", title: "Your Truth", prompt: "What one thing do you know now that you wish you knew then?", placeholder: "e.g. Trading is 90% psychology. No strategy works if you can't follow it." },
 ]
 
 const EMPTY_DATA: JourneyData = {
@@ -260,7 +260,6 @@ export default function TradingJourney() {
                 const isActive = i === activeStep
                 return (
                   <button key={s.key} onClick={() => setActiveStep(i)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold transition-all" style={{ background: isActive ? "rgba(62,232,196,.12)" : filled ? "rgba(62,232,196,.05)" : "var(--s2)", border: isActive ? "1px solid var(--accent)" : "1px solid var(--border)", color: isActive ? "var(--accent)" : filled ? "var(--text)" : "var(--muted)" }}>
-                    <span>{s.icon}</span>
                     <span className="hidden sm:inline">{s.title}</span>
                     <span className="sm:hidden">{i + 1}</span>
                   </button>
@@ -273,7 +272,6 @@ export default function TradingJourney() {
               return (
                 <div key={step.key}>
                   <div className="text-center mb-3">
-                    <div className="text-xl mb-1">{step.icon}</div>
                     <h4 className="text-sm font-bold" style={{ color: "var(--text)" }}>Step {activeStep + 1}: {step.title}</h4>
                     <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{step.prompt}</p>
                   </div>

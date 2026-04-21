@@ -19,8 +19,8 @@ export default function AutoDetectBar() {
     >
       <span className="text-sm" style={{ color: 'var(--text2)' }}>
         {hasDetection
-          ? `${String.fromCodePoint(0x2705)} Auto-detected from your file`
-          : `${String.fromCodePoint(0x1F50D)} Market, broker & currency will be auto-detected`
+          ? 'Auto-detected from your file'
+          : 'Market, broker, and currency will be auto-detected'
         }
       </span>
       <div className="flex items-center gap-2 shrink-0">
@@ -28,10 +28,10 @@ export default function AutoDetectBar() {
           <span
             className="px-3 py-1 rounded-lg text-xs font-semibold"
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              background: 'rgba(157,122,247,.12)',
-              color: '#9d7af7',
-              border: '1px solid rgba(157,122,247,.25)',
+              fontFamily: 'var(--font-dm-mono, DM Mono, monospace)',
+              background: 'rgba(15,76,129,.08)',
+              color: 'var(--color-accent)',
+              border: '0.5px solid rgba(15,76,129,.2)',
             }}
           >
             {detectedBroker}

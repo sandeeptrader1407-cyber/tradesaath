@@ -68,7 +68,6 @@ export default function DecisionQualityScore({ score = 0, grade = null, factors 
 
       {!hasData ? (
         <div className="text-center py-10">
-          <div className="text-3xl mb-3">{pendingCount > 0 ? "⏳" : "🎯"}</div>
           <p className="text-sm font-semibold" style={{ color: pendingCount > 0 ? "#f59e0b" : "var(--text2)" }}>
             {pendingCount > 0 ? "Analysis pending" : "Upload sessions to get your Decision Quality Score."}
           </p>

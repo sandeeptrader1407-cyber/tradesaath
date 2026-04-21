@@ -17,7 +17,6 @@ export default function HowItWorks() {
             <div className="how-step-left">
               <div className="how-bubble">
                 <span className="how-bubble-num">01</span>
-                <div className="how-bubble-icon">📂</div>
               </div>
               <div className="how-connector"></div>
             </div>
@@ -36,7 +35,6 @@ export default function HowItWorks() {
             <div className="how-step-left">
               <div className="how-bubble how-bubble-2">
                 <span className="how-bubble-num">02</span>
-                <div className="how-bubble-icon">⚡</div>
               </div>
               <div className="how-connector"></div>
             </div>
@@ -45,10 +43,10 @@ export default function HowItWorks() {
               <h3 className="how-step-title">Tell us how you felt going in</h3>
               <p className="how-step-desc">4 quick dropdowns — your mood, market conditions, session plan, and goal. Takes 10 seconds. Makes the analysis dramatically more personalised.</p>
               <div className="how-mood-row">
-                <span>😤 Confident</span>
-                <span>😰 Anxious</span>
-                <span>😡 Revenge mode</span>
-                <span>🤩 FOMO</span>
+                <span>Confident</span>
+                <span>Anxious</span>
+                <span>Revenge mode</span>
+                <span>FOMO</span>
               </div>
             </div>
           </div>
@@ -58,7 +56,6 @@ export default function HowItWorks() {
             <div className="how-step-left">
               <div className="how-bubble how-bubble-3">
                 <span className="how-bubble-num">03</span>
-                <div className="how-bubble-icon">🧠</div>
               </div>
               <div className="how-connector"></div>
             </div>
@@ -67,10 +64,10 @@ export default function HowItWorks() {
               <h3 className="how-step-title">Instant Gross P&amp;L + Vicious Cycle + 3 deep trades</h3>
               <p className="how-step-desc">Your session KPIs, the 10-stage Vicious Cycle breakdown, and three complete trade analyses with technical entry review, mindset coaching, and counterfactual scenarios — all free, no login.</p>
               <div className="how-result-preview">
-                <div className="hrp-item hrp-green"><span>✓</span>Gross P&amp;L calculated</div>
-                <div className="hrp-item hrp-purple"><span>🔁</span>Cycle stage detected</div>
-                <div className="hrp-item hrp-blue"><span>📊</span>Price Action &middot; Structure</div>
-                <div className="hrp-item hrp-gold"><span>🧠</span>Mindset coaching</div>
+                <div className="hrp-item hrp-green">Gross P&amp;L calculated</div>
+                <div className="hrp-item hrp-purple">Cycle stage detected</div>
+                <div className="hrp-item hrp-blue">Price Action &middot; Structure</div>
+                <div className="hrp-item hrp-gold">Mindset coaching</div>
               </div>
             </div>
           </div>
@@ -80,7 +77,6 @@ export default function HowItWorks() {
             <div className="how-step-left">
               <div className="how-bubble how-bubble-4">
                 <span className="how-bubble-num">04</span>
-                <div className="how-bubble-icon">🔓</div>
               </div>
               <div className="how-connector"></div>
             </div>
@@ -101,7 +97,6 @@ export default function HowItWorks() {
             <div className="how-step-left">
               <div className="how-bubble how-bubble-5">
                 <span className="how-bubble-num">05</span>
-                <div className="how-bubble-icon">📓</div>
               </div>
             </div>
             <div className="how-step-body">
@@ -119,13 +114,12 @@ export default function HowItWorks() {
         {/* Social proof bar */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 32, flexWrap: 'wrap' }}>
           {[
-            { icon: '🔒', text: 'Your data never stored' },
-            { icon: '⚡', text: 'Results in ~30 seconds' },
-            { icon: '🎯', text: '10-stage psychology framework' },
-            { icon: '🆓', text: 'First 3 trades free, no login' },
+            { text: 'Your data never stored' },
+            { text: 'Results in ~30 seconds' },
+            { text: '10-stage psychology framework' },
+            { text: 'First 3 trades free, no login' },
           ].map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)' }}>
-              <span>{item.icon}</span>
               <span>{item.text}</span>
             </div>
           ))}

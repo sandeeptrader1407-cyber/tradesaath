@@ -28,12 +28,12 @@ const fmtPnl = formatPnlPlain
 
 type CoachTab = 'tomorrow' | 'thisweek' | 'learning_path' | 'patterns' | 'monthly_goals'
 
-const TAB_CONFIG: { key: CoachTab; label: string; icon: string }[] = [
-  { key: 'tomorrow', label: "Tomorrow's Plan", icon: '📋' },
-  { key: 'thisweek', label: 'This Week', icon: '📅' },
-  { key: 'learning_path', label: 'Learning Path', icon: '🧠' },
-  { key: 'patterns', label: 'My Patterns', icon: '🔍' },
-  { key: 'monthly_goals', label: 'Monthly Goals', icon: '🎯' },
+const TAB_CONFIG: { key: CoachTab; label: string }[] = [
+  { key: 'tomorrow', label: "Tomorrow's Plan" },
+  { key: 'thisweek', label: 'This Week' },
+  { key: 'learning_path', label: 'Learning Path' },
+  { key: 'patterns', label: 'My Patterns' },
+  { key: 'monthly_goals', label: 'Monthly Goals' },
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI response shape varies
@@ -108,7 +108,6 @@ export default function CoachPage() {
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600 }}>
           <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Saathi</h2>
             <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 8 }}>
               {plan === 'single'
@@ -136,7 +135,6 @@ export default function CoachPage() {
     return (
       <section style={{ paddingTop: 80, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600, textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>Saathi</h2>
           <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 20 }}>
             Upload your first trading session to unlock personalized AI coaching — pattern detection, learning paths, and data-driven improvement plans.
@@ -231,7 +229,7 @@ export default function CoachPage() {
               background: tab === t.key ? 'var(--accent)' : 'transparent',
               color: tab === t.key ? 'var(--bg)' : 'var(--muted)',
               whiteSpace: 'nowrap', flexShrink: 0,
-            }}>{t.icon} {t.label}</button>
+            }}>{t.label}</button>
           ))}
         </div>
 
@@ -239,7 +237,7 @@ export default function CoachPage() {
         {aiLoading && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-body" style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{activeTabConfig?.icon || '🎯'}</div>
+              <div style={{ fontSize: 28, marginBottom: 8 }} />
               <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
                 Generating {activeTabConfig?.label || 'coaching plan'}...
               </div>

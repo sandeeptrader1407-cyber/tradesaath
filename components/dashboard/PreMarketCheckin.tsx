@@ -30,7 +30,6 @@ export default function PreMarketCheckin({ compact = false }: Props) {
   if (done) {
     return (
       <div className={compact ? "text-center py-2" : "rounded-xl border p-5 text-center"} style={compact ? {} : { background: "var(--s1)", borderColor: "var(--border)" }}>
-        <div className="text-2xl mb-2">{"✅"}</div>
         <p className="text-sm font-semibold" style={{ color: "var(--green)" }}>Intention set. Have a disciplined session.</p>
       </div>
     )
@@ -40,7 +39,7 @@ export default function PreMarketCheckin({ compact = false }: Props) {
     <div {...(compact ? {} : { className: "rounded-xl border p-5", style: { background: "var(--s1)", borderColor: "var(--border)" } as React.CSSProperties })}>
       {!compact && (
         <>
-          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{"☀️"} Before you trade today</h3>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>Before you trade today</h3>
           <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What&apos;s your one rule you won&apos;t break today?</p>
         </>
       )}

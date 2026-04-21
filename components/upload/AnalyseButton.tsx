@@ -254,20 +254,20 @@ export default function AnalyseButton() {
         disabled={isAnalysing || noFiles}
         className="px-8 py-3 rounded-xl text-base font-semibold transition-all duration-200"
         style={{
-          background: (isAnalysing || noFiles) ? "var(--s3)" : "var(--accent)",
-          color: (isAnalysing || noFiles) ? "var(--muted)" : "#0a0e17",
-          cursor: (isAnalysing || noFiles) ? "not-allowed" : "pointer",
+          background: (isAnalysing || noFiles) ? 'var(--s3)' : 'var(--color-accent)',
+          color: (isAnalysing || noFiles) ? 'var(--color-muted)' : '#FFFFFF',
+          cursor: (isAnalysing || noFiles) ? 'not-allowed' : 'pointer',
           opacity: (isAnalysing || noFiles) ? 0.7 : 1,
-          fontFamily: "'Outfit', sans-serif",
-          boxShadow: isAnalysing ? "none" : "0 0 20px rgba(62,232,196,.2)",
+          fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)',
+          boxShadow: 'none',
         }}
       >
-        {isAnalysing ? "\u27F3 Analysing\u2026" : "\uD83D\uDD0D Run Free Analysis"}
+        {isAnalysing ? 'Analysing...' : 'Run free analysis'}
       </button>
-      <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+      <p className="text-xs text-center" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)' }}>
         {isAnalysing
-          ? <span ref={statusRef}>Analysing {files.length} file(s){String.fromCodePoint(0x2026)}</span>
-          : "No login required \u00b7 upload your broker statement to start"}
+          ? <span ref={statusRef}>Analysing {files.length} file{files.length !== 1 ? 's' : ''}...</span>
+          : 'No account required. Upload your broker statement to begin.'}
       </p>
       <div
         className="w-full max-w-sm h-1 rounded-full overflow-hidden"

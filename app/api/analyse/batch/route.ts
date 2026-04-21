@@ -4,7 +4,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit'
-import { createBatch, getBatchState, batchSummary } from '@/lib/analysis/analysisQueue'
+import { createBatch, getBatch, batchSummary } from '@/lib/analysis/analysisQueue'
 
 /**
  * POST /api/analyse/batch — Start a batch analysis job
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     const batchId = `batch_${userId}_${Date.now()}`
-    createBatch(batchId, userId, sessionIds)
+    await createBatch(batchId, userId, sessionIds)
 
     return NextResponse.json({
       success: true,
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     const batchId = url.searchParams.get('batchId')
     if (!batchId) return NextResponse.json({ error: 'batchId required' }, { status: 400 })
 
-    const state = getBatchState(batchId)
+    const state = await getBatch(batchId)
     if (!state) return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
     if (state.userId !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

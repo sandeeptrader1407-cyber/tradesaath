@@ -162,7 +162,7 @@ export default function AiChat() {
           transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
         }}
       >
-        {open ? '\u2715' : '\uD83D\uDCAC'}
+        {open ? '\u2715' : 'AI'}
       </button>
 
       {/* Chat Panel */}
@@ -231,8 +231,7 @@ export default function AiChat() {
           }}>
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>{'\uD83C\uDFAF'}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Ask me anything about your trading</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-ink)', marginBottom: 4, fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)' }}>Ask me anything about your trading.</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 16 }}>I analyse your patterns and give specific, actionable coaching</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {QUICK_PROMPTS.map(p => (

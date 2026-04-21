@@ -32,7 +32,7 @@ export default function KPIStrip() {
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-fraunces text-[var(--text)]">
-          📊 Session KPIs
+          Session KPIs
         </h2>
         <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
           FREE

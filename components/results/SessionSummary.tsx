@@ -25,7 +25,7 @@ export default function SessionSummary() {
     <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--s1)', borderColor: 'var(--border)' }}>
       <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
         <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: 'var(--text)' }}>
-          🧠 AI Session Summary
+          AI Session Summary
         </h2>
         <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
           FREE

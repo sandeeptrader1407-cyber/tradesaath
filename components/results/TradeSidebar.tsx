@@ -131,7 +131,7 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
                       #{globalIndex + 1} {trade.symbol}
                     </div>
                   </div>
-                  {locked && <span className="text-lg">🔒</span>}
+                  {locked && <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>locked</span>}
                 </div>
 
                 {/* Time and session badge */}

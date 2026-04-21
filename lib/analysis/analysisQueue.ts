@@ -1,14 +1,27 @@
 /**
- * TradeSaath — In-memory analysis queue with concurrency control.
- * Processes sessions in parallel (up to CONCURRENCY limit) to stay
- * within Vercel serverless function timeouts.
+ * TradeSaath — KV-backed analysis queue with concurrency control.
  *
- * Future: migrate to QStash or Inngest for durable queuing at scale.
+ * Key schema (all keys TTL = 15 min):
+ *   batch:{id}:meta            → BatchMeta JSON
+ *   batch:{id}:job:{sessionId} → QueueJob JSON  (one key per job — no read-modify-write)
+ *   batch:{id}:done            → integer counter (kv.incr — atomic)
+ *   batch:{id}:failed          → integer counter (kv.incr — atomic)
+ *
+ * Requires KV_REST_API_URL + KV_REST_API_TOKEN in all environments.
+ * Local dev: add these to .env.local (Vercel KV works locally).
+ *
+ * Future: migrate processing to QStash/Inngest for durable execution at scale.
  */
 
+import { kv } from '@vercel/kv'
 import { analyseSession, type AnalyseSessionResult } from '@/lib/analysis/sessionAnalyser'
 
 const CONCURRENCY = 3
+const BATCH_TTL = 15 * 60 // seconds
+
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  throw new Error('KV_REST_API_URL and KV_REST_API_TOKEN must be set. See .env.local for local dev.')
+}
 
 export type JobStatus = 'pending' | 'running' | 'done' | 'error'
 
@@ -22,6 +35,14 @@ export interface QueueJob {
   finishedAt?: number
 }
 
+interface BatchMeta {
+  id: string
+  userId: string
+  sessionIds: string[]
+  startedAt: number
+  finishedAt?: number
+}
+
 export interface BatchState {
   id: string
   userId: string
@@ -30,96 +51,68 @@ export interface BatchState {
   finishedAt?: number
 }
 
-// In-memory store keyed by batch ID
-const batches = new Map<string, BatchState>()
+// ─── Key helpers ─────────────────────────────────────────────────────────────
 
-/** Clean up batches older than 10 minutes to prevent memory leaks */
-function cleanupOldBatches() {
-  const cutoff = Date.now() - 10 * 60 * 1000
-  batches.forEach((batch, id) => {
-    if (batch.startedAt < cutoff) batches.delete(id)
-  })
-}
+function metaKey(id: string) { return `batch:${id}:meta` }
+function jobKey(id: string, sessionId: string) { return `batch:${id}:job:${sessionId}` }
+function doneKey(id: string) { return `batch:${id}:done` }
+function failedKey(id: string) { return `batch:${id}:failed` }
 
-/** Create a new batch and start processing in the background */
-export function createBatch(batchId: string, userId: string, sessionIds: string[]): BatchState {
-  cleanupOldBatches()
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-  const jobs: QueueJob[] = sessionIds.map(sid => ({
-    sessionId: sid,
-    userId,
-    status: 'pending' as JobStatus,
-  }))
+/** Create a new batch and start background processing. */
+export async function createBatch(batchId: string, userId: string, sessionIds: string[]): Promise<void> {
+  const meta: BatchMeta = { id: batchId, userId, sessionIds, startedAt: Date.now() }
 
-  const state: BatchState = {
-    id: batchId,
-    userId,
-    jobs,
-    startedAt: Date.now(),
+  // Write meta + all job initial states + counters in one pipeline round-trip
+  const pipeline = kv.pipeline()
+  pipeline.set(metaKey(batchId), JSON.stringify(meta), { ex: BATCH_TTL })
+  for (const sessionId of sessionIds) {
+    const job: QueueJob = { sessionId, userId, status: 'pending' }
+    pipeline.set(jobKey(batchId, sessionId), JSON.stringify(job), { ex: BATCH_TTL })
   }
+  pipeline.set(doneKey(batchId), 0, { ex: BATCH_TTL })
+  pipeline.set(failedKey(batchId), 0, { ex: BATCH_TTL })
+  await pipeline.exec()
 
-  batches.set(batchId, state)
-
-  // Fire-and-forget — runs in background
-  processBatch(state).catch(err => {
+  // Fire-and-forget — runs while response is already sent
+  processBatchKv(batchId, userId, sessionIds).catch(err => {
     console.error(`Batch ${batchId} processing error:`, err)
   })
-
-  return state
 }
 
-/** Get current state of a batch */
-export function getBatchState(batchId: string): BatchState | undefined {
-  return batches.get(batchId)
-}
+/** Fetch current state of a batch. Returns null if not found or expired. */
+export async function getBatch(batchId: string): Promise<BatchState | null> {
+  const metaRaw = await kv.get<string | BatchMeta>(metaKey(batchId))
+  if (!metaRaw) return null
+  const meta: BatchMeta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw
 
-/** Process all jobs in a batch with concurrency control */
-async function processBatch(state: BatchState) {
-  const queue = [...state.jobs]
-  const running: Promise<void>[] = []
-
-  async function processJob(job: QueueJob) {
-    job.status = 'running'
-    job.startedAt = Date.now()
-    try {
-      const result = await analyseSession({
-        sessionId: job.sessionId,
-        userId: job.userId,
-      })
-      job.result = result
-      job.status = result.success ? 'done' : 'error'
-      if (!result.success) job.error = result.error
-    } catch (err) {
-      job.status = 'error'
-      job.error = err instanceof Error ? err.message : 'Unknown error'
-    }
-    job.finishedAt = Date.now()
+  // Single pipeline round-trip: all job keys + done + failed counters
+  const pipeline = kv.pipeline()
+  for (const sessionId of meta.sessionIds) {
+    pipeline.get(jobKey(batchId, sessionId))
   }
+  pipeline.get(doneKey(batchId))
+  pipeline.get(failedKey(batchId))
 
-  // Process with concurrency limit
-  let idx = 0
-  while (idx < queue.length) {
-    // Fill up to CONCURRENCY slots
-    while (running.length < CONCURRENCY && idx < queue.length) {
-      const job = queue[idx++]
-      const p = processJob(job).then(() => {
-        const i = running.indexOf(p)
-        if (i >= 0) running.splice(i, 1)
-      })
-      running.push(p)
-    }
-    // Wait for at least one to finish before filling more
-    if (running.length >= CONCURRENCY) {
-      await Promise.race(running)
-    }
+  const results = await pipeline.exec()
+  const jobRaws = results.slice(0, meta.sessionIds.length)
+
+  const jobs: QueueJob[] = jobRaws.map((raw, i) => {
+    if (!raw) return { sessionId: meta.sessionIds[i], userId: meta.userId, status: 'pending' as JobStatus }
+    return typeof raw === 'string' ? JSON.parse(raw) : raw as QueueJob
+  })
+
+  return {
+    id: meta.id,
+    userId: meta.userId,
+    jobs,
+    startedAt: meta.startedAt,
+    finishedAt: meta.finishedAt,
   }
-
-  // Wait for remaining
-  await Promise.all(running)
-  state.finishedAt = Date.now()
 }
 
-/** Summary stats for a batch */
+/** Compute summary stats from a BatchState (synchronous — no DB calls). */
 export function batchSummary(state: BatchState) {
   const total = state.jobs.length
   const done = state.jobs.filter(j => j.status === 'done').length
@@ -128,4 +121,79 @@ export function batchSummary(state: BatchState) {
   const pending = state.jobs.filter(j => j.status === 'pending').length
   const finished = !!state.finishedAt
   return { total, done, errors, running, pending, finished, startedAt: state.startedAt, finishedAt: state.finishedAt }
+}
+
+// ─── KV Processing ────────────────────────────────────────────────────────────
+
+/**
+ * Merge patch into the stored job and write it back.
+ * Safe to read-modify-write here: each job key has exactly one writer
+ * (the worker assigned to that sessionId), so there is no concurrent contention.
+ */
+async function updateBatchJob(batchId: string, sessionId: string, patch: Partial<QueueJob>): Promise<void> {
+  const key = jobKey(batchId, sessionId)
+  const existing = await kv.get<string | QueueJob>(key)
+  const current: QueueJob = existing
+    ? (typeof existing === 'string' ? JSON.parse(existing) : existing)
+    : { sessionId, userId: patch.userId ?? '', status: 'pending' }
+  await kv.set(key, JSON.stringify({ ...current, ...patch }), { ex: BATCH_TTL })
+}
+
+async function processBatchKv(batchId: string, userId: string, sessionIds: string[]) {
+  const queue = [...sessionIds]
+  const running: Promise<void>[] = []
+
+  async function processOne(sessionId: string) {
+    await updateBatchJob(batchId, sessionId, { userId, status: 'running', startedAt: Date.now() })
+
+    try {
+      const result = await analyseSession({ sessionId, userId })
+      await updateBatchJob(batchId, sessionId, {
+        status: result.success ? 'done' : 'error',
+        result,
+        error: result.success ? undefined : result.error,
+        finishedAt: Date.now(),
+      })
+      // kv.incr is atomic — safe under concurrent invocations
+      if (result.success) {
+        await kv.incr(doneKey(batchId))
+      } else {
+        await kv.incr(failedKey(batchId))
+      }
+    } catch (err) {
+      await updateBatchJob(batchId, sessionId, {
+        status: 'error',
+        error: err instanceof Error ? err.message : 'Unknown error',
+        finishedAt: Date.now(),
+      })
+      await kv.incr(failedKey(batchId))
+    }
+  }
+
+  let idx = 0
+  while (idx < queue.length) {
+    while (running.length < CONCURRENCY && idx < queue.length) {
+      const sessionId = queue[idx++]
+      const p = processOne(sessionId).then(() => {
+        const i = running.indexOf(p)
+        if (i >= 0) running.splice(i, 1)
+      })
+      running.push(p)
+    }
+    if (running.length >= CONCURRENCY) await Promise.race(running)
+  }
+
+  await Promise.all(running)
+
+  // Stamp finishedAt on the meta key
+  try {
+    const metaRaw = await kv.get<string | BatchMeta>(metaKey(batchId))
+    if (metaRaw) {
+      const meta: BatchMeta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw
+      meta.finishedAt = Date.now()
+      await kv.set(metaKey(batchId), JSON.stringify(meta), { ex: BATCH_TTL })
+    }
+  } catch {
+    // Non-critical: batch results are still correct; only finishedAt is missing
+  }
 }
