@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
+import { logAiUsage } from '@/lib/admin/logAiUsage'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -293,6 +294,14 @@ CRITICAL: When you reference win rate anywhere in the plan, you MUST use ONLY th
         role: 'user',
         content: `${dataSummary}\n\n${PLAN_TEMPLATES[tab]}`
       }],
+    })
+
+    logAiUsage({
+      userId: clerkId,
+      route: '/api/coach',
+      model: message.model,
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens,
     })
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''

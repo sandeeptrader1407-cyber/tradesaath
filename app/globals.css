@@ -56,6 +56,30 @@
 }
 
 /* ═══════════════════════════════════════════════════════
+   ADMIN PANEL TOKENS
+   Scoped to .admin-shell so they never bleed into the app
+═══════════════════════════════════════════════════════ */
+.admin-shell {
+  --admin-sidebar-bg:   #1A1F2E;
+  --admin-page-bg:      #F8F6F1;
+  --admin-card-bg:      #FFFFFF;
+  --admin-ink:          #1A1F2E;
+  --admin-ink-secondary:#3D4052;
+  --admin-muted:        #888780;
+  --admin-border:       #E2DFD8;
+  --admin-border-strong:#C8C4B8;
+  --admin-accent:       #1D9E75;
+  --admin-accent-dim:   rgba(29,158,117,.08);
+  --admin-red:          #C0392B;
+  --admin-gold:         #B87B2B;
+  --admin-nav-active:   #F8F6F1;
+  --admin-nav-inactive: #888780;
+  --admin-nav-hover:    rgba(248,246,241,.08);
+  --admin-row-hover:    #F5F2EC;
+  --admin-shadow:       0 1px 3px rgba(26,31,46,.06);
+}
+
+/* ═══════════════════════════════════════════════════════
    RESET & BASE
 ═══════════════════════════════════════════════════════ */
 * { box-sizing: border-box; margin: 0; padding: 0 }

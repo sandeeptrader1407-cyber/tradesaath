@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
+import { logAiUsage } from '@/lib/admin/logAiUsage'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -190,6 +191,15 @@ ${journeyContext}`
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
+
+    logAiUsage({
+      userId: clerkId,
+      route: '/api/chat',
+      model: response.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    })
+
     return NextResponse.json({ reply: text })
   } catch (err: unknown) {
     const errMessage = err instanceof Error ? err.message : 'Chat failed'
