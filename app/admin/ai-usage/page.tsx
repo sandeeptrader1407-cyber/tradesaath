@@ -23,9 +23,7 @@ interface UsageData {
 }
 
 function fmtCost(usd: number) {
-  if (usd < 0.001) return `$${usd.toFixed(6)}`
-  if (usd < 0.01) return `$${usd.toFixed(5)}`
-  return `$${usd.toFixed(4)}`
+  return `$${usd.toFixed(2)}`
 }
 
 function fmtDayLabel(iso: string) {
