@@ -18,8 +18,9 @@ import { clerkClient } from '@clerk/nextjs/server';
 import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, computeFileHash } from '@/lib/intake';
 import type { RawFileData } from '@/lib/intake';
 import { tradesNeedPairing, pairClaudeTrades } from '@/lib/intake/claudeTradePairer';
+import { logAiUsage } from '@/lib/admin/logAiUsage';
 
-type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string };
+type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string; usage?: { inputTokens: number; outputTokens: number } };
 
 /* ─── Call Claude API ─── */
 async function callClaude(
@@ -50,7 +51,8 @@ async function callClaude(
       return { ok: false, error: `Claude: ${errMsg}`, code: data.error?.type || `HTTP_${response.status}` };
     }
     const text = (data.content as Array<{ type: string; text?: string }> | undefined)?.find((c) => c.type === 'text')?.text || '';
-    return { ok: true, data: text };
+    const usage = data.usage ? { inputTokens: data.usage.input_tokens ?? 0, outputTokens: data.usage.output_tokens ?? 0 } : undefined;
+    return { ok: true, data: text, usage };
   } catch (err: unknown) {
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
     const msg = isAbort ? `Claude timed out (${Math.round(timeoutMs / 1000)}s)` : (err instanceof Error ? err.message : 'Claude error');
@@ -584,6 +586,9 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     // Timeout extended 55s → 75s (inside maxDuration=90s) to let the longer response stream finish.
     const extractResult = await callClaude(apiKey, buildExtractPrompt(brokerHint), userContent, 16000, 75000);
     console.log(`Call 1 took ${Date.now() - c1Start}ms, ok=${extractResult.ok}`);
+    if (extractResult.ok && extractResult.usage) {
+      try { const { userId: logUid } = await auth(); if (logUid) logAiUsage({ userId: logUid, route: '/api/analyse', model: 'claude-sonnet-4-20250514', inputTokens: extractResult.usage.inputTokens, outputTokens: extractResult.usage.outputTokens }); } catch { /* non-blocking */ }
+    }
 
     // Log Claude response preview for debugging
     if (extractResult.ok) {
