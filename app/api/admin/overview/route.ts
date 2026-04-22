@@ -4,19 +4,33 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 
+function startOfWeek(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  d.setDate(diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export async function GET() {
   const adminId = await requireAdmin()
   if (!adminId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const sb = getSupabaseAdmin()
 
+  const eightWeeksAgo = new Date()
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56)
+
   const [
     usersRes,
     proUsersRes,
     todaySessionsRes,
+    totalSessionsRes,
     paymentsRes,
     recentUsersRes,
     recentPaymentsRes,
+    weeklySignupsRes,
   ] = await Promise.all([
     sb.from('users').select('id', { count: 'exact', head: true }),
     sb.from('user_plans')
@@ -26,6 +40,7 @@ export async function GET() {
     sb.from('trade_sessions')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+    sb.from('trade_sessions').select('id', { count: 'exact', head: true }),
     sb.from('payments')
       .select('amount')
       .eq('status', 'completed'),
@@ -38,18 +53,61 @@ export async function GET() {
       .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(10),
+    sb.from('users')
+      .select('created_at')
+      .gte('created_at', eightWeeksAgo.toISOString()),
   ])
 
   const totalRevenuePaise = (paymentsRes.data ?? []).reduce(
     (s, r) => s + (Number(r.amount) || 0), 0
   )
 
+  const totalUsers = usersRes.count ?? 0
+  const activeProUsers = proUsersRes.count ?? 0
+  const totalSessions = totalSessionsRes.count ?? 0
+
+  const conversionRate = totalUsers > 0
+    ? Math.round((activeProUsers / totalUsers) * 1000) / 10
+    : 0
+  const avgSessionsPerUser = totalUsers > 0
+    ? Math.round((totalSessions / totalUsers) * 10) / 10
+    : 0
+
+  // Weekly signups — last 8 weeks
+  const now = new Date()
+  const weeklyMap: Record<string, number> = {}
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i * 7)
+    const key = startOfWeek(d).toISOString().split('T')[0]
+    weeklyMap[key] = 0
+  }
+  for (const u of weeklySignupsRes.data ?? []) {
+    const key = startOfWeek(new Date(u.created_at)).toISOString().split('T')[0]
+    if (key in weeklyMap) weeklyMap[key]++
+  }
+  const weeklySignups = Object.entries(weeklyMap).map(([week, count]) => ({ week, count }))
+
+  // Enrich recentUsers with live plan from user_plans (users.plan is stale after coupons)
+  const recentUserIds = (recentUsersRes.data ?? []).map(u => u.clerk_id)
+  const { data: recentPlans } = recentUserIds.length
+    ? await sb.from('user_plans').select('user_id, plan').in('user_id', recentUserIds)
+    : { data: [] }
+  const recentPlanMap = new Map((recentPlans ?? []).map(p => [p.user_id, p.plan]))
+  const enrichedUsers = (recentUsersRes.data ?? []).map(u => ({
+    ...u,
+    plan: recentPlanMap.get(u.clerk_id) ?? u.plan ?? 'free',
+  }))
+
   return NextResponse.json({
-    totalUsers: usersRes.count ?? 0,
+    totalUsers,
     totalRevenueRupees: Math.round(totalRevenuePaise / 100),
-    activeProUsers: proUsersRes.count ?? 0,
+    activeProUsers,
     sessionsToday: todaySessionsRes.count ?? 0,
-    recentUsers: recentUsersRes.data ?? [],
+    conversionRate,
+    avgSessionsPerUser,
+    weeklySignups,
+    recentUsers: enrichedUsers,
     recentPayments: (recentPaymentsRes.data ?? []).map(p => ({
       ...p,
       amountRupees: Math.round((Number(p.amount) || 0) / 100),

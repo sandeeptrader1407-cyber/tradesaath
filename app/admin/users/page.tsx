@@ -12,6 +12,7 @@ interface AdminUser {
   session_quota: number | null
   sessions_used: number
   session_count: number
+  last_active: string | null
   total_paid_rupees: number
   created_at: string
 }
@@ -219,6 +220,13 @@ export default function AdminUsersPage() {
                 if (isPro || quota === null) return `${used} / Unlimited`
                 return `${used} / ${quota}`
               },
+            },
+            {
+              key: 'last_active',
+              label: 'Last Active',
+              sortable: true,
+              width: '110px',
+              render: v => v ? fmtDate(String(v)) : '—',
             },
             {
               key: 'created_at',

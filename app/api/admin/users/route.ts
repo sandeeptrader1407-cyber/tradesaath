@@ -37,17 +37,23 @@ export async function GET(req: NextRequest) {
         .in('user_id', clerkIds)
     : { data: [] }
 
-  // Enrich with session counts
-  const { data: sessionCounts } = clerkIds.length
+  // Enrich with session counts and last active date.
+  // Ordered DESC so first occurrence per user_id is the most recent session.
+  const { data: sessionData } = clerkIds.length
     ? await sb.from('trade_sessions')
-        .select('user_id')
+        .select('user_id, created_at')
         .in('user_id', clerkIds)
+        .order('created_at', { ascending: false })
     : { data: [] }
 
   const planMap = new Map((plans ?? []).map(p => [p.user_id, p]))
   const sessionCountMap: Record<string, number> = {}
-  for (const s of sessionCounts ?? []) {
+  const lastActiveMap: Record<string, string> = {}
+  for (const s of sessionData ?? []) {
     sessionCountMap[s.user_id] = (sessionCountMap[s.user_id] || 0) + 1
+    if (!lastActiveMap[s.user_id]) {
+      lastActiveMap[s.user_id] = s.created_at
+    }
   }
 
   // Total paid per user from payments
@@ -74,6 +80,7 @@ export async function GET(req: NextRequest) {
       sessions_used: up?.sessions_used ?? 0,
       plan_expires_at: up?.plan_expires_at ?? null,
       session_count: sessionCountMap[u.clerk_id] ?? 0,
+      last_active: lastActiveMap[u.clerk_id] ?? null,
       total_paid_rupees: Math.round((paidMap[u.clerk_id] || 0) / 100),
       created_at: u.created_at,
     }
