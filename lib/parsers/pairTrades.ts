@@ -1,4 +1,4 @@
-import type { RawFill, ParsedTrade, Fill } from './types'
+import type { RawFill, ParsedTrade } from './types'
 
 /**
  * Group raw fills by symbol, pair buys with sells, compute P&L.
@@ -56,21 +56,26 @@ export function pairTrades(fills: RawFill[]): ParsedTrade[] {
     const firstFill = symbolFills[0]
     const time = extractTime(firstFill.time)
 
-    // Build fills array from the entry side
-    const entryFills = side === 'BUY' ? buys : sells
-    const fillsArr: Fill[] = entryFills.map((f) => ({ qty: f.qty, price: round2(f.price) }))
-
     trades.push({
-      id: id++,
+      index: id++,
       time,
+      date: firstFill.time.slice(0, 10) || '',
       symbol,
       side,
       qty: pairedQty,
       entry: round2(entry),
       exit: round2(exit),
       pnl,
-      cumPnl: 0, // filled below
-      fills: fillsArr,
+      cum_pnl: 0, // filled below
+      session: '',
+      time_gap_minutes: null,
+      tag: '',
+      label: '',
+      entry_time: time,
+      exit_time: '',
+      holding_minutes: 0,
+      exchange: '',
+      trade_id: '',
     })
   }
 
@@ -78,9 +83,9 @@ export function pairTrades(fills: RawFill[]): ParsedTrade[] {
   trades.sort((a, b) => a.time.localeCompare(b.time))
   let cum = 0
   for (let i = 0; i < trades.length; i++) {
-    trades[i].id = i + 1
+    trades[i].index = i + 1
     cum += trades[i].pnl
-    trades[i].cumPnl = cum
+    trades[i].cum_pnl = cum
   }
 
   return trades
