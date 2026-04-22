@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import type { ReactNode } from 'react'
 
 export interface AdminColumn {
@@ -119,7 +119,9 @@ export default function AdminTable({
       }}
     >
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* minWidth prevents columns from squishing on narrow viewports,
+            triggering the overflowX: auto scrollbar instead */}
+        <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               {columns.map(col => (
@@ -155,9 +157,10 @@ export default function AdminTable({
               const id = String(row[keyField] ?? '')
               const isExpanded = expandedId === id
               return (
-                <>
+                // Fragment must carry the key so React can reconcile
+                // expanded rows correctly across sort/page changes.
+                <Fragment key={id}>
                   <tr
-                    key={id}
                     onClick={onExpand ? () => onExpand(isExpanded ? null : id) : undefined}
                     style={{
                       cursor: onExpand ? 'pointer' : 'default',
@@ -185,7 +188,7 @@ export default function AdminTable({
                     ))}
                   </tr>
                   {isExpanded && renderExpanded && (
-                    <tr key={`${id}-expanded`}>
+                    <tr>
                       <td
                         colSpan={columns.length}
                         style={{
@@ -198,7 +201,7 @@ export default function AdminTable({
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

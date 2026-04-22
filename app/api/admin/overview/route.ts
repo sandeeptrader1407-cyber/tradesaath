@@ -34,7 +34,7 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(10),
     sb.from('payments')
-      .select('clerk_id, plan, amount, currency, created_at, razorpay_order_id')
+      .select('clerk_id, email, plan, amount, currency, created_at, razorpay_order_id')
       .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(10),

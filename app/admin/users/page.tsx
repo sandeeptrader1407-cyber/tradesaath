@@ -27,6 +27,17 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  single: 'Starter',
+  pro_monthly: 'Pro Monthly',
+  pro_yearly: 'Pro Yearly',
+}
+
+function fmtPlan(plan: string) {
+  return PLAN_LABELS[plan] ?? plan
+}
+
 type ActionKey = 'reset_quota' | 'set_pro' | 'set_free'
 
 const ACTION_LABELS: Record<ActionKey, string> = {
@@ -177,43 +188,57 @@ export default function AdminUsersPage() {
         </button>
       </form>
 
-      <AdminTable
-        loading={loading}
-        keyField="clerk_id"
-        pageSize={20}
-        expandedId={expandedId}
-        onExpand={setExpandedId}
-        renderExpanded={renderExpanded}
-        columns={[
-          { key: 'name', label: 'Name', sortable: true },
-          { key: 'email', label: 'Email', sortable: true },
-          { key: 'plan', label: 'Plan', sortable: true },
-          {
-            key: 'sessions_used',
-            label: 'Sessions Used/Quota',
-            mono: true,
-            render: (_, row) => {
-              const used = Number(row.sessions_used)
-              const quota = row.session_quota
-              return quota != null ? `${used} / ${quota}` : `${used} / —`
+      <div style={{ overflowX: 'auto' }}>
+        <AdminTable
+          loading={loading}
+          keyField="clerk_id"
+          pageSize={20}
+          expandedId={expandedId}
+          onExpand={setExpandedId}
+          renderExpanded={renderExpanded}
+          columns={[
+            { key: 'name', label: 'Name', sortable: true, width: '120px' },
+            { key: 'email', label: 'Email', sortable: true },
+            {
+              key: 'plan',
+              label: 'Plan',
+              sortable: true,
+              width: '100px',
+              render: v => fmtPlan(String(v)),
             },
-          },
-          {
-            key: 'created_at',
-            label: 'Joined',
-            sortable: true,
-            render: v => fmtDate(String(v)),
-          },
-          {
-            key: 'total_paid_rupees',
-            label: 'Total Paid',
-            mono: true,
-            sortable: true,
-            render: v => `₹${Number(v).toLocaleString('en-IN')}`,
-          },
-        ]}
-        rows={(data?.users ?? []) as unknown as Record<string, unknown>[]}
-      />
+            {
+              key: 'sessions_used',
+              label: 'Sessions',
+              mono: true,
+              width: '110px',
+              render: (_, row) => {
+                const used = Number(row.sessions_used)
+                const plan = String(row.plan ?? '')
+                const isPro = plan === 'pro_monthly' || plan === 'pro_yearly'
+                const quota = row.session_quota
+                if (isPro || quota === null) return `${used} / Unlimited`
+                return `${used} / ${quota}`
+              },
+            },
+            {
+              key: 'created_at',
+              label: 'Joined',
+              sortable: true,
+              width: '110px',
+              render: v => fmtDate(String(v)),
+            },
+            {
+              key: 'total_paid_rupees',
+              label: 'Total Paid',
+              mono: true,
+              sortable: true,
+              width: '90px',
+              render: v => `₹${Number(v).toLocaleString('en-IN')}`,
+            },
+          ]}
+          rows={(data?.users ?? []) as unknown as Record<string, unknown>[]}
+        />
+      </div>
 
       {/* Confirm dialog */}
       {confirm && (
