@@ -93,7 +93,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           flex: 1,
           background: 'var(--admin-page-bg)',
           overflow: 'auto',
-          padding: 32,
+          padding: '48px 40px 40px 40px',
         }}
       >
         {children}

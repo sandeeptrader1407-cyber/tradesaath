@@ -21,7 +21,7 @@ export async function GET() {
 
   const { data: payments } = await sb
     .from('payments')
-    .select('clerk_id, plan, amount, currency, created_at, razorpay_order_id')
+    .select('clerk_id, email, plan, amount, currency, created_at, razorpay_order_id')
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
 
@@ -78,17 +78,11 @@ export async function GET() {
     pct: totalPaise > 0 ? Math.round((v.totalPaise / totalPaise) * 100) : 0,
   })).sort((a, b) => b.revenueRupees - a.revenueRupees)
 
-  // Enrich recent payments with email from users table
+  // email is stored directly in the payments row (written by create-order route)
   const recentRaw = all.slice(0, 20)
-  const clerkIds = Array.from(new Set(recentRaw.map(p => p.clerk_id).filter(Boolean)))
-  const { data: userRows } = clerkIds.length
-    ? await sb.from('users').select('clerk_id, email').in('clerk_id', clerkIds)
-    : { data: [] }
-  const emailMap = new Map((userRows ?? []).map(u => [u.clerk_id, u.email]))
-
   const recentPayments = recentRaw.map(p => ({
     date: p.created_at,
-    email: emailMap.get(p.clerk_id) ?? p.clerk_id ?? '—',
+    email: p.email ?? p.clerk_id ?? '—',
     plan: p.plan,
     amountRupees: Math.round((Number(p.amount) || 0) / 100),
     razorpay_order_id: p.razorpay_order_id,
