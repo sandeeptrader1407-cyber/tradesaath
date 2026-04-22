@@ -19,8 +19,10 @@ import { analyseSession, type AnalyseSessionResult } from '@/lib/analysis/sessio
 const CONCURRENCY = 3
 const BATCH_TTL = 15 * 60 // seconds
 
-if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-  throw new Error('KV_REST_API_URL and KV_REST_API_TOKEN must be set. See .env.local for local dev.')
+function assertKvConfigured() {
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    throw new Error('KV_REST_API_URL and KV_REST_API_TOKEN must be set. See .env.local for local dev.')
+  }
 }
 
 export type JobStatus = 'pending' | 'running' | 'done' | 'error'
@@ -62,6 +64,7 @@ function failedKey(id: string) { return `batch:${id}:failed` }
 
 /** Create a new batch and start background processing. */
 export async function createBatch(batchId: string, userId: string, sessionIds: string[]): Promise<void> {
+  assertKvConfigured()
   const meta: BatchMeta = { id: batchId, userId, sessionIds, startedAt: Date.now() }
 
   // Write meta + all job initial states + counters in one pipeline round-trip
@@ -83,6 +86,7 @@ export async function createBatch(batchId: string, userId: string, sessionIds: s
 
 /** Fetch current state of a batch. Returns null if not found or expired. */
 export async function getBatch(batchId: string): Promise<BatchState | null> {
+  assertKvConfigured()
   const metaRaw = await kv.get<string | BatchMeta>(metaKey(batchId))
   if (!metaRaw) return null
   const meta: BatchMeta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw
