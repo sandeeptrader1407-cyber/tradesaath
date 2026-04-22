@@ -10,6 +10,36 @@ export type AnyRow = Record<string, any>;
 export type ColumnRole = 'date' | 'symbol' | 'side' | 'qty' | 'price' | 'pnl' | 'ignore';
 export type ColumnMapping = Record<string, ColumnRole>;
 
+export interface RawFill {
+  time: string;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  qty: number;
+  price: number;
+}
+
+export interface Fill {
+  qty: number;
+  price: number;
+}
+
+export interface FileReadResult {
+  headers: string[];
+  rows: Record<string, string>[];
+  unsupported?: boolean;
+  message?: string;
+}
+
+export interface DetectionResult {
+  headers: string[];
+  mapping: ColumnMapping;
+  confidence: number;
+  broker: string | null;
+  preview: Record<string, string>[];
+  format: string;
+  missingFields?: string[];
+}
+
 export interface ParsedTrade {
   index: number;
   time: string;
