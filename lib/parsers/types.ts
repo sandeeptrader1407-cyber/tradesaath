@@ -7,6 +7,9 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyRow = Record<string, any>;
 
+export type ColumnRole = 'date' | 'symbol' | 'side' | 'qty' | 'price' | 'pnl' | 'ignore';
+export type ColumnMapping = Record<string, ColumnRole>;
+
 export interface ParsedTrade {
   index: number;
   time: string;
