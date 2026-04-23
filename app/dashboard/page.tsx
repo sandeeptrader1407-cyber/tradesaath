@@ -298,9 +298,19 @@ export default function DashboardPage() {
     ? stats.streaks.current > 0 ? "\u2191" : "\u2193"
     : "\u2192"
 
+  const isAnalysisPending = stats?.hasData === true && (stats.pendingAnalysisCount ?? 0) > 0
+
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
       <Toaster />
+      {/* Skeleton pulse keyframes — used by isAnalysisPending skeleton cards below */}
+      <style>{`@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+      {/* Slim progress bar auto-starts whenever pending sessions exist */}
+      <div className="max-w-6xl mx-auto" style={{ paddingTop: 4 }}>
+        <ErrorBoundary name="BatchAnalysisRunner">
+          <BatchAnalysisRunner autoStart slim onComplete={() => window.location.reload()} />
+        </ErrorBoundary>
+      </div>
       <div className="max-w-6xl mx-auto flex flex-col gap-5">
 
         <div className="rounded-xl border px-4 md:px-5 py-3 flex items-center justify-between flex-wrap gap-2" style={{
@@ -348,33 +358,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {stats?.hasData && (stats?.pendingAnalysisCount ?? 0) > 0 && (
-          <div className="rounded-xl border-2 p-5 md:p-6" style={{
-            background: "rgba(251,191,36,.06)",
-            borderColor: "#f59e0b",
-          }}>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-2xl">{"\u26A1"}</span>
-              <div>
-                <h2 className="text-base font-bold" style={{ color: "var(--text)" }}>
-                  {stats.pendingAnalysisCount} session{stats.pendingAnalysisCount === 1 ? "" : "s"} need analysis
-                </h2>
-                <p className="text-xs" style={{ color: "var(--text2)" }}>
-                  Your dashboard shows incomplete data until all sessions are analysed with the latest engine.
-                </p>
-              </div>
-            </div>
-            <ErrorBoundary name="BatchAnalysisRunner">
-              <BatchAnalysisRunner onComplete={() => window.location.reload()} />
-            </ErrorBoundary>
-          </div>
-        )}
 
-        {stats?.hasData && (stats?.pendingAnalysisCount ?? 0) === 0 && (
-          <ErrorBoundary name="BatchAnalysisRunner">
-            <BatchAnalysisRunner />
-          </ErrorBoundary>
-        )}
 
         {!stats?.hasData && !loading && (
           <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
@@ -551,21 +535,30 @@ export default function DashboardPage() {
                 <ErrorBoundary name="RecentActivity"><RecentActivity recentTrades={stats.recentTrades || []} recentSessions={stats.recentSessions || []} /></ErrorBoundary>
                 <ErrorBoundary name="GoalTracking"><GoalTracking winRate={stats.month.winRate} revengeTrades={stats.revengeTradeCount ?? 0} maxDailyTrades={stats.maxDailyTrades ?? 0} riskReward={parseFloat(stats.month.riskReward) || 0} /></ErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
-                    totalCost={totalCostForCalc}
-                    counterfactualPnl={stats.counterfactualPnl || 0}
-                    actualPnl={stats.actualAllTimePnl ?? stats.actualMonthPnl ?? 0}
-                    mistakes={mistakesForCalc}
-                    pendingCount={stats.pendingAnalysisCount ?? 0}
-                  /></ErrorBoundary>
-                  <ErrorBoundary name="DQS"><DecisionQualityScore
-                    score={stats.dqs?.overall ?? stats.dqsScore ?? 0}
-                    grade={stats.dqs?.grade ?? null}
-                    factors={stats.dqsFactors || []}
-                    pendingCount={stats.pendingAnalysisCount ?? 0}
-                  /></ErrorBoundary>
+                  {isAnalysisPending && totalCostForCalc === 0 && mistakesForCalc.length === 0
+                    ? <div style={{ height: 280, borderRadius: 12, background: '#F1EFE8', animation: 'sk-pulse 1.4s ease-in-out infinite' }} />
+                    : <ErrorBoundary name="MistakeCost"><MistakeCostCalculator
+                        totalCost={totalCostForCalc}
+                        counterfactualPnl={stats.counterfactualPnl || 0}
+                        actualPnl={stats.actualAllTimePnl ?? stats.actualMonthPnl ?? 0}
+                        mistakes={mistakesForCalc}
+                        pendingCount={stats.pendingAnalysisCount ?? 0}
+                      /></ErrorBoundary>
+                  }
+                  {isAnalysisPending && (stats.dqs?.overall ?? stats.dqsScore ?? 0) === 0
+                    ? <div style={{ height: 280, borderRadius: 12, background: '#F1EFE8', animation: 'sk-pulse 1.4s ease-in-out infinite' }} />
+                    : <ErrorBoundary name="DQS"><DecisionQualityScore
+                        score={stats.dqs?.overall ?? stats.dqsScore ?? 0}
+                        grade={stats.dqs?.grade ?? null}
+                        factors={stats.dqsFactors || []}
+                        pendingCount={stats.pendingAnalysisCount ?? 0}
+                      /></ErrorBoundary>
+                  }
                 </div>
-                <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} insights={insightsForBI} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
+                {isAnalysisPending && insightsForBI.length === 0
+                  ? <div style={{ height: 180, borderRadius: 12, background: '#F1EFE8', animation: 'sk-pulse 1.4s ease-in-out infinite' }} />
+                  : <ErrorBoundary name="BehavioralInsights"><BehavioralInsights sessionCount={stats.sessionCount} insights={insightsForBI} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
+                }
                 <ErrorBoundary name="SummaryCards"><SummaryCards today={stats.today} week={stats.week} month={{ pnl: stats.month.pnl, sessions: stats.month.sessions }} /></ErrorBoundary>
               </div>
             )}

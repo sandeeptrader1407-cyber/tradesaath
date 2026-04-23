@@ -55,14 +55,17 @@ interface Props {
   autoStart?: boolean
   /** Compact inline style (for upload flow); default is card style. */
   compact?: boolean
+  /** Slim mode: renders a 3 px progress bar + one line of text instead of the full card. */
+  slim?: boolean
 }
 
-export default function BatchAnalysisRunner({ onComplete, autoStart = false, compact = false }: Props) {
+export default function BatchAnalysisRunner({ onComplete, autoStart = false, compact = false, slim = false }: Props) {
   const [state, setState] = useState<RunnerState>('idle')
   const [rows, setRows] = useState<Row[]>([])
   const [analysedCount, setAnalysedCount] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const cancelledRef = useRef(false)
+  const [showBanner, setShowBanner] = useState(true)
 
   const load = useCallback(async () => {
     setState('loading')
@@ -102,6 +105,7 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
 
   const runBatch = useCallback(async () => {
     cancelledRef.current = false
+    setShowBanner(true)
     setState('running')
 
     const snapshot = await load()
@@ -171,8 +175,10 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     }
 
     setState('done')
-    if (done > 0) showToast.success(`Analysed ${done} session${done === 1 ? '' : 's'}`)
-    if (failed > 0) showToast.warning(`${failed} session${failed === 1 ? '' : 's'} failed — you can retry`)
+    if (!slim) {
+      if (done > 0) showToast.success(`Analysed ${done} session${done === 1 ? '' : 's'}`)
+      if (failed > 0) showToast.warning(`${failed} session${failed === 1 ? '' : 's'} failed — you can retry`)
+    }
 
     if (done > 0) {
       try {
@@ -207,15 +213,71 @@ export default function BatchAnalysisRunner({ onComplete, autoStart = false, com
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, rows.length])
 
+  // Slim mode: hide the banner 2 s after batch completes (visual fade window)
+  useEffect(() => {
+    if (!slim || state !== 'done' || rows.length === 0) return
+    const t = setTimeout(() => setShowBanner(false), 2000)
+    return () => clearTimeout(t)
+  }, [slim, state, rows.length])
+
   const doneCount = rows.filter((r) => r.status === 'done' || r.status === 'skipped').length
   const failedCount = rows.filter((r) => r.status === 'failed').length
 
   if (state === 'loading') {
+    if (slim) {
+      return (
+        <div style={{ padding: '4px 0' }}>
+          <style>{`@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+          <div style={{ height: 3, borderRadius: 99, background: '#F1EFE8', animation: 'sk-pulse 1.4s ease-in-out infinite' }} />
+        </div>
+      )
+    }
     return (
-      <div style={{ padding: 12, color: 'var(--muted)', fontSize: 13 }}>
-        Loading analysis status...
+      <div style={{ borderRadius: 8, overflow: 'hidden' }}>
+        <style>{`@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+        <div style={{ height: 40, background: '#F1EFE8', animation: 'sk-pulse 1.4s ease-in-out infinite', borderRadius: 8 }} />
       </div>
     )
+  }
+
+  // Slim mode: compact progress bar + one line of text, no full card
+  if (slim) {
+    // No pending rows → render nothing
+    if (rows.length === 0) return null
+
+    const completed = doneCount + failedCount
+    const total = rows.length
+    const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    // Running → animated progress bar
+    if (state === 'running') {
+      return (
+        <div style={{ paddingBottom: 2 }}>
+          <div style={{ height: 3, borderRadius: 99, overflow: 'hidden', background: 'rgba(15,76,129,.12)', marginBottom: 6 }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: '#0F4C81', borderRadius: 99, transition: 'width 0.4s ease' }} />
+          </div>
+          <p style={{ fontSize: 12, color: '#888780', fontFamily: 'var(--font-dm-sans, DM Sans, sans-serif)', margin: 0 }}>
+            Analysing your sessions — {completed} of {total} complete
+          </p>
+        </div>
+      )
+    }
+
+    // Done → show full bar briefly then fade out
+    if (state === 'done' && showBanner) {
+      return (
+        <div style={{ paddingBottom: 2 }}>
+          <div style={{ height: 3, borderRadius: 99, overflow: 'hidden', background: 'rgba(15,76,129,.12)', marginBottom: 6 }}>
+            <div style={{ height: '100%', width: '100%', background: '#0F4C81', borderRadius: 99 }} />
+          </div>
+          <p style={{ fontSize: 12, color: '#888780', fontFamily: 'var(--font-dm-sans, DM Sans, sans-serif)', margin: 0 }}>
+            Analysis complete — {doneCount} session{doneCount === 1 ? '' : 's'} processed
+          </p>
+        </div>
+      )
+    }
+
+    return null
   }
 
   // Nothing to analyse — hide entirely in compact mode, show success card otherwise
