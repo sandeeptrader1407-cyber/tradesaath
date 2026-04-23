@@ -371,7 +371,7 @@ export default function CoachPage() {
               </div>
               <div className="card-body">
                 <div style={{
-                  background: '#0a0a0a',
+                  background: '#ffffff',
                   border: '1px solid var(--border)',
                   borderRadius: 10,
                   padding: 16,
@@ -389,7 +389,7 @@ export default function CoachPage() {
                         style={{
                         display: 'flex', alignItems: 'center', gap: 12,
                         padding: '8px 4px',
-                        borderBottom: i < merged.length - 1 ? '1px dashed rgba(255,255,255,.06)' : 'none',
+                        borderBottom: i < merged.length - 1 ? '1px dashed rgba(0,0,0,.08)' : 'none',
                         cursor: 'pointer',
                         opacity: checked ? 0.55 : 1,
                         userSelect: 'none',
