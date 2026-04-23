@@ -4,6 +4,36 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 
+type RiskLevel = 'at_risk' | 'cooling' | 'new' | 'active' | 'inactive'
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function computeRisk(
+  plan: string,
+  lastActive: string | null,
+  createdAt: string,
+): RiskLevel {
+  const now = Date.now()
+  const created = new Date(createdAt).getTime()
+  const lastActiveMs = lastActive ? new Date(lastActive).getTime() : null
+  const isPro = plan === 'pro_monthly' || plan === 'pro_yearly'
+
+  // Grace period — brand-new user, no expectation yet
+  if (now - created < 3 * DAY_MS) return 'new'
+
+  // Paying user who has gone quiet
+  if (isPro && (lastActiveMs === null || now - lastActiveMs >= 14 * DAY_MS)) return 'at_risk'
+
+  // Recently active
+  if (lastActiveMs !== null && now - lastActiveMs < 7 * DAY_MS) return 'active'
+
+  // Has been active before but drifting
+  if (lastActiveMs !== null && now - lastActiveMs >= 7 * DAY_MS) return 'cooling'
+
+  // Free, never uploaded, past grace period
+  return 'inactive'
+}
+
 export async function GET(req: NextRequest) {
   const adminId = await requireAdmin()
   if (!adminId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -15,7 +45,6 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  // Base query on users table
   let query = sb
     .from('users')
     .select('clerk_id, email, name, plan, created_at', { count: 'exact' })
@@ -29,16 +58,14 @@ export async function GET(req: NextRequest) {
   const { data: users, count, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Enrich with user_plans data
   const clerkIds = (users ?? []).map(u => u.clerk_id)
+
   const { data: plans } = clerkIds.length
     ? await sb.from('user_plans')
         .select('user_id, plan, session_quota, sessions_used, plan_expires_at')
         .in('user_id', clerkIds)
     : { data: [] }
 
-  // Enrich with session counts and last active date.
-  // Ordered DESC so first occurrence per user_id is the most recent session.
   const { data: sessionData } = clerkIds.length
     ? await sb.from('trade_sessions')
         .select('user_id, created_at')
@@ -56,7 +83,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Total paid per user from payments
   const { data: payments } = clerkIds.length
     ? await sb.from('payments')
         .select('clerk_id, amount')
@@ -71,16 +97,19 @@ export async function GET(req: NextRequest) {
 
   const enriched = (users ?? []).map(u => {
     const up = planMap.get(u.clerk_id)
+    const effectivePlan = up?.plan ?? u.plan ?? 'free'
+    const lastActive = lastActiveMap[u.clerk_id] ?? null
     return {
       clerk_id: u.clerk_id,
       email: u.email,
       name: u.name,
-      plan: up?.plan ?? u.plan ?? 'free',
+      plan: effectivePlan,
       session_quota: up?.session_quota ?? null,
       sessions_used: up?.sessions_used ?? 0,
       plan_expires_at: up?.plan_expires_at ?? null,
       session_count: sessionCountMap[u.clerk_id] ?? 0,
-      last_active: lastActiveMap[u.clerk_id] ?? null,
+      last_active: lastActive,
+      risk: computeRisk(effectivePlan, lastActive, u.created_at) as RiskLevel,
       total_paid_rupees: Math.round((paidMap[u.clerk_id] || 0) / 100),
       created_at: u.created_at,
     }
