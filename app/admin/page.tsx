@@ -20,6 +20,10 @@ interface ActivityEvent {
   created_at: string
 }
 
+interface CollapsedEvent extends ActivityEvent {
+  count?: number   // set when multiple consecutive uploads are collapsed
+}
+
 interface OverviewData {
   totalUsers: number
   totalRevenueRupees: number
@@ -65,6 +69,34 @@ function timeAgo(iso: string): string {
   return `${Math.floor(days)}d ago`
 }
 
+// Collapse > 3 consecutive uploads from the same user into a single row.
+function deduplicateFeed(events: ActivityEvent[]): CollapsedEvent[] {
+  const result: CollapsedEvent[] = []
+  let i = 0
+  while (i < events.length) {
+    const ev = events[i]
+    if (ev.event_type === 'upload') {
+      let j = i + 1
+      while (j < events.length && events[j].event_type === 'upload' && events[j].email === ev.email) {
+        j++
+      }
+      const count = j - i
+      if (count > 3) {
+        // Keep the most-recent event's timestamp and broker label
+        result.push({ ...ev, count })
+        i = j
+      } else {
+        result.push(ev)
+        i++
+      }
+    } else {
+      result.push(ev)
+      i++
+    }
+  }
+  return result
+}
+
 const CHART_COLOR = 'var(--admin-accent)'
 
 export default function AdminOverviewPage() {
@@ -105,7 +137,7 @@ export default function AdminOverviewPage() {
         { label: 'Avg Sessions / User', value: '—' },
       ]
 
-  const feed = data?.activityFeed ?? []
+  const feed = deduplicateFeed(data?.activityFeed ?? [])
 
   return (
     <div>
@@ -186,44 +218,50 @@ export default function AdminOverviewPage() {
                 No activity in the last 48 hours.
               </div>
             ) : (
-              feed.map((ev, i) => (
-                <div
-                  key={`${ev.event_type}-${ev.created_at}-${i}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 14px',
-                    borderBottom: i < feed.length - 1 ? '0.5px solid var(--admin-border)' : 'none',
-                  }}
-                >
-                  <div style={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                    background: ev.event_type === 'signup'
-                      ? 'var(--admin-blue)'
-                      : 'var(--admin-accent)',
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{
-                      display: 'block',
-                      fontSize: 13,
-                      fontFamily: 'var(--font-sans)',
-                      color: 'var(--admin-ink)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}>
-                      {ev.event_type === 'signup'
-                        ? `${ev.label} joined`
-                        : `${ev.email || 'Unknown'} uploaded via ${ev.label}`
-                      }
-                    </span>
+              feed.map((ev, i) => {
+                const eventText = ev.event_type === 'signup'
+                  ? `${ev.label} joined`
+                  : ev.count != null
+                    ? `${ev.email || 'Unknown'} uploaded ${ev.count} sessions via ${ev.label}`
+                    : `${ev.email || 'Unknown'} uploaded via ${ev.label}`
+                return (
+                  <div
+                    key={`${ev.event_type}-${ev.created_at}-${i}`}
+                    style={{
+                      padding: '10px 14px',
+                      borderBottom: i < feed.length - 1 ? '0.5px solid var(--admin-border)' : 'none',
+                    }}
+                  >
+                    {/* Line 1: dot + event text (truncated) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                        background: ev.event_type === 'signup'
+                          ? 'var(--admin-blue)'
+                          : 'var(--admin-accent)',
+                      }} />
+                      <span style={{
+                        fontSize: 13,
+                        fontFamily: 'var(--font-sans)',
+                        color: 'var(--admin-ink)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: 1,
+                        minWidth: 0,
+                      }}>
+                        {eventText}
+                      </span>
+                    </div>
+                    {/* Line 2: time ago, indented to align with text (6px dot + 10px gap = 16px) */}
+                    <div style={{ paddingLeft: 16, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--admin-muted)' }}>
+                        {timeAgo(ev.created_at)}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--admin-muted)', flexShrink: 0 }}>
-                    {timeAgo(ev.created_at)}
-                  </span>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
           <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontFamily: 'var(--font-sans)', marginTop: 6, paddingLeft: 2 }}>
