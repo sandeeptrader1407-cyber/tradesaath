@@ -15,30 +15,23 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
   const { trades } = useAnalysisStore();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
-  // Filter trades based on active filter
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
       switch (activeFilter) {
-        case 'buy':
-          return trade.side?.toUpperCase() === 'BUY';
-        case 'sell':
-          return trade.side?.toUpperCase() === 'SELL';
-        case 'wins':
-          return trade.pnl > 0;
-        case 'losses':
-          return trade.pnl < 0;
-        default:
-          return true;
+        case 'buy':   return trade.side?.toUpperCase() === 'BUY';
+        case 'sell':  return trade.side?.toUpperCase() === 'SELL';
+        case 'wins':  return trade.pnl > 0;
+        case 'losses':return trade.pnl < 0;
+        default:      return true;
       }
     });
   }, [trades, activeFilter]);
 
-  // Calculate cumulative P&L for visible trades
-  const cumulativePnl = useMemo(() => {
-    return filteredTrades.reduce((sum, trade) => sum + trade.pnl, 0);
-  }, [filteredTrades]);
+  const cumulativePnl = useMemo(() =>
+    filteredTrades.reduce((sum, t) => sum + t.pnl, 0),
+    [filteredTrades]
+  );
 
-  // Get session badge based on entry time
   const getSessionBadge = (entryTime: string): string => {
     if (!entryTime) return 'Afternoon';
     const hour = parseInt(entryTime.split(':')[0], 10);
@@ -47,16 +40,6 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
     return 'Afternoon';
   };
 
-  // Get side badge styling
-  const getSideBadgeColor = (side: string): { bg: string; text: string } => {
-    const upperSide = side?.toUpperCase();
-    if (upperSide === 'BUY') {
-      return { bg: 'bg-[var(--green)]', text: 'text-white' };
-    }
-    return { bg: 'bg-[var(--red)]', text: 'text-white' };
-  };
-
-  // Format P&L display
   const formatPnl = (pnl: number): string => {
     const sign = pnl >= 0 ? '+' : '';
     return `${sign}₹${Math.abs(Math.round(pnl)).toLocaleString('en-IN')}`;
@@ -65,21 +48,40 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
   const isLocked = (index: number): boolean => index >= freeLimit;
 
   return (
-    <div className="flex flex-col max-h-[50vh] md:max-h-[80vh] bg-[var(--s1)] border-b md:border-b-0 md:border-r border-[var(--border)] md:sticky md:top-24">
+    <div className="flex flex-col max-h-[50vh] md:max-h-[80vh]"
+      style={{ background: '#FFFFFF', borderRight: '0.5px solid var(--color-border)' }}>
       {/* Header */}
-      <div className="px-5 py-4 border-b border-[var(--border)]">
-        <h2 className="text-sm font-bold text-[var(--text)] mb-3">
-          Trades
-          <span className="text-xs text-[var(--text2)] ml-2">
-            {filteredTrades.length} order{filteredTrades.length !== 1 ? 's' : ''}
+      <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--color-border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)' }}>
+            Trades
           </span>
-        </h2>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)' }}>
+            {filteredTrades.length}
+          </span>
+        </div>
 
         {/* Running P&L */}
-        <div style={{ padding: '8px 12px', marginBottom: 8, borderRadius: 8, backgroundColor: 'rgba(62,232,196,0.06)', border: '1px solid rgba(62,232,196,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase', opacity: 0.6 }}>Running P&L</span>
-          <span style={{ fontSize: 16, fontWeight: 600, fontFamily: 'monospace', color: cumulativePnl >= 0 ? '#36d399' : '#f05d6c' }}>
-            {cumulativePnl >= 0 ? '+' : ''}{typeof cumulativePnl === 'number' ? cumulativePnl.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }) : '₹0'}
+        <div style={{
+          padding: '7px 10px',
+          marginBottom: 8,
+          borderRadius: 6,
+          background: 'var(--color-surface-raised, rgba(248,246,241,.8))',
+          border: '0.5px solid var(--color-border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+            Running P&amp;L
+          </span>
+          <span style={{
+            fontSize: 15,
+            fontWeight: 500,
+            fontFamily: 'var(--font-mono)',
+            color: cumulativePnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+          }}>
+            {formatPnl(cumulativePnl)}
           </span>
         </div>
 
@@ -89,11 +91,19 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                activeFilter === filter
-                  ? 'bg-[var(--accent)] text-black'
-                  : 'bg-[var(--s2)] text-[var(--text2)] hover:bg-[var(--s3)]'
-              }`}
+              style={{
+                padding: '3px 10px',
+                borderRadius: 20,
+                fontSize: 11,
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 400,
+                cursor: 'pointer',
+                border: '0.5px solid',
+                background: activeFilter === filter ? 'var(--color-ink)' : 'transparent',
+                color: activeFilter === filter ? 'var(--color-canvas)' : 'var(--color-muted)',
+                borderColor: activeFilter === filter ? 'var(--color-ink)' : 'var(--color-border)',
+                transition: 'all 0.1s',
+              }}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
             </button>
@@ -101,73 +111,77 @@ export default function TradeSidebar({ activeTrade, onSelectTrade, freeLimit = 3
         </div>
       </div>
 
-      {/* Scrollable trade list */}
+      {/* Trade list */}
       <div className="flex-1 overflow-y-auto">
         {filteredTrades.length === 0 ? (
-          <div className="px-5 py-8 text-center text-xs text-[var(--muted)]">
+          <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
             No trades match this filter
           </div>
         ) : (
           filteredTrades.map((trade, idx) => {
             const globalIndex = trades.indexOf(trade);
             const locked = isLocked(globalIndex);
-            const sideColors = getSideBadgeColor(trade.side);
             const isActive = activeTrade === globalIndex;
 
             return (
               <div
                 key={idx}
                 onClick={() => !locked && onSelectTrade(globalIndex)}
-                className={`px-4 py-3 border-l-4 cursor-pointer transition-colors ${
-                  isActive
-                    ? 'bg-[var(--s2)] border-l-[var(--accent)]'
-                    : 'border-l-transparent hover:bg-[var(--s2)]'
-                } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                style={{
+                  padding: '10px 14px',
+                  borderBottom: '0.5px solid var(--color-border)',
+                  borderLeft: isActive ? '3px solid var(--color-ink)' : '3px solid transparent',
+                  background: isActive ? 'rgba(26,31,46,.03)' : 'transparent',
+                  cursor: locked ? 'not-allowed' : 'pointer',
+                  opacity: locked ? 0.55 : 1,
+                  transition: 'background 0.1s',
+                }}
               >
-                {/* Trade number and symbol */}
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="text-xs font-bold text-[var(--text)] truncate">
-                      #{globalIndex + 1} {trade.symbol}
-                    </div>
-                  </div>
-                  {locked && <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>locked</span>}
+                {/* Symbol and lock */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-ink)' }}>
+                    #{globalIndex + 1} {trade.symbol}
+                  </span>
+                  {locked && (
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>locked</span>
+                  )}
                 </div>
 
-                {/* Time and session badge */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-jetbrains-mono text-[var(--text2)]">
+                {/* Time and session */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)' }}>
                     {trade.entry_time}
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--s3)] text-[var(--text2)]">
+                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--color-border)', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
                     {getSessionBadge(trade.entry_time)}
                   </span>
                 </div>
 
-                {/* Side badge */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${sideColors.bg} ${sideColors.text}`}>
+                {/* Side and P&L */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: 10,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 400,
+                    background: trade.side?.toUpperCase() === 'BUY'
+                      ? 'rgba(29,158,117,.1)'
+                      : 'rgba(192,57,43,.1)',
+                    color: trade.side?.toUpperCase() === 'BUY'
+                      ? 'var(--color-profit)'
+                      : 'var(--color-loss)',
+                  }}>
                     {trade.side?.toUpperCase()}
                   </span>
-                  <span className="text-[10px] text-[var(--text2)]">
-                    {trade.quantity} units
+                  <span style={{
+                    fontSize: 13,
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 500,
+                    color: trade.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                  }}>
+                    {formatPnl(trade.pnl)}
                   </span>
-                </div>
-
-                {/* P&L and cumulative */}
-                <div className="flex justify-between items-end">
-                  <div>
-                    <div
-                      className={`font-jetbrains-mono font-bold text-sm ${
-                        trade.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'
-                      }`}
-                    >
-                      {formatPnl(trade.pnl)}
-                    </div>
-                    <div className="text-[10px] text-[var(--muted)] mt-1">
-                      cumulative {formatPnl(trades.slice(0, globalIndex + 1).reduce((s, t) => s + t.pnl, 0))}
-                    </div>
-                  </div>
                 </div>
               </div>
             );
