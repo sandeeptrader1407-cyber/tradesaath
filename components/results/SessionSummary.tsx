@@ -2,11 +2,12 @@
 
 import { useAnalysisStore } from '@/lib/analysisStore';
 
+// Renders **bold** as weight-500 span, not browser-bold <strong>
 function parseMarkdownBold(text: string) {
   const parts = text.split(/\*\*(.*?)\*\*/);
   return parts.map((part, idx) => {
     if (idx % 2 === 0) return part;
-    return <strong key={idx}>{part}</strong>;
+    return <span key={idx} style={{ fontWeight: 500, color: 'var(--color-ink)' }}>{part}</span>;
   });
 }
 
@@ -22,39 +23,53 @@ export default function SessionSummary() {
   const pf = (kpis.profit_factor ?? 0).toFixed(2);
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--s1)', borderColor: 'var(--border)' }}>
-      <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-        <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: 'var(--text)' }}>
+    <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', background: '#FFFFFF', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--color-ink)' }}>
           AI Session Summary
         </h2>
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
+        <span style={{
+          padding: '2px 10px',
+          borderRadius: 20,
+          fontSize: 10,
+          fontWeight: 400,
+          fontFamily: 'var(--font-sans)',
+          background: 'rgba(29,158,117,.1)',
+          color: 'var(--color-profit)',
+          border: '0.5px solid rgba(29,158,117,.25)',
+        }}>
           FREE
         </span>
       </div>
-      <div className="p-5">
-        <div className="text-sm" style={{ lineHeight: 1.8, color: 'var(--text2)', fontFamily: "'Outfit', sans-serif" }}>
+      <div style={{ padding: '16px 20px' }}>
+        <div style={{
+          fontSize: 14,
+          fontFamily: 'var(--font-sans)',
+          color: '#444441',
+          lineHeight: 1.7,
+        }}>
           {parseMarkdownBold(analysis.session_summary)}
         </div>
       </div>
-      <div className="flex items-center gap-6 px-5 py-4 text-xs border-t" style={{ background: 'var(--s2)', borderColor: 'var(--border)' }}>
-        <div className="flex flex-col">
-          <span style={{ color: 'var(--muted)' }}>Gross P&L</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: isPos ? 'var(--green)' : 'var(--red)' }}>
-            {isPos ? '+' : ''}₹{Math.abs(kpis.net_pnl ?? 0).toLocaleString('en-IN')}
-          </span>
-        </div>
-        <div className="flex flex-col">
-          <span style={{ color: 'var(--muted)' }}>W/L Ratio</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--text)' }}>{wl}</span>
-        </div>
-        <div className="flex flex-col">
-          <span style={{ color: 'var(--muted)' }}>Win Rate</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--text)' }}>{wr}%</span>
-        </div>
-        <div className="flex flex-col">
-          <span style={{ color: 'var(--muted)' }}>P.Factor</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--text)' }}>{pf}</span>
-        </div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 24,
+        padding: '12px 20px',
+        background: 'var(--color-surface-raised, #F8F6F1)',
+        borderTop: '0.5px solid var(--color-border)',
+      }}>
+        {[
+          { label: 'Gross P&L', value: `${isPos ? '+' : ''}₹${Math.abs(kpis.net_pnl ?? 0).toLocaleString('en-IN')}`, color: isPos ? 'var(--color-profit)' : 'var(--color-loss)' },
+          { label: 'W/L Ratio', value: wl,    color: 'var(--color-ink)' },
+          { label: 'Win Rate',  value: `${wr}%`, color: 'var(--color-ink)' },
+          { label: 'P.Factor',  value: pf,    color: 'var(--color-ink)' },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 10, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color, fontSize: 14, marginTop: 1 }}>{value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

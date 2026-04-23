@@ -5,29 +5,36 @@ import { useEffect, useState } from 'react';
 
 export default function TechnicalInsights() {
   const { analysis } = useAnalysisStore();
-  const [animationTriggered, setAnimationTriggered] = useState(false);
+  const [animated, setAnimated] = useState(false);
 
-  useEffect(() => {
-    setAnimationTriggered(true);
-  }, []);
+  useEffect(() => { setAnimated(true); }, []);
 
   if (!analysis?.technical_insights || analysis.technical_insights.length === 0) {
     return null;
   }
 
-  const getBarColor = (score: number) => {
-    if (score < 40) return 'var(--red)';
-    if (score <= 60) return 'var(--gold)';
-    return 'var(--accent)';
+  const barColor = (score: number) => {
+    if (score < 40) return 'var(--color-loss)';
+    if (score <= 60) return 'var(--color-muted)';
+    return 'var(--color-profit)';
   };
 
   return (
-    <div className="rounded-xl border bg-[var(--s1)] border-[var(--border)] p-5">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-base font-fraunces text-[var(--text)]">
-          Free Technical Insights
+    <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', background: '#FFFFFF', padding: '16px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--color-ink)' }}>
+          Technical Insights
         </h2>
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent)] bg-opacity-20 text-[var(--accent)]">
+        <span style={{
+          padding: '2px 10px',
+          borderRadius: 20,
+          fontSize: 10,
+          fontWeight: 400,
+          fontFamily: 'var(--font-sans)',
+          background: 'rgba(29,158,117,.1)',
+          color: 'var(--color-profit)',
+          border: '0.5px solid rgba(29,158,117,.25)',
+        }}>
           FREE
         </span>
       </div>
@@ -35,30 +42,26 @@ export default function TechnicalInsights() {
       <div className="space-y-5">
         {analysis.technical_insights.map((insight, idx) => (
           <div key={idx}>
-            <div className="flex justify-between items-baseline mb-2">
-              <span className="text-sm font-outfit text-[var(--text)]">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-ink)' }}>
                 {insight.name}
               </span>
-              <span className="text-sm font-jetbrains-mono font-semibold text-[var(--text2)]">
+              <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-muted)' }}>
                 {insight.score}%
               </span>
             </div>
-
-            <div
-              className="w-full h-2 rounded-full bg-[var(--border)] overflow-hidden"
-              style={{ backgroundColor: 'var(--border)' }}
-            >
+            <div style={{ height: 6, borderRadius: 3, background: 'var(--color-border)', overflow: 'hidden' }}>
               <div
-                className="h-full rounded-full transition-all ease-out"
                 style={{
-                  backgroundColor: getBarColor(insight.score),
-                  width: animationTriggered ? `${insight.score}%` : '0%',
-                  transitionDuration: '0.8s',
+                  height: '100%',
+                  borderRadius: 3,
+                  background: barColor(insight.score),
+                  width: animated ? `${insight.score}%` : '0%',
+                  transition: 'width 0.8s ease-out',
                 }}
               />
             </div>
-
-            <p className="text-xs text-[var(--text2)] mt-2 leading-relaxed">
+            <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)', marginTop: 6, lineHeight: 1.6 }}>
               {insight.description}
             </p>
           </div>
