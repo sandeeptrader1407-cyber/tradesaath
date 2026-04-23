@@ -22,6 +22,8 @@ export async function GET() {
   const eightWeeksAgo = new Date()
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56)
 
+  const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000)
+
   const [
     usersRes,
     proUsersRes,
@@ -31,6 +33,8 @@ export async function GET() {
     recentUsersRes,
     recentPaymentsRes,
     weeklySignupsRes,
+    recentSignupsRes,
+    recentUploadsRes,
   ] = await Promise.all([
     sb.from('users').select('id', { count: 'exact', head: true }),
     sb.from('user_plans')
@@ -56,6 +60,18 @@ export async function GET() {
     sb.from('users')
       .select('created_at')
       .gte('created_at', eightWeeksAgo.toISOString()),
+    // Activity feed: signups in last 48 h
+    sb.from('users')
+      .select('name, email, created_at')
+      .gte('created_at', fortyEightHoursAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(20),
+    // Activity feed: uploads in last 48 h
+    sb.from('trade_sessions')
+      .select('user_id, detected_broker, created_at')
+      .gte('created_at', fortyEightHoursAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   const totalRevenuePaise = (paymentsRes.data ?? []).reduce(
@@ -88,7 +104,7 @@ export async function GET() {
   }
   const weeklySignups = Object.entries(weeklyMap).map(([week, count]) => ({ week, count }))
 
-  // Enrich recentUsers with live plan from user_plans (users.plan is stale after coupons)
+  // Enrich recentUsers with live plan from user_plans
   const recentUserIds = (recentUsersRes.data ?? []).map(u => u.clerk_id)
   const { data: recentPlans } = recentUserIds.length
     ? await sb.from('user_plans').select('user_id, plan').in('user_id', recentUserIds)
@@ -98,6 +114,33 @@ export async function GET() {
     ...u,
     plan: recentPlanMap.get(u.clerk_id) ?? u.plan ?? 'free',
   }))
+
+  // Build activity feed — merge signups + uploads, sort DESC, top 20
+  const signupEvents = (recentSignupsRes.data ?? []).map(u => ({
+    event_type: 'signup' as const,
+    label: u.name || u.email,
+    email: u.email,
+    created_at: u.created_at,
+  }))
+
+  const uploadUserIds = Array.from(
+    new Set((recentUploadsRes.data ?? []).map(s => s.user_id).filter(Boolean))
+  )
+  const { data: uploadUsers } = uploadUserIds.length
+    ? await sb.from('users').select('clerk_id, email').in('clerk_id', uploadUserIds)
+    : { data: [] }
+  const uploadEmailMap = new Map((uploadUsers ?? []).map(u => [u.clerk_id, u.email]))
+
+  const uploadEvents = (recentUploadsRes.data ?? []).map(s => ({
+    event_type: 'upload' as const,
+    label: s.detected_broker || 'Unknown broker',
+    email: uploadEmailMap.get(s.user_id) ?? '',
+    created_at: s.created_at,
+  }))
+
+  const activityFeed = [...signupEvents, ...uploadEvents]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 20)
 
   return NextResponse.json({
     totalUsers,
@@ -112,5 +155,6 @@ export async function GET() {
       ...p,
       amountRupees: Math.round((Number(p.amount) || 0) / 100),
     })),
+    activityFeed,
   })
 }

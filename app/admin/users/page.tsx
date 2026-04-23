@@ -1,8 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
 import AdminTable from '@/components/admin/AdminTable'
+
+type RiskLevel = 'at_risk' | 'cooling' | 'new' | 'active' | 'inactive'
+type FilterKey = 'all' | RiskLevel
 
 interface AdminUser {
   clerk_id: string
@@ -13,6 +16,7 @@ interface AdminUser {
   sessions_used: number
   session_count: number
   last_active: string | null
+  risk: RiskLevel
   total_paid_rupees: number
   created_at: string
 }
@@ -39,6 +43,25 @@ function fmtPlan(plan: string) {
   return PLAN_LABELS[plan] ?? plan
 }
 
+const RISK_CONFIG: Record<RiskLevel, { label: string; bg: string; text: string; border: string }> = {
+  at_risk:  { label: 'At risk',  bg: 'var(--risk-at-risk-bg)',  text: 'var(--risk-at-risk-text)',  border: 'var(--risk-at-risk-border)' },
+  cooling:  { label: 'Cooling',  bg: 'var(--risk-cooling-bg)',  text: 'var(--risk-cooling-text)',  border: 'var(--risk-cooling-border)' },
+  active:   { label: 'Active',   bg: 'var(--risk-active-bg)',   text: 'var(--risk-active-text)',   border: 'var(--risk-active-border)' },
+  new:      { label: 'New',      bg: 'var(--risk-new-bg)',      text: 'var(--risk-new-text)',      border: 'var(--risk-new-border)' },
+  inactive: { label: 'Inactive', bg: 'var(--risk-inactive-bg)', text: 'var(--risk-inactive-text)', border: 'var(--risk-inactive-border)' },
+}
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  all: 'All',
+  at_risk: 'At risk',
+  cooling: 'Cooling',
+  active: 'Active',
+  new: 'New',
+  inactive: 'Inactive',
+}
+
+const FILTERS: FilterKey[] = ['all', 'at_risk', 'cooling', 'active', 'new', 'inactive']
+
 type ActionKey = 'reset_quota' | 'set_pro' | 'set_free'
 
 const ACTION_LABELS: Record<ActionKey, string> = {
@@ -53,6 +76,7 @@ export default function AdminUsersPage() {
   const [data, setData] = useState<UsersResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -101,6 +125,22 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Client-side filter
+  const allUsers = data?.users ?? []
+  const filteredUsers = useMemo(() =>
+    activeFilter === 'all' ? allUsers : allUsers.filter(u => u.risk === activeFilter),
+    [allUsers, activeFilter],
+  )
+
+  // Risk counts for summary bar
+  const riskCounts = useMemo(() => {
+    const counts: Record<RiskLevel, number> = { at_risk: 0, cooling: 0, active: 0, new: 0, inactive: 0 }
+    for (const u of allUsers) {
+      counts[u.risk] = (counts[u.risk] || 0) + 1
+    }
+    return counts
+  }, [allUsers])
+
   function renderExpanded(row: Record<string, unknown>) {
     const userId = String(row.clerk_id)
     return (
@@ -148,10 +188,21 @@ export default function AdminUsersPage() {
 
   return (
     <div>
+      {/* Risk badge colour tokens — scoped inline to avoid touching globals.css */}
+      <style>{`
+        .admin-shell {
+          --risk-at-risk-bg: #FCEBEB; --risk-at-risk-text: #A32D2D; --risk-at-risk-border: #F09595;
+          --risk-cooling-bg: #FAEEDA; --risk-cooling-text: #854F0B; --risk-cooling-border: #EF9F27;
+          --risk-active-bg:  #EAF3DE; --risk-active-text:  #3B6D11; --risk-active-border:  #97C459;
+          --risk-new-bg:     #E6F1FB; --risk-new-text:     #185FA5; --risk-new-border:     #85B7EB;
+          --risk-inactive-bg:#F1EFE8; --risk-inactive-text:#5F5E5A; --risk-inactive-border:#D3D1C7;
+        }
+      `}</style>
+
       <AdminPageHeader title="Users" subtitle={`${data?.total ?? 0} total`} />
 
       {/* Search */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <input
           type="text"
           placeholder="Search by email..."
@@ -188,6 +239,51 @@ export default function AdminUsersPage() {
           Search
         </button>
       </form>
+
+      {/* Summary bar */}
+      {!loading && allUsers.length > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--admin-muted)', fontFamily: 'var(--font-sans)', marginBottom: 10 }}>
+          {(Object.entries(riskCounts) as [RiskLevel, number][])
+            .filter(([, n]) => n > 0)
+            .map(([risk, n], i, arr) => (
+              <span key={risk}>
+                <span style={{ color: RISK_CONFIG[risk].text }}>{n}</span>
+                {' '}{RISK_CONFIG[risk].label.toLowerCase()}
+                {i < arr.length - 1 && <span style={{ margin: '0 6px' }}>&middot;</span>}
+              </span>
+            ))}
+        </div>
+      )}
+
+      {/* Filter row */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
+        {FILTERS.map(f => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            style={{
+              height: 28,
+              padding: '0 12px',
+              fontSize: 12,
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 400,
+              border: '1px solid var(--admin-border)',
+              borderRadius: 6,
+              background: activeFilter === f ? 'var(--admin-ink)' : 'var(--admin-card-bg)',
+              color: activeFilter === f ? 'var(--admin-page-bg)' : 'var(--admin-ink)',
+              cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
+          >
+            {FILTER_LABELS[f]}
+            {f !== 'all' && riskCounts[f] > 0 && (
+              <span style={{ marginLeft: 5, fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.7 }}>
+                {riskCounts[f]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       <div style={{ overflowX: 'auto' }}>
         <AdminTable
@@ -229,6 +325,32 @@ export default function AdminUsersPage() {
               render: v => v ? fmtDate(String(v)) : '—',
             },
             {
+              key: 'risk',
+              label: 'Status',
+              sortable: true,
+              width: '90px',
+              render: v => {
+                const cfg = RISK_CONFIG[v as RiskLevel]
+                if (!cfg) return String(v)
+                return (
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 400,
+                    background: cfg.bg,
+                    color: cfg.text,
+                    border: `1px solid ${cfg.border}`,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {cfg.label}
+                  </span>
+                )
+              },
+            },
+            {
               key: 'created_at',
               label: 'Joined',
               sortable: true,
@@ -244,7 +366,7 @@ export default function AdminUsersPage() {
               render: v => `₹${Number(v).toLocaleString('en-IN')}`,
             },
           ]}
-          rows={(data?.users ?? []) as unknown as Record<string, unknown>[]}
+          rows={filteredUsers as unknown as Record<string, unknown>[]}
         />
       </div>
 
