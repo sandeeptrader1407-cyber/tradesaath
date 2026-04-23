@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const { email, name } = await req.json()
+    const { email, name, createdAt } = await req.json()
 
     if (!email) {
       return NextResponse.json(
@@ -43,6 +43,21 @@ export async function POST(req: NextRequest) {
         maxAge: 0,
         path: '/',
       })
+    }
+
+    // Set new-user cookie if the account was created within the last 60 s.
+    // Readable by JS (httpOnly: false) so dashboard can show the welcome toast.
+    if (createdAt) {
+      const ageMs = Date.now() - new Date(createdAt).getTime()
+      if (ageMs < 60_000) {
+        response.cookies.set('ts-new-user', '1', {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 300,
+          path: '/',
+        })
+      }
     }
 
     return response

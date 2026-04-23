@@ -21,6 +21,7 @@ import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import CouponInput from "@/components/CouponInput"
 import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
+import FirstSessionGuide from "@/components/FirstSessionGuide"
 
 interface DashStats {
   hasData: boolean
@@ -212,6 +213,23 @@ export default function DashboardPage() {
       })
   }, [isSignedIn])
 
+  // Welcome toast for brand-new users: reads the ts-new-user cookie set by
+  // /api/auth/sync when a Clerk account is less than 60 s old at sign-in time.
+  useEffect(() => {
+    if (loading || !isSignedIn || !stats) return
+    if (!stats.hasData) {
+      try {
+        const hasNewUserCookie = document.cookie.split(';').some(c => c.trim().startsWith('ts-new-user='))
+        if (hasNewUserCookie) {
+          document.cookie = 'ts-new-user=; max-age=0; path=/'
+          import("@/components/ui/Toast").then(({ showToast }) => {
+            showToast.success("Welcome to TradeSaath. Upload your first broker statement to get started.")
+          })
+        }
+      } catch { /* non-blocking — ignore cookie read errors */ }
+    }
+  }, [loading, isSignedIn, stats])
+
   if (!isLoaded || !isSignedIn) {
     return (
       <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
@@ -219,6 +237,17 @@ export default function DashboardPage() {
           <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
         </div>
       </main>
+    )
+  }
+
+  // New user with no sessions — show the onboarding guide instead of an empty dashboard.
+  // The <Toaster /> is mounted here so the welcome toast fires correctly.
+  if (!loading && stats !== null && !stats.hasData) {
+    return (
+      <>
+        <Toaster />
+        <FirstSessionGuide />
+      </>
     )
   }
 
@@ -360,20 +389,7 @@ export default function DashboardPage() {
 
 
 
-        {!stats?.hasData && !loading && (
-          <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-            <div className="text-5xl mb-4">{"\uD83D\uDCCA"}</div>
-            <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Welcome to your Trading Dashboard</h2>
-            <p className="text-sm mb-6" style={{ color: "var(--text2)" }}>Upload your first trading session to see your performance insights, discipline score, and behavioral patterns.</p>
-            <button
-              onClick={() => router.push("/upload")}
-              className="px-6 py-3 rounded-xl text-sm font-semibold"
-              style={{ background: "var(--accent)", color: "#071a15" }}
-            >
-              {"\uD83D\uDCCB"} Upload First Session {"\u2192"}
-            </button>
-          </div>
-        )}
+        {/* 0-session state is now handled by FirstSessionGuide (early return above) */}
 
         {loading && (
           <div className="flex items-center justify-center py-12">
