@@ -31,27 +31,45 @@ export default function SessionList({ sessions, activeId, onSelect }: Props) {
     )
   })
 
-  const fmt = formatPnl
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-bold" style={{ color: "var(--text)" }}>Sessions</h3>
-          <span className="text-[10px] font-jetbrains-mono" style={{ color: "var(--muted)" }}>{sessions.length}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--color-border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)' }}>
+            Sessions
+          </span>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 400, color: 'var(--color-muted)' }}>
+            {sessions.length}
+          </span>
         </div>
+        {/* Search input — 36px height, 0.5px border, radius 6px */}
         <input
           type="text"
           placeholder="Search date, market..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full text-xs px-3 py-2 rounded-lg border"
-          style={{ background: "var(--s2)", borderColor: "var(--border)", color: "var(--text)" }}
+          style={{
+            width: '100%',
+            height: 36,
+            padding: '0 10px',
+            fontSize: 13,
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 400,
+            color: 'var(--color-ink)',
+            background: '#FFFFFF',
+            border: '0.5px solid var(--color-border)',
+            borderRadius: 6,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
         />
       </div>
-      <div className="flex-1 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+
+      {/* Session rows */}
+      <div style={{ flex: 1, overflowY: 'auto', maxHeight: '60vh' }}>
         {filtered.length === 0 && (
-          <div className="p-4 text-center text-xs" style={{ color: "var(--muted)" }}>
+          <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
             No sessions found
           </div>
         )}
@@ -61,25 +79,49 @@ export default function SessionList({ sessions, activeId, onSelect }: Props) {
             <div
               key={s.id}
               onClick={() => onSelect(s.id)}
-              className="px-4 py-3 cursor-pointer border-b transition-all"
               style={{
-                borderColor: "var(--border)",
-                background: isActive ? "rgba(62,232,196,.06)" : "transparent",
-                borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                minHeight: 44,
+                padding: '10px 14px',
+                cursor: 'pointer',
+                borderBottom: '0.5px solid var(--color-border)',
+                // Active: blue-tint bg (#F0F5FB), 3px left accent border
+                background: isActive ? 'var(--session-active-bg, rgba(15,76,129,.05))' : 'transparent',
+                borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => {
+                if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'var(--color-surface-raised, #F5F2EC)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.background = isActive ? 'var(--session-active-bg, rgba(15,76,129,.05))' : 'transparent'
               }}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold" style={{ color: "var(--text)" }}>{s.trade_date || "Unknown date"}</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>
-                    {s.detected_market || "Market"} &middot; {s.trade_count || 0} {(s.trade_count || 0) === 1 ? 'trade' : 'trades'}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  {/* Date: DM Mono 12px */}
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-muted)', marginBottom: 2 }}>
+                    {s.trade_date || "Unknown date"}
+                  </div>
+                  {/* Market + trade count: DM Sans 13px 500 */}
+                  <div style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)' }}>
+                    {s.detected_market || "Market"}
+                    <span style={{ fontWeight: 400, color: 'var(--color-muted)', marginLeft: 4 }}>
+                      &middot; {s.trade_count || 0} {(s.trade_count || 0) === 1 ? 'trade' : 'trades'}
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs font-jetbrains-mono font-bold" style={{ color: Number(s.net_pnl) >= 0 ? "var(--green)" : "var(--red)" }}>
-                    {fmt(Number(s.net_pnl || 0))}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {/* P&L: DM Mono 500 13px */}
+                  <div style={{
+                    fontSize: 13,
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 500,
+                    color: Number(s.net_pnl) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                    marginBottom: 2,
+                  }}>
+                    {formatPnl(Number(s.net_pnl || 0))}
                   </div>
-                  <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 400, color: 'var(--color-muted)' }}>
                     {s.win_count || 0}W / {s.loss_count || 0}L
                   </div>
                 </div>

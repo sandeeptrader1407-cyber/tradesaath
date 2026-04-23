@@ -4,9 +4,6 @@ import { useState } from "react"
 import { formatPnl } from "@/lib/format/money"
 
 interface Trade {
-  // Accept both naming conventions:
-  // - AI extraction (Claude) returns: entry_time, exit_time, entry_price, exit_price, quantity
-  // - Local parser returns:           time,       (no exit_time), entry, exit,         qty
   entry_time?: string
   exit_time?: string
   time?: string
@@ -45,15 +42,49 @@ interface Props {
   session: Session | null
 }
 
+// Tag badge config — uses CSS variables from results components where possible
+function getTagStyle(tag?: string): { bg: string; color: string } {
+  switch (tag?.toLowerCase()) {
+    case "win":  return { bg: 'rgba(29,158,117,.12)',  color: 'var(--color-profit)' }
+    case "fomo": return { bg: 'rgba(184,123,43,.12)',  color: 'var(--gold)' }
+    case "rvg":  return { bg: 'rgba(192,57,43,.12)',   color: 'var(--color-loss)' }
+    case "avg":  return { bg: 'rgba(192,57,43,.12)',   color: 'var(--color-loss)' }
+    case "pnc":  return { bg: 'rgba(91,75,138,.12)',   color: 'var(--purple)' }
+    case "vs":   return { bg: 'rgba(192,107,40,.12)',  color: 'var(--orange)' }
+    case "over": return { bg: 'rgba(192,107,40,.12)',  color: 'var(--orange)' }
+    case "size": return { bg: 'rgba(192,107,40,.12)',  color: 'var(--orange)' }
+    case "late": return { bg: 'rgba(15,76,129,.1)',    color: 'var(--accent)' }
+    default:     return { bg: 'var(--color-border)',   color: 'var(--color-muted)' }
+  }
+}
+
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontFamily: 'var(--font-sans)',
+  fontWeight: 400,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  color: 'var(--color-muted)',
+  marginBottom: 4,
+}
+
+const sectionContentStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontFamily: 'var(--font-sans)',
+  fontWeight: 400,
+  color: '#444441',
+  lineHeight: 1.7,
+}
+
 export default function SessionDetail({ session }: Props) {
   const [expandedTrade, setExpandedTrade] = useState<number | null>(null)
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center h-full py-20">
-        <div className="text-center">
-          <p className="text-sm" style={{ color: "var(--text2)" }}>Select a session to view details</p>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40 }}>
+        <p style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
+          Select a session to view details
+        </p>
       </div>
     )
   }
@@ -69,193 +100,226 @@ export default function SessionDetail({ session }: Props) {
     trades = []
   }
 
-  const getTagColor = (tag?: string) => {
-    switch (tag?.toLowerCase()) {
-      case "win": return { bg: "rgba(62,232,196,.15)", color: "var(--green)" }
-      case "fomo": return { bg: "rgba(255,193,7,.15)", color: "var(--gold)" }
-      case "rvg": return { bg: "rgba(245,151,192,.15)", color: "#f597c0" }
-      case "avg": return { bg: "rgba(240,93,108,.15)", color: "var(--red)" }
-      case "pnc": return { bg: "rgba(240,93,108,.15)", color: "var(--red)" }
-      case "vs": return { bg: "rgba(157,122,247,.15)", color: "var(--purple, #9d7af7)" }
-      case "over": return { bg: "rgba(245,166,35,.15)", color: "var(--orange, #f5a623)" }
-      case "size": return { bg: "rgba(245,166,35,.15)", color: "var(--orange, #f5a623)" }
-      case "late": return { bg: "rgba(91,141,239,.15)", color: "var(--blue, #5b8def)" }
-      default: return { bg: "var(--s3)", color: "var(--text2)" }
-    }
-  }
-
   return (
-    <div className="p-5">
-      <div className="flex items-center justify-between mb-5">
+    <div style={{ padding: '20px' }}>
+      {/* Session header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h2 className="text-lg font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 20,
+            fontWeight: 400,
+            color: 'var(--color-ink)',
+            marginBottom: 4,
+          }}>
             {session.trade_date || "Session"}
           </h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            {session.detected_market || "Market"} &middot; {session.trade_count || trades.length} {((session.trade_count || trades.length) === 1) ? 'trade' : 'trades'}
+          <p style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-muted)' }}>
+            {session.detected_market || "Market"} &middot; {session.trade_count || trades.length}&nbsp;
+            {((session.trade_count || trades.length) === 1) ? 'trade' : 'trades'}
           </p>
         </div>
-        <div className="font-jetbrains-mono font-bold text-xl" style={{ color: Number(session.net_pnl) >= 0 ? "var(--green)" : "var(--red)" }}>
+        {/* Net P&L: DM Mono 500 24px */}
+        <div style={{
+          fontSize: 24,
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 500,
+          color: Number(session.net_pnl) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+          lineHeight: 1,
+        }}>
           {formatPnl(Number(session.net_pnl || 0))}
         </div>
       </div>
 
       {/* Trade Timeline */}
       {trades.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-xs" style={{ color: "var(--muted)" }}>No trade data available for this session</p>
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
+            No trade data available for this session
+          </p>
         </div>
       ) : (
-        <div className="relative pl-6">
-          {/* Vertical line */}
-          <div className="absolute left-2 top-2 bottom-2 w-px" style={{ background: "var(--border)" }} />
+        <div style={{ position: 'relative', paddingLeft: 20 }}>
+          {/* Vertical timeline line */}
+          <div style={{ position: 'absolute', left: 6, top: 6, bottom: 6, width: 1, background: 'var(--color-border)' }} />
 
           {trades.map((trade, idx) => {
-            const tagStyle = getTagColor(trade.tag)
+            const tagStyle = getTagStyle(trade.tag)
             const displayTime = trade.entry_time || trade.time || `#${idx + 1}`
             const displayQty = trade.quantity ?? trade.qty
             const entryPrice = trade.entry_price ?? trade.entry
-            const exitPrice = trade.exit_price ?? trade.exit
-            const hasAIAnalysis = !!(trade.quick_summary || trade.psychology_coaching || trade.technical_analysis || trade.counterfactual || trade.cycle_stage)
+            const exitPrice  = trade.exit_price  ?? trade.exit
+            const hasAI = !!(trade.quick_summary || trade.psychology_coaching || trade.technical_analysis || trade.counterfactual || trade.cycle_stage)
 
             return (
-              <div key={idx} className="relative mb-4 last:mb-0">
-                {/* Dot */}
-                <div
-                  className="absolute -left-4 top-3 w-3 h-3 rounded-full border-2"
-                  style={{
-                    background: trade.pnl >= 0 ? "var(--green)" : "var(--red)",
-                    borderColor: "var(--s1)",
-                  }}
-                />
+              <div key={idx} style={{ position: 'relative', marginBottom: 12 }}>
+                {/* Timeline dot */}
+                <div style={{
+                  position: 'absolute',
+                  left: -14,
+                  top: 10,
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: trade.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                  border: '2px solid #FFFFFF',
+                }} />
 
+                {/* Trade card */}
                 <div
-                  className="rounded-lg border ml-2 cursor-pointer transition-all"
-                  style={{ background: "var(--s1)", borderColor: expandedTrade === idx ? "var(--accent)" : "var(--border)" }}
                   onClick={() => setExpandedTrade(expandedTrade === idx ? null : idx)}
+                  style={{
+                    borderRadius: 8,
+                    border: `0.5px solid ${expandedTrade === idx ? 'var(--color-ink)' : 'var(--color-border)'}`,
+                    background: '#FFFFFF',
+                    cursor: 'pointer',
+                    marginLeft: 4,
+                    overflow: 'hidden',
+                  }}
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-2 p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-jetbrains-mono" style={{ color: "var(--muted)" }}>
+                  {/* Row header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Time */}
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 400, color: 'var(--color-muted)' }}>
                         {displayTime}
                       </span>
-                      <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{trade.symbol}</span>
-                      <span
-                        className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                        style={{
-                          background: trade.side?.toUpperCase() === "BUY" ? "rgba(62,232,196,.15)" : "rgba(240,93,108,.15)",
-                          color: trade.side?.toUpperCase() === "BUY" ? "var(--green)" : "var(--red)",
-                        }}
-                      >
+                      {/* Symbol */}
+                      <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)' }}>
+                        {trade.symbol}
+                      </span>
+                      {/* Side badge */}
+                      <span style={{
+                        fontSize: 10,
+                        padding: '1px 7px',
+                        borderRadius: 4,
+                        fontFamily: 'var(--font-sans)',
+                        fontWeight: 400,
+                        background: trade.side?.toUpperCase() === "BUY" ? 'rgba(29,158,117,.1)' : 'rgba(192,57,43,.1)',
+                        color: trade.side?.toUpperCase() === "BUY" ? 'var(--color-profit)' : 'var(--color-loss)',
+                      }}>
                         {trade.side?.toUpperCase()}
                       </span>
+                      {/* Qty */}
                       {displayQty !== undefined && (
-                        <span className="text-[10px]" style={{ color: "var(--muted)" }}>&times;{displayQty}</span>
+                        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)' }}>
+                          &times;{displayQty}
+                        </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Tag badge */}
                       {trade.tag && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: tagStyle.bg, color: tagStyle.color }}>
+                        <span style={{
+                          fontSize: 10,
+                          padding: '1px 7px',
+                          borderRadius: 4,
+                          fontFamily: 'var(--font-sans)',
+                          fontWeight: 400,
+                          background: tagStyle.bg,
+                          color: tagStyle.color,
+                        }}>
                           {trade.tag_label || trade.tag}
                         </span>
                       )}
-                      <span className="text-xs font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>
+                      {/* P&L */}
+                      <span style={{
+                        fontSize: 13,
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 500,
+                        color: trade.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                      }}>
                         {formatPnl(trade.pnl)}
                       </span>
-                      <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                        {expandedTrade === idx ? "\u25B2" : "\u25BC"}
+                      {/* Chevron */}
+                      <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>
+                        {expandedTrade === idx ? "▲" : "▼"}
                       </span>
                     </div>
                   </div>
 
-                  {/* Quick summary always visible if available */}
+                  {/* Quick summary preview when collapsed */}
                   {trade.quick_summary && expandedTrade !== idx && (
-                    <div className="px-3 pb-2">
-                      <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>
+                    <div style={{ padding: '0 12px 10px', borderTop: '0.5px solid var(--color-border)' }}>
+                      <p style={{ ...sectionContentStyle, fontSize: 12, marginTop: 8 }}>
                         {trade.quick_summary}
                       </p>
                     </div>
                   )}
 
-                  {/* Expanded view — ALWAYS render when expanded so the click is responsive */}
+                  {/* Expanded detail */}
                   {expandedTrade === idx && (
-                    <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: "var(--border)" }}>
-                      {/* Trade details — always shown */}
-                      <div className="pt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                    <div style={{ padding: '12px', borderTop: '0.5px solid var(--color-border)' }}>
+                      {/* Trade data grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 16px', marginBottom: 14, fontSize: 12 }}>
                         {entryPrice !== undefined && entryPrice !== 0 && (
-                          <div className="flex justify-between">
-                            <span style={{ color: "var(--muted)" }}>Entry</span>
-                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>&#8377;{entryPrice.toLocaleString("en-IN")}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Entry</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-ink)' }}>₹{entryPrice.toLocaleString("en-IN")}</span>
                           </div>
                         )}
                         {exitPrice !== undefined && exitPrice !== 0 && (
-                          <div className="flex justify-between">
-                            <span style={{ color: "var(--muted)" }}>Exit</span>
-                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>&#8377;{exitPrice.toLocaleString("en-IN")}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Exit</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-ink)' }}>₹{exitPrice.toLocaleString("en-IN")}</span>
                           </div>
                         )}
                         {displayQty !== undefined && (
-                          <div className="flex justify-between">
-                            <span style={{ color: "var(--muted)" }}>Quantity</span>
-                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>{displayQty}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Qty</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-ink)' }}>{displayQty}</span>
                           </div>
                         )}
                         {trade.exit_time && (
-                          <div className="flex justify-between">
-                            <span style={{ color: "var(--muted)" }}>Exit Time</span>
-                            <span className="font-jetbrains-mono" style={{ color: "var(--text)" }}>{trade.exit_time}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Exit time</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-ink)' }}>{trade.exit_time}</span>
                           </div>
                         )}
-                        {trade.session && (
-                          <div className="flex justify-between">
-                            <span style={{ color: "var(--muted)" }}>Session</span>
-                            <span style={{ color: "var(--text)" }}>{trade.session}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span style={{ color: "var(--muted)" }}>Net P&amp;L</span>
-                          <span className="font-jetbrains-mono font-bold" style={{ color: trade.pnl >= 0 ? "var(--green)" : "var(--red)" }}>{formatPnl(trade.pnl)}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Net P&amp;L</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: trade.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
+                            {formatPnl(trade.pnl)}
+                          </span>
                         </div>
                       </div>
 
-                      {/* AI analysis — only if available */}
+                      {/* AI sections — all use same label/content style */}
                       {trade.quick_summary && (
-                        <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                          <p className="text-[11px] font-bold mb-1 mt-2" style={{ color: "var(--accent)" }}>Summary</p>
-                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.quick_summary}</p>
+                        <div style={{ marginBottom: 10 }}>
+                          <p style={sectionLabelStyle}>Summary</p>
+                          <p style={sectionContentStyle}>{trade.quick_summary}</p>
                         </div>
                       )}
                       {trade.psychology_coaching && (
-                        <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--gold)" }}>Psychology Coaching</p>
-                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.psychology_coaching}</p>
+                        <div style={{ marginBottom: 10 }}>
+                          <p style={sectionLabelStyle}>Psychology</p>
+                          <p style={sectionContentStyle}>{trade.psychology_coaching}</p>
                         </div>
                       )}
                       {trade.technical_analysis && (
-                        <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--blue, #60a5fa)" }}>Technical Analysis</p>
-                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.technical_analysis}</p>
+                        <div style={{ marginBottom: 10 }}>
+                          <p style={sectionLabelStyle}>Technical</p>
+                          <p style={sectionContentStyle}>{trade.technical_analysis}</p>
                         </div>
                       )}
                       {trade.counterfactual && (
-                        <div>
-                          <p className="text-[11px] font-bold mb-1" style={{ color: "var(--green)" }}>What If</p>
-                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text2)" }}>{trade.counterfactual}</p>
+                        <div style={{ marginBottom: 10 }}>
+                          <p style={sectionLabelStyle}>Recommended action</p>
+                          <p style={sectionContentStyle}>{trade.counterfactual}</p>
                         </div>
                       )}
                       {trade.cycle_stage && (
                         <div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--s3)", color: "var(--text2)" }}>
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'var(--color-border)', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
                             Cycle: {trade.cycle_stage}
                           </span>
                         </div>
                       )}
-
-                      {/* If no AI analysis, tell the user why */}
-                      {!hasAIAnalysis && (
-                        <div className="pt-2 border-t text-[10px]" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-                          AI psychology and technical analysis weren&apos;t generated for this session. Re-upload the file to run analysis.
-                        </div>
+                      {!hasAI && (
+                        <p style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', paddingTop: 8, borderTop: '0.5px solid var(--color-border)' }}>
+                          AI analysis was not generated for this session. Re-upload the file to run analysis.
+                        </p>
                       )}
                     </div>
                   )}
