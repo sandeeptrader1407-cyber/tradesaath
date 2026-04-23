@@ -46,7 +46,7 @@ export default function JournalStats({ sessions }: Props) {
     marginBottom: 6,
   }
 
-  function valueColor(pos: boolean | null, value: string): string {
+  function valueColor(pos: boolean | null, _value: string): string {
     if (pos === null) return 'var(--color-ink)'
     if (pos) return 'var(--color-profit)'
     return 'var(--color-loss)'

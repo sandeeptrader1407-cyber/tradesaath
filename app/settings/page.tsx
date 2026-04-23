@@ -194,7 +194,7 @@ export default function SettingsPage() {
 
   const plan = settings?.plan ?? 'free'
   const isPro = plan === 'pro_monthly' || plan === 'pro_yearly'
-  const isPaid = plan !== 'free'
+  const _isPaid = plan !== 'free'
 
   const sessionsText = settings
     ? settings.session_quota !== null

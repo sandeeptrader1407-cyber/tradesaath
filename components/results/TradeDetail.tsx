@@ -18,7 +18,6 @@ function parseMarkdownBold(text: string) {
 }
 
 // Tag badge config — colours defined via CSS variables in style tag
-type TagKey = "win" | "fomo" | "rvg" | "avg" | "pnc" | "vs";
 
 function getTagStyling(tag?: string): { bg: string; color: string; label: string } {
   switch (tag?.toLowerCase()) {
