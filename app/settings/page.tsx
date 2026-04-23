@@ -199,7 +199,7 @@ export default function SettingsPage() {
   const sessionsText = settings
     ? settings.session_quota !== null
       ? `${settings.sessions_used} / ${settings.session_quota} sessions used`
-      : `${settings.sessions_used} sessions (unlimited)`
+      : `${settings.sessions_used} sessions used · Unlimited quota`
     : '—'
 
   const valueStyle: React.CSSProperties = {
@@ -274,7 +274,7 @@ export default function SettingsPage() {
 
           {settings?.plan_expires_at && (
             <Row label="Expires">
-              <span style={{ ...valueStyle, fontFamily: 'var(--font-mono)' }}>
+              <span style={valueStyle}>
                 {fmtDate(settings.plan_expires_at)}
               </span>
             </Row>
