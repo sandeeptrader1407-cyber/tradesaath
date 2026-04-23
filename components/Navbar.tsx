@@ -90,6 +90,12 @@ function NavLinks() {
         >
           Saathi
         </Link>
+        <Link
+          href="/settings"
+          className={`nav-app-link${pathname === '/settings' ? ' nav-active' : ''}`}
+        >
+          Settings
+        </Link>
       </>
     )
   }
@@ -117,6 +123,7 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
         <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journal</Link>
         <Link href={isPaid ? '/journey' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journey</Link>
         <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>Saathi</Link>
+        <Link href="/settings" onClick={closeMenu} className="nav-app-link">Settings</Link>
       </>
     )
   }
