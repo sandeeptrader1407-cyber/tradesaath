@@ -19,6 +19,7 @@ export function useSyncUser() {
         clerkId: user.id,
         email: user.primaryEmailAddress?.emailAddress || '',
         name: user.fullName || '',
+        createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : null,
       }),
     }).catch((err) => {
       console.error('User sync failed:', err)

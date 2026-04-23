@@ -22,6 +22,15 @@ import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 
+const BROKER_LINKS = [
+  { name: 'Zerodha',    url: 'https://kite.zerodha.com/portfolio/holdings' },
+  { name: 'Fyers',      url: 'https://trade.fyers.in/reports' },
+  { name: 'Upstox',    url: 'https://upstox.com/reports' },
+  { name: 'Angel One',  url: 'https://www.angelone.in/reports' },
+  { name: 'Groww',     url: 'https://groww.in/reports' },
+  { name: '5Paisa',    url: 'https://www.5paisa.com/reports' },
+]
+
 export default function UploadPage() {
   const analysis = useAnalysisStore((s) => s.analysis)
   const trades = useAnalysisStore((s) => s.trades)
@@ -33,6 +42,21 @@ export default function UploadPage() {
   const [activeTrade, setActiveTrade] = useState(0)
   const tradeLimit = usePlanStore((s) => s.tradeLimit)
   const FREE_LIMIT = tradeLimit()
+
+  // First-time user banner — hidden once the user dismisses it via localStorage
+  const [showBanner, setShowBanner] = useState(false)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('ts-upload-banner-dismissed') !== 'true') {
+        setShowBanner(true)
+      }
+    } catch { /* ignore private-browsing errors */ }
+  }, [])
+
+  function dismissBanner() {
+    try { localStorage.setItem('ts-upload-banner-dismissed', 'true') } catch { /* ignore */ }
+    setShowBanner(false)
+  }
 
   const showResults = trades.length > 0 && (analysisState === "parsed" || analysisState === "ai_running" || analysisState === "complete")
   const aiDone = analysisState === "complete" && analysis !== null
@@ -139,6 +163,58 @@ export default function UploadPage() {
     <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: "var(--bg)" }}>
       <Toaster />
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
+        {showBanner && (
+          <div style={{
+            borderRadius: 10,
+            background: 'var(--upload-banner-bg, rgba(15,76,129,.06))',
+            borderBottom: '0.5px solid var(--upload-banner-border, rgba(133,183,235,.7))',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)', fontFamily: 'var(--font-sans)', marginBottom: 4 }}>
+                New to TradeSaath? Here is how to get your broker statement:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 0' }}>
+                {BROKER_LINKS.map((b, i) => (
+                  <span key={b.name}>
+                    <a
+                      href={b.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--accent)', textDecoration: 'none' }}
+                    >
+                      {b.name}
+                    </a>
+                    {i < BROKER_LINKS.length - 1 && (
+                      <span style={{ color: 'var(--border)', margin: '0 6px' }}>&middot;</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={dismissBanner}
+              style={{
+                fontSize: 18,
+                lineHeight: 1,
+                color: 'var(--muted)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                flexShrink: 0,
+                padding: '0 2px',
+              }}
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+
         <div className="text-center mb-2">
           <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Analyse Your Trades<span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, backgroundColor: 'rgba(62,232,196,0.1)', color: '#3ee8c4', border: '1px solid rgba(62,232,196,0.2)', marginLeft: 8, fontFamily: 'monospace', letterSpacing: 1, verticalAlign: 'middle' }}>FREE</span></h1>
           <p className="mt-2 text-base" style={{ color: "var(--text2)" }}>Drop your broker files and get AI-powered psychological analysis in seconds</p>
