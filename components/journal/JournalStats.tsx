@@ -19,24 +19,53 @@ export default function JournalStats({ sessions }: Props) {
 
   const fmt = (v: number) => {
     const sign = v >= 0 ? "+" : "-"
-    return `${sign}\u20B9${Math.abs(Math.round(v)).toLocaleString("en-IN")}`
+    return `${sign}₹${Math.abs(Math.round(v)).toLocaleString("en-IN")}`
   }
 
   const stats = [
-    { label: "Cumulative Gross P&L", value: fmt(kpis.totalPnl), pos: kpis.totalPnl >= 0 },
-    { label: "Sessions", value: String(kpis.totalSessions), pos: true },
-    { label: "Win Rate", value: `${kpis.winRate}%`, pos: kpis.winRate >= 50 },
-    { label: "Best Day Gross P&L", value: fmt(kpis.bestSessionPnl), pos: kpis.bestSessionPnl >= 0 },
+    { label: "Cumulative Gross P&L", value: fmt(kpis.totalPnl),        pos: kpis.totalPnl >= 0 },
+    { label: "Sessions",             value: String(kpis.totalSessions), pos: null },
+    { label: "Win Rate",             value: `${kpis.winRate}%`,         pos: kpis.winRate >= 50 },
+    { label: "Best Day Gross P&L",   value: fmt(kpis.bestSessionPnl),   pos: kpis.bestSessionPnl >= 0 },
   ]
+
+  const cardStyle: React.CSSProperties = {
+    padding: '14px 16px',
+    borderRadius: 10,
+    background: '#FFFFFF',
+    border: '0.5px solid var(--color-border)',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10,
+    fontFamily: 'var(--font-sans)',
+    fontWeight: 400,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: 'var(--color-muted)',
+    marginBottom: 6,
+  }
+
+  function valueColor(pos: boolean | null, value: string): string {
+    if (pos === null) return 'var(--color-ink)'
+    if (pos) return 'var(--color-profit)'
+    return 'var(--color-loss)'
+  }
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
       {stats.map((s) => (
-        <div key={s.label} className="p-3 rounded-xl border" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-          <div className="font-jetbrains-mono font-bold text-lg" style={{ color: s.pos ? "var(--green)" : "var(--red)" }}>
+        <div key={s.label} style={cardStyle}>
+          <div style={labelStyle}>{s.label}</div>
+          <div style={{
+            fontSize: 22,
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 500,
+            color: valueColor(s.pos, s.value),
+            lineHeight: 1.1,
+          }}>
             {s.value}
           </div>
-          <div className="text-[9px] uppercase tracking-widest mt-1" style={{ color: "var(--text2)" }}>{s.label}</div>
         </div>
       ))}
     </div>

@@ -10,6 +10,7 @@ interface Session {
 interface Props {
   sessions: Session[]
   onSelectDate: (date: string) => void
+  activeDate?: string | null
 }
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
@@ -28,11 +29,10 @@ function latestSessionMonth(sessions: Session[]): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
 
-export default function CalendarCard({ sessions, onSelectDate }: Props) {
+export default function CalendarCard({ sessions, onSelectDate, activeDate }: Props) {
   const [viewDate, setViewDate] = useState<Date>(() => latestSessionMonth(sessions))
   const [autoJumped, setAutoJumped] = useState(false)
 
-  // If sessions load after mount (async fetch), jump to their latest month once
   useEffect(() => {
     if (autoJumped) return
     if (!sessions || sessions.length === 0) return
@@ -40,21 +40,19 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
     setViewDate(target)
     setAutoJumped(true)
   }, [sessions, autoJumped])
-  const year = viewDate.getFullYear()
-  const month = viewDate.getMonth()
 
-  const firstDay = new Date(year, month, 1).getDay()
+  const year  = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+  const firstDay   = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const today = new Date()
 
-  // Normalize date string to YYYY-MM-DD with zero-padded month/day
   const normalizeDate = (d: string): string => {
     const parts = d.split("-")
     if (parts.length !== 3) return d
     return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`
   }
 
-  // Build date->pnl+count map
   const dateMap = new Map<string, { pnl: number; count: number }>()
   for (const s of sessions) {
     if (s.trade_date) {
@@ -73,17 +71,48 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
+  const normalizedActive = activeDate ? normalizeDate(activeDate) : null
+
   return (
-    <div className="rounded-xl border p-4 mb-3" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} className="text-xs px-2 py-1 rounded" style={{ color: "var(--text2)" }}>&lsaquo;</button>
-        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{monthLabel}</span>
-        <button onClick={nextMonth} className="text-xs px-2 py-1 rounded" style={{ color: "var(--text2)" }}>&rsaquo;</button>
+    <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', background: '#FFFFFF', padding: '14px', marginBottom: 10 }}>
+      {/* Month navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <button
+          onClick={prevMonth}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '2px 6px', lineHeight: 1 }}
+        >
+          &lsaquo;
+        </button>
+        <span style={{ fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-ink)' }}>
+          {monthLabel}
+        </span>
+        <button
+          onClick={nextMonth}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '2px 6px', lineHeight: 1 }}
+        >
+          &rsaquo;
+        </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center">
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 gap-1 text-center" style={{ marginBottom: 4 }}>
         {DAYS.map((d) => (
-          <div key={d} className="text-[10px] sm:text-[9px] py-1" style={{ color: "var(--muted)" }}>{d}</div>
+          <div key={d} style={{
+            fontSize: 11,
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 400,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            color: 'var(--color-muted)',
+            paddingBottom: 4,
+          }}>
+            {d}
+          </div>
         ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-1 text-center">
         {cells.map((day, i) => {
           if (day === null) return <div key={`e${i}`} />
           const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
@@ -91,28 +120,50 @@ export default function CalendarCard({ sessions, onSelectDate }: Props) {
           const pnl = entry?.pnl ?? 0
           const sessionCount = entry?.count ?? 0
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
+          const isActive = normalizedActive === dateStr
           const hasData = entry !== undefined
 
           return (
             <div
               key={dateStr}
               onClick={() => hasData && onSelectDate(dateStr)}
-              className="relative flex items-center justify-center text-[10px] py-1.5 rounded cursor-pointer transition-all"
               style={{
-                color: isToday ? "var(--accent)" : hasData ? "var(--text)" : "var(--muted)",
-                fontWeight: isToday || hasData ? 600 : 400,
-                background: isToday ? "rgba(62,232,196,.08)" : "transparent",
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: hasData ? 500 : 400,
+                paddingTop: 6,
+                paddingBottom: 6,
+                borderRadius: 6,
+                cursor: hasData ? 'pointer' : 'default',
+                // Active selected day: dark bg, light text
+                background: isActive ? 'var(--color-ink)' : 'transparent',
+                color: isActive
+                  ? 'var(--color-canvas)'
+                  : hasData
+                    ? 'var(--color-ink)'
+                    : 'var(--color-muted)',
+                // Today: accent border (only when not already selected)
+                outline: isToday && !isActive ? '1.5px solid var(--accent)' : 'none',
+                outlineOffset: '-1px',
               }}
             >
               {day}
-              {hasData && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-0.5">
-                  <div
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: pnl >= 0 ? "var(--green)" : "var(--red)" }}
-                  />
+              {hasData && !isActive && (
+                <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <div style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    background: pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                  }} />
                   {sessionCount > 1 && (
-                    <span className="text-[7px] font-bold leading-none" style={{ color: "var(--muted)" }}>{sessionCount}</span>
+                    <span style={{ fontSize: 7, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', lineHeight: 1 }}>
+                      {sessionCount}
+                    </span>
                   )}
                 </div>
               )}

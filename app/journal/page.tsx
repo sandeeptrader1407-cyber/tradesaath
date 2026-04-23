@@ -49,15 +49,6 @@ function JournalContent() {
       .catch(() => setLoading(false))
   }, [])
 
-  // Detect recurring patterns from session analysis data.
-  //
-  // Reads the already-computed `mistake_patterns` array from each session's
-  // `analysis` JSONB — these are the canonical per-session counts/costs
-  // produced server-side by the analyser (both legacy and Module 2 paths
-  // emit the same shape via `buildAnalysisJSON`). No re-detection here.
-  //
-  // Trend: sessions are ordered newest-first, so index < midpoint is the
-  // recent half. Compare recent vs older count per pattern name.
   useEffect(() => {
     if (sessions.length < 2) return
     const patternTotals: Record<
@@ -69,7 +60,7 @@ function JournalContent() {
     sessions.forEach((sess, idx) => {
       const analysis = sess.analysis as Record<string, unknown> | null
       if (!analysis) return
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic analysis JSON
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mp = analysis.mistake_patterns as any[] | undefined
       if (!Array.isArray(mp) || mp.length === 0) return
 
@@ -89,16 +80,9 @@ function JournalContent() {
       }
     })
 
-    // Map canonical `mistake_patterns.name` values to display strings +
-    // stable tag slugs consumed by the link targets below.
     const NAME_TO_TAG: Record<string, string> = {
-      'Revenge Trade': 'rvg',
-      'Averaging Down': 'avg',
-      'FOMO Entry': 'fomo',
-      'Panic Exit': 'pnc',
-      'Overtrading': 'over',
-      'Oversized': 'size',
-      'Late Exit': 'late',
+      'Revenge Trade': 'rvg', 'Averaging Down': 'avg', 'FOMO Entry': 'fomo',
+      'Panic Exit': 'pnc', 'Overtrading': 'over', 'Oversized': 'size', 'Late Exit': 'late',
     }
     const NAME_DESCRIPTIONS: Record<string, string> = {
       'Revenge Trade': 'Revenge Trading after losses',
@@ -111,7 +95,7 @@ function JournalContent() {
     }
 
     const detected: PatternAlert[] = Object.entries(patternTotals)
-      .filter(([, v]) => v.count >= 3 && v.sessions >= 2) // recurring = 3+ occurrences across 2+ sessions
+      .filter(([, v]) => v.count >= 3 && v.sessions >= 2)
       .map(([name, v]) => {
         let trend: 'worsening' | 'improving' | 'stable' = 'stable'
         if (v.recentCount > v.olderCount * 1.3) trend = 'worsening'
@@ -126,15 +110,16 @@ function JournalContent() {
         }
       })
       .sort((a, b) => b.cost - a.cost)
-      .slice(0, 3) // top 3 patterns
+      .slice(0, 3)
 
     setPatterns(detected)
   }, [sessions])
 
   const activeSession = sessions.find((s) => s.id === activeId) || null
+  // Derive active date from active session for CalendarCard selected-day highlight
+  const activeDate = activeSession?.trade_date ?? null
 
   const handleDateSelect = (date: string) => {
-    // If already viewing a session from this date, cycle to next one
     const matches = sessions.filter((s) => s.trade_date === date)
     if (matches.length === 0) return
     const currentIdx = matches.findIndex((s) => s.id === activeId)
@@ -142,77 +127,107 @@ function JournalContent() {
     setActiveId(next.id)
   }
 
-  const trendConfig: Record<string, { label: string; color: string; icon: string }> = {
-    worsening: { label: 'Getting worse', color: 'var(--red)', icon: '\u2191' },
-    improving: { label: 'Improving', color: 'var(--green)', icon: '\u2193' },
-    stable: { label: 'Stable', color: 'var(--gold)', icon: '\u2192' },
+  const trendLabel: Record<string, { label: string; color: string }> = {
+    worsening: { label: 'Getting worse', color: 'var(--color-loss)' },
+    improving:  { label: 'Improving',     color: 'var(--color-profit)' },
+    stable:     { label: 'Stable',        color: 'var(--color-muted)' },
   }
 
   return (
-    <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
+    <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: 'var(--color-canvas)' }}>
+      {/* Amber pattern banner colour tokens */}
+      <style>{`:root{
+        --pattern-banner-bg:#FAEEDA;
+        --pattern-banner-border:#BA7517;
+        --pattern-banner-text:#854F0B;
+      }`}</style>
+
       <div className="max-w-6xl mx-auto">
-        {/* Compact Pattern Banner */}
+
+        {/* Pattern detection banner — amber, no emoji */}
         {patterns.length > 0 && (
           <div style={{
-            borderLeft: '3px solid var(--purple)',
-            background: 'rgba(157,122,247,.04)',
-            borderRadius: 8,
+            background: 'var(--pattern-banner-bg)',
+            borderLeft: '3px solid var(--pattern-banner-border)',
+            borderRadius: '0 6px 6px 0',
             padding: '10px 14px',
-            marginBottom: 12,
-            fontSize: 12,
+            marginBottom: 16,
+            fontSize: 13,
+            fontFamily: 'var(--font-sans)',
+            color: 'var(--pattern-banner-text)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                <span style={{ color: 'var(--purple)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                  {"\u26A0\uFE0F"} Patterns:
+                <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+                  Patterns detected:
                 </span>
                 {patterns.slice(0, 3).map((p, i) => (
-                  <span key={i} style={{ color: 'var(--text2)', whiteSpace: 'nowrap' }}>
-                    {p.name} <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--muted)' }}>({p.count}x)</span>
-                    {i < Math.min(patterns.length, 3) - 1 ? <span style={{ color: 'var(--border)', margin: '0 2px' }}>{" \u00B7 "}</span> : null}
+                  <span key={i} style={{ whiteSpace: 'nowrap' }}>
+                    {p.name}&nbsp;<span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>({p.count}x)</span>
+                    {i < Math.min(patterns.length, 3) - 1 && (
+                      <span style={{ margin: '0 4px', opacity: 0.4 }}>&middot;</span>
+                    )}
                   </span>
                 ))}
                 {patterns.length > 3 && (
-                  <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>and {patterns.length - 3} more</span>
+                  <span style={{ opacity: 0.7, fontStyle: 'italic' }}>and {patterns.length - 3} more</span>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={() => setPatternsExpanded(!patternsExpanded)}
                   style={{
-                    fontSize: 11, fontWeight: 600, color: 'var(--text2)',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: '2px 6px', whiteSpace: 'nowrap',
+                    fontSize: 12,
+                    fontWeight: 400,
+                    color: 'var(--pattern-banner-text)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {patternsExpanded ? 'Hide \u25B2' : 'Details \u25BC'}
+                  {patternsExpanded ? 'Hide' : 'Details'}
                 </button>
                 <Link href="/coach?tab=patterns" style={{
-                  fontSize: 11, fontWeight: 600, color: 'var(--purple)',
-                  padding: '3px 8px', borderRadius: 5,
-                  background: 'rgba(157,122,247,.1)',
-                  textDecoration: 'none', whiteSpace: 'nowrap',
+                  fontSize: 13,
+                  fontWeight: 400,
+                  color: 'var(--pattern-banner-text)',
+                  padding: '3px 10px',
+                  borderRadius: 5,
+                  border: '0.5px solid var(--pattern-banner-border)',
+                  background: 'rgba(186,119,23,.08)',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'var(--font-sans)',
                 }}>
-                  Saathi {"\u2192"}
+                  Saathi &rarr;
                 </Link>
               </div>
             </div>
+
             {patternsExpanded && (
-              <div style={{ marginTop: 10, borderTop: '1px solid rgba(157,122,247,.12)', paddingTop: 10 }}>
+              <div style={{ marginTop: 10, borderTop: '0.5px solid rgba(186,119,23,.3)', paddingTop: 10 }}>
                 {patterns.map((p, i) => {
-                  const t = trendConfig[p.trend]
+                  const t = trendLabel[p.trend]
                   return (
                     <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                      padding: '6px 0',
-                      borderBottom: i < patterns.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none',
+                      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                      padding: '5px 0',
+                      borderBottom: i < patterns.length - 1 ? '0.5px solid rgba(186,119,23,.15)' : 'none',
                     }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 160, fontSize: 12 }}>{p.name}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--muted)' }}>{p.count}x in {p.sessions} sessions</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--red)' }}>
-                        {"\u20B9"}{p.cost.toLocaleString('en-IN')}
+                      <span style={{ fontWeight: 500, color: 'var(--pattern-banner-text)', minWidth: 160, fontSize: 13, fontFamily: 'var(--font-sans)' }}>
+                        {p.name}
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: t.color }}>{t.label}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 400, color: 'var(--pattern-banner-text)', opacity: 0.8 }}>
+                        {p.count}x in {p.sessions} sessions
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: 'var(--color-loss)' }}>
+                        &#8377;{p.cost.toLocaleString('en-IN')}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 400, color: t.color, fontFamily: 'var(--font-sans)' }}>
+                        {t.label}
+                      </span>
                     </div>
                   )
                 })}
@@ -221,23 +236,42 @@ function JournalContent() {
           </div>
         )}
 
+        {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
           </div>
         )}
 
+        {/* Empty state — no emoji */}
         {!loading && sessions.length === 0 && (
-          <div className="rounded-xl border p-12 text-center" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-            <div className="text-4xl mb-4">{'\uD83D\uDCD3'}</div>
-            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>No sessions yet</h2>
-            <p className="text-sm mb-5" style={{ color: "var(--text2)" }}>Upload your first trading session to start building your journal.</p>
-            <a href="/upload" className="inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "#071a15" }}>
+          <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', padding: '48px 24px', textAlign: 'center', background: '#FFFFFF' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-ink)', marginBottom: 8 }}>
+              No sessions yet
+            </h2>
+            <p style={{ fontSize: 14, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+              Upload your first trading session to start building your journal.
+            </p>
+            <a
+              href="/upload"
+              style={{
+                display: 'inline-block',
+                padding: '10px 24px',
+                borderRadius: 8,
+                fontSize: 14,
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 400,
+                background: 'var(--accent)',
+                color: 'var(--color-canvas)',
+                textDecoration: 'none',
+              }}
+            >
               Upload First Session &rarr;
             </a>
           </div>
         )}
 
+        {/* Main journal layout */}
         {!loading && sessions.length > 0 && (
           <>
             <JournalStats sessions={sessions} />
@@ -245,15 +279,19 @@ function JournalContent() {
             <div className="flex flex-col md:flex-row gap-4">
               {/* Left panel */}
               <div className="w-full md:w-[280px] shrink-0">
-                <CalendarCard sessions={sessions} onSelectDate={handleDateSelect} />
-                <div className="rounded-xl border overflow-hidden" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+                <CalendarCard
+                  sessions={sessions}
+                  onSelectDate={handleDateSelect}
+                  activeDate={activeDate}
+                />
+                <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
                   <SessionList sessions={sessions} activeId={activeId} onSelect={setActiveId} />
                 </div>
               </div>
 
               {/* Right panel */}
-              <div className="flex-1 rounded-xl border overflow-hidden" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- session type varies */}
+              <div style={{ flex: 1, borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <SessionDetail session={activeSession as any} />
               </div>
             </div>
