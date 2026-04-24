@@ -20,8 +20,10 @@ const CONCURRENCY = 3
 const BATCH_TTL = 15 * 60 // seconds
 
 function assertKvConfigured() {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-    throw new Error('KV_REST_API_URL and KV_REST_API_TOKEN must be set. See .env.local for local dev.')
+  const url   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) {
+    throw new Error('KV_REST_API_URL (or UPSTASH_REDIS_REST_URL) and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_TOKEN) must be set.')
   }
 }
 
