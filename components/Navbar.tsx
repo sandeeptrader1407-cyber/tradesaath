@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { SignUpButton, useUser } from '@clerk/nextjs'
 import ClerkErrorBoundary from './ClerkErrorBoundary'
 import { usePlan } from '@/lib/planStore'
+import { useScroll, useTransform, motion } from 'framer-motion'
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 
@@ -142,10 +143,12 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { scrollY } = useScroll()
+  const borderOpacity = useTransform(scrollY, [0, 20], [0, 1])
 
   return (
     <>
-      <nav>
+      <motion.nav style={{ borderBottom: useTransform(borderOpacity, (v) => `1px solid rgba(229,226,217,${v})`) }}>
         <Link className="nav-logo" href="/">TradeSaath</Link>
 
         <div className="nav-links">
@@ -179,7 +182,7 @@ export default function Navbar() {
             <span /><span /><span />
           </button>
         </div>
-      </nav>
+      </motion.nav>
 
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
         <ClerkErrorBoundary fallback={
