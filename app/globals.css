@@ -205,25 +205,41 @@ nav {
 .hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg) }
 .hamburger.open span:nth-child(2) { opacity: 0 }
 .hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg) }
+@media(max-width:768px){
+  .nav-links { display: none }
+  .hamburger { display: flex }
+}
 
 /* Mobile menu */
 .mobile-menu {
   display: none; position: fixed; top: var(--nav-h); left: 0; right: 0;
   background: var(--color-ink); border-bottom: 0.5px solid rgba(255,255,255,.08);
-  padding: 8px 16px 16px; z-index: 99; flex-direction: column;
+  padding: 8px 0 16px; z-index: 99; flex-direction: column;
 }
 .mobile-menu.open { display: flex }
 .mobile-menu a {
   font-family: var(--font-sans);
-  font-size: 14px; font-weight: 400; color: #888780;
-  padding: 12px 8px;
+  font-size: 16px; font-weight: 400; color: #F8F6F1;
+  padding: 16px 24px;
   border-bottom: 0.5px solid rgba(255,255,255,.06);
   text-decoration: none; transition: color .15s;
+  display: block; height: auto;
 }
-.mobile-menu a:hover, .nav-signin-link:hover { color: #F8F6F1 }
+/* Override nav-app-link / nav-landing-link desktop styles inside mobile menu */
+.mobile-menu .nav-app-link,
+.mobile-menu .nav-landing-link {
+  font-size: 16px; color: #F8F6F1; padding: 16px 24px;
+  height: auto; display: block; border-bottom: 0.5px solid rgba(255,255,255,.06);
+  border-left: none; border-right: none; border-top: none;
+}
+.mobile-menu .nav-app-link.nav-active { color: rgba(248,246,241,.65) }
+.mobile-menu a:hover,
+.mobile-menu .nav-app-link:hover,
+.mobile-menu .nav-landing-link:hover,
+.nav-signin-link:hover { color: rgba(248,246,241,.7) }
 .nav-signin-link {
-  font-family: var(--font-sans); font-size: 14px; font-weight: 400;
-  color: #888780; padding: 12px 8px; text-decoration: none;
+  font-family: var(--font-sans); font-size: 16px; font-weight: 400;
+  color: #F8F6F1; padding: 16px 24px; text-decoration: none;
   border-bottom: 0.5px solid rgba(255,255,255,.06);
   transition: color .15s;
 }
@@ -1534,4 +1550,17 @@ body.day .broker-guide-body { background: #f8f9fa; border-color: #e0e0e0 }
   .kpi-strip { gap: 6px }
   .kpi-item { min-width: 80px; padding: 8px 10px }
   .kpi-val { font-size: 14px }
+}
+/* ── Mobile touch targets & sizing (375px / 390px) ── */
+@media(max-width:768px){
+  /* Journal — session list rows */
+  .j-sess { min-height: 56px }
+  /* Heatmap scroll hint */
+  .heatmap-scroll-hint { display: block!important }
+  /* Dashboard new-analysis button */
+  .dash-new-btn { width: 100%!important; height: 44px!important; justify-content: center }
+  /* Dashboard KPI value at 2-col */
+  .kpi-val-lg { font-size: 18px!important }
+  /* DQS ring in DecisionQualityScore */
+  .dqs-ring-svg { width: 100px!important; height: 100px!important }
 }

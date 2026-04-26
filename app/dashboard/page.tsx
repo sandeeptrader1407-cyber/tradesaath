@@ -233,6 +233,8 @@ export default function DashboardPage() {
           .dash-hero-issue{order:3}
           .dash-hero-before{order:1}
           .kpi-4-grid{grid-template-columns:repeat(2,1fr)!important}
+          .dash-new-btn{width:100%!important;height:44px!important;justify-content:center}
+          .kpi-val-lg{font-size:18px!important}
         }
       `}</style>
 
@@ -258,7 +260,7 @@ export default function DashboardPage() {
               {getMonthYear()}
             </p>
           </div>
-          <button onClick={() => router.push("/upload")} className="btn btn-accent btn-sm shrink-0">
+          <button onClick={() => router.push("/upload")} className="btn btn-accent btn-sm shrink-0 dash-new-btn">
             New Analysis
           </button>
         </div>
@@ -364,7 +366,7 @@ export default function DashboardPage() {
                   <p style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", margin: "0 0 6px" }}>
                     {k.label}
                   </p>
-                  <p style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color: k.color, margin: 0, lineHeight: 1 }}>
+                  <p className="kpi-val-lg" style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color: k.color, margin: 0, lineHeight: 1 }}>
                     {k.value}
                   </p>
                 </div>

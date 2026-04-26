@@ -81,7 +81,7 @@ export default function DecisionQualityScore({ score = 0, grade = null, factors 
         <div className="flex flex-col md:flex-row gap-6 items-center">
           {/* SVG Ring */}
           <div className="relative shrink-0">
-            <svg width="140" height="140" viewBox="0 0 140 140">
+            <svg className="dqs-ring-svg" width="140" height="140" viewBox="0 0 140 140">
               <circle cx="70" cy="70" r={radius} fill="none" stroke="var(--s3, rgba(255,255,255,.06))" strokeWidth="8" />
               <circle
                 cx="70" cy="70" r={radius} fill="none"

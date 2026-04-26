@@ -32,7 +32,16 @@ function JourneyContent() {
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: 'var(--color-canvas, #F8F6F1)' }}>
-      <style>{`@media(max-width:640px){.journey-stats-col{display:none!important}.journey-header{flex-direction:column!important}}`}</style>
+      <style>{`
+        @media(max-width:640px){
+          .journey-stats-col{display:none!important}
+          .journey-header{flex-direction:column!important}
+        }
+        @media(max-width:768px){
+          .journey-title{font-size:28px!important}
+          .journey-sub{font-size:13px!important}
+        }
+      `}</style>
       <div style={{ maxWidth: 768, margin: '0 auto' }}>
 
         {/* Two-column page header */}
@@ -56,7 +65,7 @@ function JourneyContent() {
             }}>
               Your Trading Story
             </p>
-            <h1 style={{
+            <h1 className="journey-title" style={{
               fontFamily: 'var(--font-display)',
               fontSize: 36,
               fontWeight: 400,
@@ -66,7 +75,7 @@ function JourneyContent() {
             }}>
               The story only your trades can tell.
             </h1>
-            <p style={{
+            <p className="journey-sub" style={{
               fontFamily: 'var(--font-sans)',
               fontSize: 14,
               fontWeight: 400,

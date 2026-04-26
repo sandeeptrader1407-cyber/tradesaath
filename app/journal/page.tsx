@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { PlanGate } from "@/components/PlanGate"
 import SessionList from "@/components/journal/SessionList"
@@ -115,9 +115,17 @@ function JournalContent() {
     setPatterns(detected)
   }, [sessions])
 
+  const detailRef = useRef<HTMLDivElement>(null)
   const activeSession = sessions.find((s) => s.id === activeId) || null
   // Derive active date from active session for CalendarCard selected-day highlight
   const activeDate = activeSession?.trade_date ?? null
+
+  useEffect(() => {
+    if (!activeId || !detailRef.current) return
+    if (window.innerWidth <= 768) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeId])
 
   const handleDateSelect = (date: string) => {
     const matches = sessions.filter((s) => s.trade_date === date)
@@ -290,7 +298,7 @@ function JournalContent() {
               </div>
 
               {/* Right panel */}
-              <div style={{ flex: 1, borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
+              <div ref={detailRef} style={{ flex: 1, borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <SessionDetail session={activeSession as any} />
               </div>
