@@ -88,7 +88,8 @@
       "Bash(del /f \"C:\\\\Users\\\\SK\\\\Desktop\\\\tradesaath\\\\.git\\\\index.lock\")",
       "Bash(rm -f \"C:/Users/SK/Desktop/tradesaath/.git/index.lock\")",
       "Bash(curl *)",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "Bash(sort find *)"
     ]
   }
 }
