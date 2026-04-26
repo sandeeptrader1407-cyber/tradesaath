@@ -145,10 +145,11 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { scrollY } = useScroll()
   const borderOpacity = useTransform(scrollY, [0, 20], [0, 1])
+  const navBorder = useTransform(borderOpacity, (v) => `1px solid rgba(229,226,217,${v})`)
 
   return (
     <>
-      <motion.nav style={{ borderBottom: useTransform(borderOpacity, (v) => `1px solid rgba(229,226,217,${v})`) }}>
+      <motion.nav style={{ borderBottom: navBorder }}>
         <Link className="nav-logo" href="/">TradeSaath</Link>
 
         <div className="nav-links">
