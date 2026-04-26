@@ -109,19 +109,20 @@ function Hero() {
               </span>
             </motion.div>
 
-            <motion.h1 variants={item} style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
               You know your P&amp;L.
             </motion.h1>
-            <motion.h1 variants={item} style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
               Not <span style={{ color: 'var(--color-loss)' }}>why.</span>
             </motion.h1>
 
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: '#444441', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
+            <motion.p variants={item} className="hero-sub" style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: '#444441', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
               Upload your broker statement and get a complete psychological analysis of your trading — patterns, discipline score, and exactly what to fix. Free.
             </motion.p>
 
             <motion.div variants={item} style={{ marginTop: 28 }}>
               <motion.a href="/upload" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                className="hero-cta"
                 style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--color-ink)', color: 'var(--color-canvas)', height: 48, padding: '0 28px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>
                 Analyse my trades &rarr;
               </motion.a>
@@ -179,7 +180,13 @@ function Hero() {
 
       <style>{`
         .hero-grid{display:grid;grid-template-columns:55fr 45fr;gap:64px;align-items:center}
-        @media(max-width:768px){.hero-card-col{display:none}.hero-grid{grid-template-columns:1fr!important;gap:0!important}}
+        @media(max-width:768px){
+          .hero-card-col{display:none}
+          .hero-grid{grid-template-columns:1fr!important;gap:0!important}
+          .hero-h1{font-size:40px!important}
+          .hero-sub{font-size:15px!important}
+          .hero-cta{display:flex!important;width:100%!important;justify-content:center!important;box-sizing:border-box}
+        }
       `}</style>
     </section>
   )
@@ -213,14 +220,17 @@ function StatsBar() {
       <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center' }} className="stats-row">
         {STATS.map((s, i) => (
           <div key={s.label} style={{ display: 'contents' }}>
-            {i > 0 && <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />}
+            {i > 0 && <div className="stats-sep" style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />}
             <StatItem end={s.end} suffix={s.suffix} label={s.label} />
           </div>
         ))}
       </div>
       <style>{`
         .stats-row{flex-wrap:wrap;gap:0}
-        @media(max-width:768px){.stats-row{display:grid!important;grid-template-columns:1fr 1fr;gap:32px 0}}
+        @media(max-width:768px){
+          .stats-row{display:grid!important;grid-template-columns:1fr 1fr;gap:32px 0}
+          .stats-sep{display:none!important}
+        }
       `}</style>
     </motion.section>
   )
@@ -344,9 +354,10 @@ function Pricing() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={VP} transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+          className="pricing-pro-card"
           style={{ background: 'var(--color-ink)', borderRadius: 16, padding: '32px 28px', boxShadow: '0 16px 64px rgba(26,31,46,0.2)' }}>
           <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', color: 'var(--color-canvas)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 10px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 500 }}>Pro Monthly</span>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: 'var(--color-canvas)', marginTop: 16, lineHeight: 1 }}>&#8377;799</div>
+          <div className="pricing-pro-price" style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: 'var(--color-canvas)', marginTop: 16, lineHeight: 1 }}>&#8377;799</div>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(248,246,241,0.5)', marginTop: 4, marginBottom: 20 }}>/month</p>
           <hr style={{ border: 'none', borderTop: '0.5px solid rgba(255,255,255,0.1)', marginBottom: 20 }} />
           <CheckRow light>Everything in Free</CheckRow>
@@ -361,7 +372,13 @@ function Pricing() {
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(248,246,241,0.4)', textAlign: 'center', marginTop: 12, marginBottom: 0 }}>Most traders upgrade after their first session.</p>
         </motion.div>
       </div>
-      <style>{`@media(max-width:768px){.pricing-grid{grid-template-columns:1fr!important}}`}</style>
+      <style>{`
+        @media(max-width:768px){
+          .pricing-grid{grid-template-columns:1fr!important}
+          .pricing-pro-card{order:-1!important}
+          .pricing-pro-price{font-size:44px!important}
+        }
+      `}</style>
     </Section>
   )
 }
@@ -371,7 +388,13 @@ function FinalCTA() {
   return (
     <section style={{ background: 'var(--color-ink)', padding: '120px 24px', overflow: 'hidden', position: 'relative', backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,0.03) 39px,rgba(255,255,255,0.03) 40px)' }}>
       <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
-        <motion.h2 variants={item} style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: 'var(--color-canvas)', lineHeight: 1.15, margin: 0 }}>
+        <style>{`
+          @media(max-width:768px){
+            .final-cta-h{font-size:36px!important}
+            .final-cta-btn{display:flex!important;width:100%!important;max-width:360px!important;margin-left:auto!important;margin-right:auto!important;justify-content:center!important;box-sizing:border-box}
+          }
+        `}</style>
+        <motion.h2 variants={item} className="final-cta-h" style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: 'var(--color-canvas)', lineHeight: 1.15, margin: 0 }}>
           Ready to understand your trading?
         </motion.h2>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'rgba(248,246,241,0.5)', marginTop: 16, marginBottom: 0 }}>
@@ -379,6 +402,7 @@ function FinalCTA() {
         </motion.p>
         <motion.div variants={item} style={{ marginTop: 32 }}>
           <motion.a href="/upload" whileHover={{ scale: 1.03, background: '#FFFFFF' }} whileTap={{ scale: 0.98 }}
+            className="final-cta-btn"
             style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--color-canvas)', color: 'var(--color-ink)', height: 52, padding: '0 36px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>
             Analyse my trades &rarr;
           </motion.a>

@@ -181,6 +181,10 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
             </div>
           </div>
 
+          {/* Mobile scroll hint */}
+          <p className="heatmap-scroll-hint" style={{ display: 'none', fontSize: 11, fontFamily: 'var(--font-sans)', color: '#888780', textAlign: 'center', marginTop: 6, marginBottom: 0 }}>
+            &#8592; Scroll to see full heatmap &#8594;
+          </p>
           {/* Legend */}
           <div className="flex items-center flex-wrap gap-3 sm:gap-4 mt-4" style={{ fontSize: 10, color: "var(--text2)" }}>
             <span className="flex items-center gap-1">

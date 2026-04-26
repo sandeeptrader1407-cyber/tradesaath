@@ -157,9 +157,18 @@ export default function CoachPage() {
         </div>
 
         {/* Tab switcher — 3 tabs, clean style */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        <style>{`
+          @media(max-width:768px){
+            .coach-tabs{gap:4px!important}
+            .coach-tab-btn{flex:1!important;padding:0 10px!important;font-size:13px!important}
+          }
+          @media(max-width:390px){
+            .coach-tab-btn{font-size:12px!important;padding:0 8px!important}
+          }
+        `}</style>
+        <div className="coach-tabs" style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
           {TAB_CONFIG.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{
+            <button key={t.key} onClick={() => setTab(t.key)} className="coach-tab-btn" style={{
               height: 36, padding: '0 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
               fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400,
               background: tab === t.key ? 'var(--color-ink, #1A1F2E)' : 'transparent',
@@ -218,7 +227,7 @@ export default function CoachPage() {
                     const tc = tagColors[item.tag] || tagColors.DO
                     return (
                       <div key={ii} style={{ borderLeft: `3px solid ${tc.color}`, display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 14px' }}>
-                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: tc.bg, color: tc.color, flexShrink: 0, fontFamily: 'var(--font-sans)' }}>{item.tag}</span>
+                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: tc.bg, color: tc.color, flexShrink: 0, minWidth: 80, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>{item.tag}</span>
                         <span style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text2)', fontFamily: 'var(--font-sans)' }}>{item.text}</span>
                       </div>
                     )
@@ -298,7 +307,7 @@ export default function CoachPage() {
                       <div key={rule} role="button" tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); toggleRule(rule) }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRule(rule) } }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', borderBottom: i < merged.length - 1 ? '1px dashed rgba(0,0,0,.08)' : 'none', cursor: 'pointer', opacity: checked ? 0.55 : 1, userSelect: 'none' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', minHeight: 56, borderBottom: i < merged.length - 1 ? '1px dashed rgba(0,0,0,.08)' : 'none', cursor: 'pointer', opacity: checked ? 0.55 : 1, userSelect: 'none' }}>
                         <span style={{ width: 16, height: 16, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--muted)'}`, borderRadius: 3, background: checked ? 'var(--accent)' : 'transparent', color: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
                           {checked ? '✓' : ''}
                         </span>

@@ -244,7 +244,10 @@ export default function TradingJourney() {
         boxShadow: '0 4px 32px rgba(0,0,0,0.06)',
         marginBottom: 24,
       }} className="story-card-pad">
-        <style>{`@media(max-width:640px){.story-card-pad{padding:28px!important}}`}</style>
+        <style>{`
+          @media(max-width:640px){.story-card-pad{padding:24px!important}}
+          @media(max-width:768px){.story-drop-cap{font-size:48px!important}}
+        `}</style>
 
         {/* Card header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -339,7 +342,7 @@ export default function TradingJourney() {
                   {/* Drop cap on first paragraph first letter */}
                   {i === 0 && para.length > 0 ? (
                     <>
-                      <span style={{
+                      <span className="story-drop-cap" style={{
                         fontFamily: 'var(--font-display)',
                         fontSize: 64,
                         fontWeight: 400,

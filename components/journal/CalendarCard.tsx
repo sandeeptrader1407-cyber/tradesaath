@@ -79,7 +79,7 @@ export default function CalendarCard({ sessions, onSelectDate, activeDate }: Pro
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <button
           onClick={prevMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '2px 6px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '10px 14px', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           &lsaquo;
         </button>
@@ -88,7 +88,7 @@ export default function CalendarCard({ sessions, onSelectDate, activeDate }: Pro
         </span>
         <button
           onClick={nextMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '2px 6px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-muted)', padding: '10px 14px', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           &rsaquo;
         </button>
@@ -137,6 +137,7 @@ export default function CalendarCard({ sessions, onSelectDate, activeDate }: Pro
                 fontWeight: hasData ? 500 : 400,
                 paddingTop: 6,
                 paddingBottom: 6,
+                minHeight: 36,
                 borderRadius: 6,
                 cursor: hasData ? 'pointer' : 'default',
                 // Active selected day: dark bg, light text
