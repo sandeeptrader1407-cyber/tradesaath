@@ -99,14 +99,14 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
 
   return (
     <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-      <div className="flex items-center gap-2 mb-5">
-        <h2 className="text-base font-semibold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)', margin: 0 }}>
           Performance Heatmap
         </h2>
         <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: ".05em",
-          padding: "2px 8px", borderRadius: 6,
-          background: "rgba(62,232,196,.12)", color: "var(--accent)",
+          fontSize: 10, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase',
+          padding: '2px 8px', borderRadius: 20,
+          background: 'var(--color-ink)', color: 'var(--color-canvas)',
         }}>PRO</span>
       </div>
 

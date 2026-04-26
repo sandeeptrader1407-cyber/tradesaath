@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { usePlan } from "@/lib/planStore"
@@ -42,8 +42,10 @@ interface DashStats {
   equityCurve: { pnl: number; date: string }[]
   streaks: { current: number; bestWin: number; worstLoss: number }
   risk: { maxDrawdown: number; avgLossAvgWin: string }
-  recentTrades?: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string }[]
+  recentTrades?: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string; sessionDate?: string }[]
   recentSessions?: { date?: string; trades?: number; pnl?: number; winRate?: number }[]
+  lastMonthPnl?: number
+  lastMonthWinRate?: number
   mistakeTrades?: { type: string; icon: string; count: number; cost: number }[]
   totalMistakeCost?: number
   counterfactualPnl?: number
@@ -98,6 +100,30 @@ function fmtPnl(n: number) {
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`
 }
 
+function fmtShortDate(dateStr?: string): string {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr + 'T12:00:00')
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  } catch { return '' }
+}
+
+const PATTERN_WHEN: Record<string, string> = {
+  'Revenge Trading':    'After a losing trade — within minutes of the loss',
+  'Revenge Trade':      'After a losing trade — within minutes of the loss',
+  'Averaging Down':     'When a position moves against you by 1–2%',
+  'Late Exit':          'When in profit but held past your target',
+  'FOMO Entries':       'When you see price moving fast or others profiting',
+  'FOMO Entry':         'When you see price moving fast or others profiting',
+  'Panic Exits':        'When a position briefly moves against you',
+  'Panic Exit':         'When a position briefly moves against you',
+  'Overtrading':        'Late session, or after a strong start earlier in the day',
+  'Oversized Position': 'After a winning streak — size creep from overconfidence',
+  'Oversized':          'After a winning streak — size creep from overconfidence',
+  'Vicious Cycle':      'A chain of emotional decisions, each making the next worse',
+  'Decision Fatigue':   'After your 8th+ trade, or late afternoon',
+}
+
 const DIVIDER = (
   <hr style={{ border: "none", borderTop: "0.5px solid var(--color-border, #E5E2D9)", margin: 0 }} />
 )
@@ -110,6 +136,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [payError, setPayError] = useState<string | null>(null)
+  const [showStickyNav, setShowStickyNav] = useState(false)
+  const [activeSection, setActiveSection] = useState('score')
+  const obsRef = useRef<IntersectionObserver[]>([])
 
   function openCheckout(plan: string = "pro_monthly") {
     setPayError(null)
@@ -161,6 +190,32 @@ export default function DashboardPage() {
       } catch { /* non-blocking */ }
     }
   }, [loading, isSignedIn, stats])
+
+  // Sticky nav scroll visibility
+  useEffect(() => {
+    const onScroll = () => setShowStickyNav(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Sticky nav active section via IntersectionObserver
+  useEffect(() => {
+    if (!stats?.hasData || loading) return
+    const ids = ['section-score', 'section-patterns', 'section-performance', 'section-activity']
+    obsRef.current.forEach(o => o.disconnect())
+    obsRef.current = []
+    ids.forEach(id => {
+      const el = document.getElementById(id)
+      if (!el) return
+      const obs = new IntersectionObserver(
+        ([entry]) => { if (entry.isIntersecting) setActiveSection(id.replace('section-', '')) },
+        { threshold: 0.25 }
+      )
+      obs.observe(el)
+      obsRef.current.push(obs)
+    })
+    return () => { obsRef.current.forEach(o => o.disconnect()) }
+  }, [stats?.hasData, loading])
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -215,16 +270,87 @@ export default function DashboardPage() {
 
   const isAnalysisPending = stats?.hasData === true && (stats.pendingAnalysisCount ?? 0) > 0
 
-  // 4 rationalised KPI cards
+  // 4 rationalised KPI cards with delta sub-text
+  const winRate = stats?.allTime?.winRate ?? stats?.month.winRate ?? 0
+  const lastMonthWR = stats?.lastMonthWinRate ?? 0
+  const wrDelta = lastMonthWR > 0 ? winRate - lastMonthWR : null
+
   const kpiCards = stats ? [
-    { label: "This Month P&L", value: fmtPnl(stats.month.pnl), color: stats.month.pnl >= 0 ? "var(--green)" : "var(--red)" },
-    { label: "Win Rate", value: `${stats.allTime?.winRate ?? stats.month.winRate}%`, color: (stats.allTime?.winRate ?? stats.month.winRate) >= 50 ? "var(--green)" : "var(--red)" },
-    { label: "Best Day P&L", value: fmtPnl(stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0), color: (stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0) >= 0 ? "var(--green)" : "var(--red)" },
-    { label: "Discipline", value: String(score), color: "var(--color-ink, #1A1F2E)" },
+    {
+      label: "This Month P&L",
+      value: fmtPnl(stats.month.pnl),
+      color: stats.month.pnl >= 0 ? "var(--green)" : "var(--red)",
+      sub: stats.lastMonthPnl !== undefined && stats.lastMonthPnl !== 0
+        ? `prev month: ${fmtPnl(stats.lastMonthPnl)}`
+        : 'current month',
+      subColor: "var(--color-muted)",
+    },
+    {
+      label: "Win Rate",
+      value: `${winRate}%`,
+      color: winRate >= 50 ? "var(--green)" : "var(--red)",
+      sub: wrDelta !== null
+        ? (Math.abs(wrDelta) < 0.5
+          ? 'stable vs last month'
+          : `${wrDelta > 0 ? '↑' : '↓'} ${wrDelta > 0 ? '+' : ''}${wrDelta.toFixed(1)}% vs last month`)
+        : 'all-time',
+      subColor: wrDelta !== null && Math.abs(wrDelta) >= 0.5
+        ? (wrDelta > 0 ? "var(--green)" : "var(--red)")
+        : "var(--color-muted)",
+    },
+    {
+      label: "Best Day P&L",
+      value: fmtPnl(stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0),
+      color: (stats.allTime?.bestSessionPnl ?? stats.month.bestSessionPnl ?? 0) >= 0 ? "var(--green)" : "var(--red)",
+      sub: stats.allTime?.bestSessionDate ? `on ${fmtShortDate(stats.allTime.bestSessionDate)}` : '',
+      subColor: "var(--color-muted)",
+    },
+    {
+      label: "Discipline",
+      value: String(score),
+      color: "var(--color-ink)",
+      sub: 'Avg: 41 · Profitable: 58',
+      subColor: "var(--color-muted)",
+    },
   ] : []
 
+  const NAV_SECTIONS = [
+    { id: 'score',       label: 'Score' },
+    { id: 'patterns',    label: 'Patterns' },
+    { id: 'performance', label: 'Performance' },
+    { id: 'activity',    label: 'Activity' },
+  ]
+
   return (
-    <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
+    <>
+      {/* Sticky sub-nav */}
+      {showStickyNav && stats?.hasData && !loading && (
+        <div style={{
+          position: 'fixed', top: 'var(--nav-h, 52px)', left: 0, right: 0,
+          height: 36, background: 'var(--color-canvas)',
+          borderBottom: '0.5px solid var(--color-border)',
+          zIndex: 40, display: 'flex', alignItems: 'center',
+          opacity: showStickyNav ? 1 : 0, transition: 'opacity 0.2s',
+        }}>
+          <div style={{ maxWidth: 1152, margin: '0 auto', padding: '0 24px', display: 'flex', width: '100%' }}>
+            {NAV_SECTIONS.map(({ id, label }) => (
+              <button key={id}
+                onClick={() => document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth' })}
+                style={{
+                  height: 36, padding: '0 16px', background: 'transparent', border: 'none',
+                  borderBottom: activeSection === id ? '2px solid var(--color-ink)' : '2px solid transparent',
+                  fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400,
+                  color: activeSection === id ? 'var(--color-ink)' : 'var(--color-muted)',
+                  cursor: 'pointer', transition: 'color 0.15s',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+    <main className="min-h-screen pb-16 px-4" style={{ background: "var(--bg)", paddingTop: showStickyNav && stats?.hasData && !loading ? 116 : 80 }}>
       <Toaster />
       <style>{`
         @keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -318,21 +444,30 @@ export default function DashboardPage() {
               </div>
 
               <div className="dash-hero-issue rounded-xl border p-5 flex flex-col" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", marginBottom: 12 }}>Top Issue</div>
-                <div className="flex-1 flex flex-col justify-center">
+                <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 12 }}>Top Issue</div>
+                <div className="flex-1 flex flex-col">
                   {topMistake ? (
                     <>
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 400, color: "var(--color-loss)", marginBottom: 4 }}>
                         {TAG_LABELS[topMistake.type] || topMistake.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                       </div>
-                      <div style={{ fontSize: 12, marginBottom: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                      <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
                         Cost you <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>{fmtPnl(-topMistake.cost)}</span> across <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{topMistake.count}</span> {topMistake.count === 1 ? "trade" : "trades"} all-time
+                      </div>
+                      <hr style={{ border: "none", borderTop: "0.5px solid var(--color-border)", margin: "12px 0" }} />
+                      <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 4 }}>
+                        When it happens
+                      </div>
+                      <div style={{ fontSize: 12, color: "#444441", lineHeight: 1.5, fontFamily: "var(--font-sans)" }}>
+                        {PATTERN_WHEN[TAG_LABELS[topMistake.type] || topMistake.type] ||
+                         PATTERN_WHEN[topMistake.type] ||
+                         "Review your last 10 flagged trades for the pattern"}
                       </div>
                     </>
                   ) : lowest ? (
                     <>
                       <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, marginBottom: 4, color: "var(--text)" }}>{lowest.name}</div>
-                      <div style={{ fontSize: 12, marginBottom: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                      <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
                         Weakest area at <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>{lowest.value}%</span>. Improving this could lift your score by ~<span style={{ fontFamily: "var(--font-mono)" }}>{Math.round((100 - lowest.value) * 0.3)}</span> points.
                       </div>
                     </>
@@ -340,12 +475,12 @@ export default function DashboardPage() {
                     <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>Upload more sessions to discover your patterns</div>
                   )}
                   {isPro ? (
-                    <Link href="/coach" style={{ fontSize: 12, fontWeight: 500, marginTop: "auto", color: "var(--accent)", fontFamily: "var(--font-sans)" }}>
+                    <Link href="/coach" style={{ fontSize: 12, fontWeight: 500, marginTop: "auto", paddingTop: 12, color: "var(--accent)", fontFamily: "var(--font-sans)" }}>
                       Fix this in Saathi &rarr;
                     </Link>
                   ) : (
                     <button type="button" disabled={payLoading} onClick={() => openCheckout("pro_monthly")}
-                      style={{ fontSize: 12, fontWeight: 500, marginTop: "auto", color: "var(--accent)", background: "transparent", border: "none", padding: 0, cursor: payLoading ? "wait" : "pointer", opacity: payLoading ? 0.6 : 1, textAlign: "left", fontFamily: "var(--font-sans)" }}>
+                      style={{ fontSize: 12, fontWeight: 500, marginTop: "auto", paddingTop: 12, color: "var(--accent)", background: "transparent", border: "none", padding: 0, cursor: payLoading ? "wait" : "pointer", opacity: payLoading ? 0.6 : 1, textAlign: "left", fontFamily: "var(--font-sans)" }}>
                       {payLoading ? "Opening..." : "Upgrade to unlock Saathi →"}
                     </button>
                   )}
@@ -362,13 +497,18 @@ export default function DashboardPage() {
             {/* 4 KPI cards — one row */}
             <div className="kpi-4-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
               {kpiCards.map((k) => (
-                <div key={k.label} style={{ background: "#FFFFFF", border: "0.5px solid var(--color-border, #E5E2D9)", borderRadius: 10, padding: "14px 16px" }}>
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", margin: "0 0 6px" }}>
+                <div key={k.label} style={{ background: "var(--color-surface)", border: "0.5px solid var(--color-border)", borderRadius: 10, padding: "14px 16px" }}>
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", margin: "0 0 6px" }}>
                     {k.label}
                   </p>
                   <p className="kpi-val-lg" style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color: k.color, margin: 0, lineHeight: 1 }}>
                     {k.value}
                   </p>
+                  {k.sub && (
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 400, color: k.subColor, margin: "4px 0 0", lineHeight: 1 }}>
+                      {k.sub}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -376,22 +516,26 @@ export default function DashboardPage() {
             {DIVIDER}
 
             {/* DQS breakdown */}
-            <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
+            <div id="section-score">
+              <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
+            </div>
 
             {DIVIDER}
 
-            {/* Equity curve */}
-            <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
+            {/* Equity curve + Heatmap */}
+            <div id="section-performance">
+              <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
 
-            {DIVIDER}
+              {DIVIDER}
 
-            {/* Heatmap */}
-            <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} hasRealTimeData={stats.hasRealTimeData ?? true} /></ErrorBoundary>
+              {/* Heatmap */}
+              <ErrorBoundary name="Heatmap"><PerformanceHeatmap trades={stats.tradesByTimeDay || []} hasRealTimeData={stats.hasRealTimeData ?? true} /></ErrorBoundary>
+            </div>
 
             {DIVIDER}
 
             {/* DQS + Mistake cost */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="section-patterns" className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {isAnalysisPending && totalCostForCalc === 0 && mistakesForCalc.length === 0
                 ? <div style={{ height: 280, borderRadius: 12, background: "#F1EFE8", animation: "sk-pulse 1.4s ease-in-out infinite" }} />
                 : <ErrorBoundary name="MistakeCost"><MistakeCostCalculator totalCost={totalCostForCalc} counterfactualPnl={stats.counterfactualPnl || 0} actualPnl={stats.actualAllTimePnl ?? stats.actualMonthPnl ?? 0} mistakes={mistakesForCalc} pendingCount={stats.pendingAnalysisCount ?? 0} /></ErrorBoundary>
@@ -424,5 +568,6 @@ export default function DashboardPage() {
         )}
       </div>
     </main>
+    </>
   )
 }
