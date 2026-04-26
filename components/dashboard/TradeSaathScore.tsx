@@ -38,7 +38,7 @@ export default function TradeSaathScore({ score, factors = [] }: Props) {
 
   return (
     <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-      <h2 className="text-base font-semibold mb-5" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>TradeSaath Discipline Score</h2>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)', margin: '0 0 20px' }}>Discipline Score</h2>
       <div className="flex flex-col md:flex-row gap-8 items-center">
         {/* Ring */}
         <div className="relative shrink-0">

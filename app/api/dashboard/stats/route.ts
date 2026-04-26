@@ -5,6 +5,7 @@ import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
 
 import { statsCache } from '@/lib/dashboardCache'
 import {
+  computeKPIs,
   computeAllPeriodKPIs,
   filterByPeriod,
   computeDisciplineScore,
@@ -75,6 +76,17 @@ export async function GET(req: NextRequest) {
     const weekSessions = filterByPeriod(sessions, 'thisWeek', now)
     const todaySessions = filterByPeriod(sessions, 'today', now)
 
+    // Last-calendar-month KPIs — used for KPI delta sub-text on the dashboard
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastMonthSessions = sessions.filter(s => {
+      const d = s.trade_date
+      if (!d) return false
+      const dt = new Date(d + 'T12:00:00')
+      return dt >= lastMonthStart && dt < lastMonthEnd
+    })
+    const lastMonthKPIs = computeKPIs(lastMonthSessions)
+
     const totalTrades = monthKPIs.totalTrades
     const totalWins = monthKPIs.totalWins
     const totalLosses = monthKPIs.totalLosses
@@ -136,9 +148,11 @@ export async function GET(req: NextRequest) {
     }))
 
     if (sessionIds.length > 0) {
+      const recentSessionDateMap = new Map(sessions.slice(0, 5).map(s => [s.id, s.trade_date || '']))
+
       const { data: recentTA } = await supabaseAdmin
         .from('trade_analysis')
-        .select('symbol, side, pnl, entry_time, tag, tag_label')
+        .select('symbol, side, pnl, entry_time, tag, tag_label, session_id')
         .in('session_id', sessionIds.slice(0, 5))
         .order('created_at', { ascending: false })
         .limit(20)
@@ -151,6 +165,7 @@ export async function GET(req: NextRequest) {
           side: t.side || '',
           pnl: Number(t.pnl || 0),
           tag: t.tag_label || t.tag || '',
+          sessionDate: recentSessionDateMap.get(t.session_id) || '',
         }))
       } else {
         /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -613,6 +628,8 @@ export async function GET(req: NextRequest) {
         subScores: dqsSubScores,
       },
       latestAiCoaching,
+      lastMonthPnl: lastMonthKPIs.totalPnl,
+      lastMonthWinRate: lastMonthKPIs.winRate,
       patterns: {
         byTag: patternsByTagArr,
         totalMistakeCost: patternsTotalCost,

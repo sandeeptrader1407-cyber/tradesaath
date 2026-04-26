@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useUser } from "@clerk/nextjs"
 
 const INTENTIONS = [
   "No revenge trades",
@@ -14,12 +15,29 @@ interface Props {
   compact?: boolean
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'done'
+
 export default function PreMarketCheckin({ compact = false }: Props) {
+  const { isSignedIn } = useUser()
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [done, setDone] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+
+  useEffect(() => {
+    if (!isSignedIn) return
+    fetch('/api/user/intentions')
+      .then(r => r.json())
+      .then(d => {
+        if (d.completed && Array.isArray(d.intentions) && d.intentions.length > 0) {
+          setSelected(new Set(d.intentions as string[]))
+          setSaveStatus('done')
+        }
+      })
+      .catch(() => {})
+  }, [isSignedIn])
 
   const toggle = (item: string) => {
-    setSelected((prev) => {
+    if (saveStatus === 'done') return
+    setSelected(prev => {
       const next = new Set(prev)
       if (next.has(item)) next.delete(item)
       else next.add(item)
@@ -27,55 +45,117 @@ export default function PreMarketCheckin({ compact = false }: Props) {
     })
   }
 
-  if (done) {
+  const handleReady = async () => {
+    if (selected.size === 0 || saveStatus !== 'idle') return
+    setSaveStatus('saving')
+    try {
+      await fetch('/api/user/intentions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intentions: Array.from(selected) }),
+      })
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('done'), 1500)
+    } catch {
+      setSaveStatus('idle')
+    }
+  }
+
+  const isDone = saveStatus === 'done'
+  const isSaving = saveStatus === 'saving'
+  const isSaved = saveStatus === 'saved'
+
+  const chipStyle = (item: string): React.CSSProperties => ({
+    fontSize: 11,
+    fontFamily: 'var(--font-sans)',
+    fontWeight: 400,
+    padding: '4px 10px',
+    borderRadius: 20,
+    border: '0.5px solid',
+    cursor: isDone ? 'default' : 'pointer',
+    background: selected.has(item) ? 'rgba(15,76,129,0.06)' : 'transparent',
+    borderColor: selected.has(item) ? 'var(--accent)' : 'var(--color-border)',
+    color: selected.has(item) ? 'var(--accent)' : 'var(--color-muted)',
+    transition: 'all 0.1s',
+    opacity: isDone ? 0.8 : 1,
+  })
+
+  if (isDone && compact) {
     return (
-      <div className={compact ? "text-center py-2" : "rounded-xl border p-5 text-center"} style={compact ? {} : { background: "var(--s1)", borderColor: "var(--border)" }}>
-        <p className="text-sm font-semibold" style={{ color: "var(--green)" }}>Intention set. Have a disciplined session.</p>
+      <div style={{ padding: '4px 0', background: 'rgba(29,158,117,0.04)', borderRadius: 8 }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, color: 'var(--green)', margin: '0 0 8px' }}>
+          Intentions set for today
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {Array.from(selected).map(s => (
+            <span key={s} style={{
+              fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400,
+              padding: '3px 10px', borderRadius: 20,
+              background: 'rgba(29,158,117,0.08)',
+              border: '0.5px solid rgba(29,158,117,0.25)',
+              color: 'var(--green)',
+            }}>{s}</span>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div {...(compact ? {} : { className: "rounded-xl border p-5", style: { background: "var(--s1)", borderColor: "var(--border)" } as React.CSSProperties })}>
+    <div>
       {!compact && (
-        <>
-          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>Before you trade today</h3>
-          <p className="text-xs mb-4" style={{ color: "var(--text2)" }}>Take 30 seconds to set your intention. What&apos;s your one rule you won&apos;t break today?</p>
-        </>
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, color: isDone ? 'var(--green)' : 'var(--color-ink)', margin: 0 }}>
+            {isDone ? "Today's intentions" : 'Before you trade today'}
+          </p>
+          {!isDone && (
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+              Set one rule you will not break today.
+            </p>
+          )}
+        </div>
       )}
-      {compact && (
-        <p className="text-xs mb-3" style={{ color: "var(--text2)" }}>Set your intention for today:</p>
+      {compact && !isDone && (
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', margin: '0 0 8px' }}>
+          Set your intention for today:
+        </p>
       )}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {INTENTIONS.map((item) => (
-          <button
-            key={item}
-            onClick={() => toggle(item)}
-            className="text-xs px-3 py-1.5 rounded-full border transition-all"
-            style={{
-              background: selected.has(item) ? "rgba(62,232,196,.25)" : "var(--s2)",
-              borderColor: selected.has(item) ? "var(--accent)" : "var(--border)",
-              color: selected.has(item) ? "var(--accent)" : "var(--text2)",
-              fontWeight: selected.has(item) ? 700 : 400,
-              boxShadow: selected.has(item) ? "0 0 8px rgba(62,232,196,.2)" : "none",
-            }}
-          >
-            {selected.has(item) ? "\u2713 " : ""}{item}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: isDone ? 0 : 10 }}>
+        {INTENTIONS.map(item => (
+          <button key={item} onClick={() => toggle(item)} style={chipStyle(item)}>
+            {item}
           </button>
         ))}
       </div>
-      <button
-        onClick={() => setDone(true)}
-        disabled={selected.size === 0}
-        className="text-sm px-5 py-2 rounded-lg font-semibold transition-all"
-        style={{
-          background: selected.size > 0 ? "var(--accent)" : "var(--s3)",
-          color: selected.size > 0 ? "#071a15" : "var(--muted)",
-          cursor: selected.size > 0 ? "pointer" : "not-allowed",
-        }}
-      >
-        I&apos;m ready {"→"}
-      </button>
+      {!isDone && (
+        <button
+          onClick={handleReady}
+          disabled={selected.size === 0 || isSaving || isSaved}
+          style={{
+            height: 32,
+            padding: '0 16px',
+            borderRadius: 6,
+            border: 'none',
+            background: isSaved
+              ? 'rgba(29,158,117,0.1)'
+              : selected.size > 0
+              ? 'var(--accent)'
+              : 'var(--color-border)',
+            color: isSaved
+              ? 'var(--green)'
+              : selected.size > 0
+              ? 'var(--color-canvas)'
+              : 'var(--color-muted)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 12,
+            fontWeight: 400,
+            cursor: selected.size > 0 && !isSaving && !isSaved ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+          }}
+        >
+          {isSaving ? 'Saving...' : isSaved ? 'Saved' : "I'm ready →"}
+        </button>
+      )}
     </div>
   )
 }
