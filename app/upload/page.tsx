@@ -216,8 +216,11 @@ export default function UploadPage() {
         )}
 
         <div className="text-center mb-2">
-          <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: "var(--text)" }}>Analyse Your Trades<span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, backgroundColor: 'rgba(62,232,196,0.1)', color: '#3ee8c4', border: '1px solid rgba(62,232,196,0.2)', marginLeft: 8, fontFamily: 'monospace', letterSpacing: 1, verticalAlign: 'middle' }}>FREE</span></h1>
-          <p className="mt-2 text-base" style={{ color: "var(--text2)" }}>Drop your broker files and get AI-powered psychological analysis in seconds</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: 'var(--color-ink)', margin: 0 }}>Upload Your Trades</h1>
+          <p style={{ marginTop: 10, fontSize: 15, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-muted)', lineHeight: 1.65 }}>
+            Drop any broker file — PDF, CSV, or Excel.<br />
+            Your AI companion reads the psychology behind every trade.
+          </p>
         </div>
         <AutoDetectBar />
         <div className="rounded-xl border p-6 flex flex-col gap-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>

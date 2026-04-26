@@ -4,9 +4,9 @@ export default function Footer() {
   return (
     <footer>
       <div className="wrap">
-        <strong>TradeSaath</strong> — AI Trading Psychology Engine<br />
+        <strong>TradeSaath</strong> — Your AI Trading Companion<br />
         <span style={{ marginTop: 8, display: 'block' }}>
-          Built for traders who want to understand, not just see, their results.
+          Every trade teaches you something. We make sure you hear it.
         </span>
         <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12 }}>
           <Link href="/faq" style={{ color: 'var(--muted)', textDecoration: 'none' }}>FAQ</Link>

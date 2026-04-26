@@ -217,7 +217,7 @@ FORBIDDEN EXAMPLES — do NOT write sentences like any of these (they are fabric
 
 If the first trading session is "12 March 2024", you may say "your journey began in March 2024" — you may NOT say "back in 2024 as a fresh trader" or add any context around who the trader was then.
 
-ABSOLUTE RULE: Use the EXACT numbers provided. Do not round ₹1,72,523 to "₹1.7L" or "₹1,72,000". Do not calculate your own drawdown, win rate, or P&L — use the values in the data block verbatim.
+ABSOLUTE RULE: Use the EXACT numbers provided. Do not abbreviate or round them (e.g. no "1.7L", "12K", "100K" shorthand). Do not calculate your own drawdown, win rate, or P&L — use the values in the data block verbatim. Use the currency symbol and instrument names exactly as they appear in the trade data — these are the trader's actual market and must not be changed.
 
 ${dataSummary}
 
@@ -235,7 +235,7 @@ WRITING RULES:
 - Reference SPECIFIC numbers: dates, P&L amounts, streaks, win rate, instruments
 - Be honest about losses — don't sugarcoat. Max drawdown and worst day are real moments worth naming.
 - Celebrate growth and self-awareness
-- Use occasional Hindi words naturally if they fit ("safar", "himmat", "seekh", "sabr")
+- Use natural, conversational language that flows with the trader's own words
 - Make it feel like the opening of a movie about their trading life
 - Make it shareable — punchy, emotional, true
 - NO generic motivational quotes. Every line must be PERSONAL to THIS trader's data.

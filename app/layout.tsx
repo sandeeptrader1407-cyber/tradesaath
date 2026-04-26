@@ -30,9 +30,9 @@ const dmMono = DM_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'TradeSaath – AI Trading Psychology Coach',
+  title: 'TradeSaath — Your AI Trading Companion',
   description:
-    'Upload your trades and get AI-powered psychological insights to identify emotional biases and improve your trading decisions.',
+    'Understand your trading psychology. Detect patterns, measure discipline, and get personalised coaching — for every market, every trader, everywhere.',
 }
 
 export default function RootLayout({

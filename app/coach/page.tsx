@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePlan } from '@/lib/planStore'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
-import { formatPnlPlain } from '@/lib/format/money'
 
 interface Session {
   id: string
@@ -23,8 +22,6 @@ interface Session {
     perTrade: { tradeIndex: number; tag: string; label: string; tagColor: string }[]
   } | null
 }
-
-const fmtPnl = formatPnlPlain
 
 // Reduced to 3 tabs — remove This Week and Monthly Goals
 type CoachTab = 'tomorrow' | 'patterns' | 'learning_path'
@@ -133,7 +130,6 @@ export default function CoachPage() {
   const kpiSessions = sessions.map(s => ({ net_pnl: s.total_pnl, trade_count: s.trade_count, win_count: s.win_count, loss_count: s.loss_count, win_rate: s.win_rate, dqs_score: s.dqs_score }))
   const kpis = computeKPIs(kpiSessions)
   const totalTrades = kpis.totalTrades
-  const totalPnl = kpis.totalPnl
 
   const activeTabConfig = TAB_CONFIG.find(t => t.key === tab)
 
@@ -144,20 +140,19 @@ export default function CoachPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 28, fontWeight: 400, margin: 0 }}>Saathi</h2>
-            <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginTop: 4 }}>Your personal trading psychology coach</div>
+            <div style={{ fontSize: 14, color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginTop: 4 }}>Your trading companion. Always on. Always learning.</div>
           </div>
           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(157,122,247,.1)', color: 'var(--purple)', fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>PRO</span>
         </div>
 
-        {/* Context bar — replaces memory indicator + KPI strip */}
+        {/* Context bar — session + trade count only, no P&L (currency-neutral) */}
         <div style={{ background: 'var(--color-canvas, #F8F6F1)', borderRadius: 8, padding: '10px 16px', marginBottom: 20 }}>
           <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--color-muted, #888780)' }}>
             Reviewed{' '}
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{sessions.length}</span>
             {' sessions · '}
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{totalTrades.toLocaleString('en-IN')}</span>
-            {' trades · Gross P&L '}
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtPnl(totalPnl)}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{totalTrades.toLocaleString()}</span>
+            {' trades — your actual data'}
           </span>
         </div>
 

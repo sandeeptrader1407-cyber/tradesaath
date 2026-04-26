@@ -105,7 +105,7 @@ function Hero() {
           <motion.div variants={container} initial="hidden" animate="visible">
             <motion.div variants={item}>
               <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--color-border-strong)', padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
-                For Indian Retail Traders &middot; NSE &middot; BSE &middot; MCX
+                For every trader &middot; every market &middot; everywhere
               </span>
             </motion.div>
 
