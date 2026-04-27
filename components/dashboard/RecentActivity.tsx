@@ -155,7 +155,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
             }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-ink)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}>
-              View all in Journal →
+              Open Journal →
             </Link>
           </>
         )}

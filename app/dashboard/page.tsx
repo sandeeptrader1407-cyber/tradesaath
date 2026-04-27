@@ -109,8 +109,8 @@ function fmtShortDate(dateStr?: string): string {
 }
 
 const PATTERN_WHEN: Record<string, string> = {
-  'Revenge Trading':    'After a losing trade — within minutes of the loss',
-  'Revenge Trade':      'After a losing trade — within minutes of the loss',
+  'Revenge Trading':    'After a losing trade, within minutes of the loss',
+  'Revenge Trade':      'After a losing trade, within minutes of the loss',
   'Averaging Down':     'When a position moves against you by 1–2%',
   'Late Exit':          'When in profit but held past your target',
   'FOMO Entries':       'When you see price moving fast or others profiting',
@@ -118,8 +118,8 @@ const PATTERN_WHEN: Record<string, string> = {
   'Panic Exits':        'When a position briefly moves against you',
   'Panic Exit':         'When a position briefly moves against you',
   'Overtrading':        'Late session, or after a strong start earlier in the day',
-  'Oversized Position': 'After a winning streak — size creep from overconfidence',
-  'Oversized':          'After a winning streak — size creep from overconfidence',
+  'Oversized Position': 'After a winning streak: size creep from overconfidence',
+  'Oversized':          'After a winning streak: size creep from overconfidence',
   'Vicious Cycle':      'A chain of emotional decisions, each making the next worse',
   'Decision Fatigue':   'After your 8th+ trade, or late afternoon',
 }
@@ -261,11 +261,11 @@ export default function DashboardPage() {
 
   const insights = (stats?.patterns?.byTag || []).slice(0, 4).map(p => {
     const meta = INSIGHT_META[p.label] || { color: 'var(--gold)' }
-    return { title: p.label, color: meta.color, desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged — excess cost ₹${Math.round(p.cost).toLocaleString('en-IN')}.` }
+    return { title: p.label, color: meta.color, desc: `${p.count} ${p.count === 1 ? 'trade' : 'trades'} flagged. Excess cost: ₹${Math.round(p.cost).toLocaleString('en-IN')}.` }
   })
   const insightsForBI = insights.length > 0 ? insights : (stats?.mistakeTrades || []).slice(0, 4).map(m => {
     const meta = INSIGHT_META[m.type] || { color: 'var(--gold)' }
-    return { title: m.type, color: meta.color, desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged — cost ₹${Math.round(m.cost).toLocaleString('en-IN')}.` }
+    return { title: m.type, color: meta.color, desc: `${m.count} ${m.count === 1 ? 'trade' : 'trades'} flagged. Cost: ₹${Math.round(m.cost).toLocaleString('en-IN')}.` }
   })
 
   const isAnalysisPending = stats?.hasData === true && (stats.pendingAnalysisCount ?? 0) > 0
@@ -325,14 +325,14 @@ export default function DashboardPage() {
     <>
       {/* Sticky sub-nav */}
       {showStickyNav && stats?.hasData && !loading && (
-        <div style={{
+        <div className="dash-sticky-nav" style={{
           position: 'fixed', top: 'var(--nav-h, 52px)', left: 0, right: 0,
           height: 36, background: 'var(--color-canvas)',
           borderBottom: '0.5px solid var(--color-border)',
           zIndex: 40, display: 'flex', alignItems: 'center',
           opacity: showStickyNav ? 1 : 0, transition: 'opacity 0.2s',
         }}>
-          <div style={{ maxWidth: 1152, margin: '0 auto', padding: '0 24px', display: 'flex', width: '100%' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'flex', width: '100%' }}>
             {NAV_SECTIONS.map(({ id, label }) => (
               <button key={id}
                 onClick={() => document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth' })}
@@ -361,16 +361,17 @@ export default function DashboardPage() {
           .kpi-4-grid{grid-template-columns:repeat(2,1fr)!important}
           .dash-new-btn{width:100%!important;height:44px!important;justify-content:center}
           .kpi-val-lg{font-size:18px!important}
+          .dash-sticky-nav{display:none!important}
         }
       `}</style>
 
-      <div className="max-w-6xl mx-auto" style={{ paddingTop: 4 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', paddingTop: 4 }}>
         <ErrorBoundary name="BatchAnalysisRunner">
           <BatchAnalysisRunner autoStart slim onComplete={() => window.location.reload()} />
         </ErrorBoundary>
       </div>
 
-      <div className="max-w-6xl mx-auto flex flex-col gap-5">
+      <div className="flex flex-col gap-5" style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Header — name only, no time-of-day greeting */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -489,7 +490,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="dash-hero-before rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", marginBottom: 12 }}>Before You Trade</div>
+                <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", marginBottom: 12 }}>Pre-Session</div>
                 <ErrorBoundary name="PreMarketCheckin"><PreMarketCheckin compact /></ErrorBoundary>
               </div>
             </div>

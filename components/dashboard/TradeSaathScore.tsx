@@ -29,9 +29,9 @@ export default function TradeSaathScore({ score, factors = [] }: Props) {
   // "You" uses the real DQS score passed via props. The other three are static reference points.
   const benchmarks = [
     { label: "You", value: score, color: "var(--accent)" },
-    { label: "Average", value: 41, color: "var(--text2)" },       // Benchmark: median TradeSaath user
-    { label: "Profitable", value: 58, color: "var(--green)" },    // Benchmark: profitable trader median
-    { label: "Top 10%", value: 72, color: "var(--gold)" },        // Benchmark: 90th percentile
+    { label: "Avg. trader", value: 41, color: "var(--text2)" },
+    { label: "Profitable traders", value: 58, color: "var(--green)" },
+    { label: "Top 10%", value: 72, color: "var(--gold)" },
   ]
 
   const lowest = factors.length > 0 ? factors.reduce((a, b) => (a.value < b.value ? a : b)) : null
@@ -54,7 +54,7 @@ export default function TradeSaathScore({ score, factors = [] }: Props) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="text-4xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: getColor(score) }}>{score}</div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>out of 100</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>/ 100</div>
           </div>
         </div>
 

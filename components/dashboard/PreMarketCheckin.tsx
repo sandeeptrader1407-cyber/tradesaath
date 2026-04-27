@@ -117,7 +117,7 @@ export default function PreMarketCheckin({ compact = false }: Props) {
       )}
       {compact && !isDone && (
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', margin: '0 0 8px' }}>
-          Set your intention for today:
+          Set your focus for today:
         </p>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: isDone ? 0 : 10 }}>
@@ -153,7 +153,7 @@ export default function PreMarketCheckin({ compact = false }: Props) {
             transition: 'all 0.15s',
           }}
         >
-          {isSaving ? 'Saving...' : isSaved ? 'Saved' : "I'm ready →"}
+          {isSaving ? 'Saving...' : isSaved ? 'Saved' : 'Begin session →'}
         </button>
       )}
     </div>

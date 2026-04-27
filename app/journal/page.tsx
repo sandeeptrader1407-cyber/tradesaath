@@ -150,7 +150,7 @@ function JournalContent() {
         --pattern-banner-text:#854F0B;
       }`}</style>
 
-      <div className="max-w-6xl mx-auto">
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Pattern detection banner — amber, no emoji */}
         {patterns.length > 0 && (

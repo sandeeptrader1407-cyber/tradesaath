@@ -95,7 +95,7 @@ export default function UploadPage() {
     return (
       <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
         <Toaster />
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+        <div className="flex flex-col gap-6" style={{ maxWidth: 1100, margin: '0 auto' }}>
           {/* Header */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">

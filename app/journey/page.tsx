@@ -83,7 +83,7 @@ function JourneyContent() {
               lineHeight: 1.6,
               margin: 0,
             }}>
-              Generated from your real trade data — every win, every loss, every pattern. Unique to you.
+              Generated from your real trade data: every win, every loss, every pattern. Unique to you.
             </p>
           </div>
 

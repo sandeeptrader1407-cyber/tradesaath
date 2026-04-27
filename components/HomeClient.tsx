@@ -117,7 +117,11 @@ function Hero() {
             </motion.h1>
 
             <motion.p variants={item} className="hero-sub" style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: '#444441', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
-              Upload your broker statement and get a complete psychological analysis of your trading — patterns, discipline score, and exactly what to fix. Free.
+              Upload your broker statement and get a complete psychological analysis of your trading: patterns, discipline score, and exactly what to fix. Free.
+            </motion.p>
+
+            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'rgba(26,31,46,0.65)', lineHeight: 1.7, maxWidth: 460, marginTop: 16, marginBottom: 0 }}>
+              Most traders know they&apos;re losing to their own habits. Revenge trades, oversized positions, late exits. TradeSaath measures exactly this: session by session, trade by trade.
             </motion.p>
 
             <motion.div variants={item} style={{ marginTop: 28 }}>
@@ -129,11 +133,11 @@ function Hero() {
             </motion.div>
 
             <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
-              No account needed &middot; Zerodha, Fyers, Upstox, Angel One supported
+              No account needed &middot; Works with any broker &middot; Any market &middot; Anywhere
             </motion.p>
 
             <motion.p variants={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', marginTop: 24, marginBottom: 0 }}>
-              282 sessions &middot; 15 traders &middot; 64% free-to-paid
+              282 sessions analysed &middot; 5,616 trades &middot; 64% upgrade rate
             </motion.p>
           </motion.div>
 
@@ -239,9 +243,9 @@ function StatsBar() {
 // ─── HOW IT WORKS ────────────────────────────────────────────────────────────
 function HowItWorks() {
   const STEPS = [
-    { n: '01', title: 'Upload your statement', body: 'Zerodha, Fyers, Upstox, Angel One — PDF, CSV, or Excel. Auto-detected in under 10 seconds. Up to 40 files per session.' },
-    { n: '02', title: 'AI reads the psychology', body: '10-stage vicious cycle breakdown, revenge trading detection, position sizing errors, and entry quality scoring — for every trade.' },
-    { n: '03', title: 'Get your coaching plan', body: 'Discipline score, mistake cost in rupees, and a personalised fix for your top 3 patterns. Instantly.' },
+    { n: '01', title: 'Upload your statement', body: 'Any broker, any market. PDF, CSV, or Excel. Auto-detected in seconds. Supports equities, futures, options, and forex.' },
+    { n: '02', title: 'AI reads the psychology', body: '10-stage vicious cycle breakdown, revenge trading detection, position sizing analysis, and entry quality scoring. For every single trade.' },
+    { n: '03', title: 'Get your coaching plan', body: 'Discipline score, mistake cost in your currency, and a personalised fix for your top 3 patterns. Instantly.' },
   ]
   return (
     <Section bg="var(--color-canvas)">
@@ -274,9 +278,9 @@ function HowItWorks() {
 // ─── WHAT YOU GET ────────────────────────────────────────────────────────────
 function WhatYouGet() {
   const CARDS = [
-    { label: 'Discipline Score', metric: '67 / 100', metricColor: 'var(--color-ink)', showBar: true, body: 'Risk management, emotional control, position sizing, and entry quality — all quantified from your actual trades.' },
-    { label: 'Total Mistake Cost', metric: '−₹36,214', metricColor: 'var(--color-loss)', showBar: false, body: 'Exactly how much revenge trading and oversized positions cost you — in rupees, calculated from every single trade.' },
-    { label: 'Patterns Detected', metric: '666×', metricColor: '#854F0B', showBar: false, body: 'Revenge trading after losses, averaging down, oversized entries — detected, counted, and explained across all your sessions.' },
+    { label: 'Discipline Score', metric: '67 / 100', metricColor: 'var(--color-ink)', showBar: true, body: 'Risk management, emotional control, position sizing, and entry quality. All quantified from your actual trades.' },
+    { label: 'Total Mistake Cost', metric: '−₹36,214', metricColor: 'var(--color-loss)', showBar: false, body: 'Exactly how much revenge trading and oversized positions cost you. Calculated from every single trade, in your currency.' },
+    { label: 'Patterns Detected', metric: '666×', metricColor: '#854F0B', showBar: false, body: 'Revenge trading after losses, averaging down, oversized entries. Detected, counted, and explained across all your sessions.' },
   ]
   return (
     <Section bg="var(--color-surface)">
@@ -320,7 +324,7 @@ function SocialProof() {
           </p>
         </div>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', marginTop: 10, marginBottom: 0 }}>
-          Actual patterns detected in a real trader&apos;s 76-session history
+          Patterns detected from a real trader&apos;s 76-session history. Any market, any broker.
         </p>
       </motion.div>
     </section>
@@ -398,7 +402,7 @@ function FinalCTA() {
           Ready to understand your trading?
         </motion.h2>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'rgba(248,246,241,0.5)', marginTop: 16, marginBottom: 0 }}>
-          Upload any broker file — results in 30 seconds.
+          Upload any broker file. Results in 30 seconds. Free.
         </motion.p>
         <motion.div variants={item} style={{ marginTop: 32 }}>
           <motion.a href="/upload" whileHover={{ scale: 1.03, background: '#FFFFFF' }} whileTap={{ scale: 0.98 }}
@@ -408,7 +412,7 @@ function FinalCTA() {
           </motion.a>
         </motion.div>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.3)', marginTop: 14, marginBottom: 0 }}>
-          No account needed &middot; Free forever
+          No account needed &middot; Free to start &middot; Works globally
         </motion.p>
       </motion.div>
     </section>
