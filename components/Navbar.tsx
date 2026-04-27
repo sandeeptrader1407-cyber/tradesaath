@@ -21,16 +21,37 @@ function initials(name: string | null | undefined): string {
 
 function ClerkAuthButtons() {
   const { isSignedIn, isLoaded, user } = useUser()
+  const pathname = usePathname()
 
   if (!isLoaded) return null
 
   if (isSignedIn) {
+    const onSettings = pathname === '/settings'
     return (
-      <div
-        className="nav-initials"
-        title={user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ''}
-      >
-        {initials(user?.fullName ?? user?.firstName)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Settings gear icon */}
+        <Link href="/settings" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: 6, textDecoration: 'none',
+          color: onSettings ? '#F8F6F1' : 'rgba(248,246,241,0.5)',
+          transition: 'color 0.15s',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-label="Settings">
+            <path d="M9 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z"
+              stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M14.25 9c0 .31-.03.61-.08.9l1.95 1.52-.9 1.56-2.29-.77a5.24 5.24 0 0 1-1.56.9l-.37 2.39h-1.8l-.37-2.39a5.24 5.24 0 0 1-1.56-.9l-2.29.77-.9-1.56 1.95-1.52A5.3 5.3 0 0 1 6 9c0-.31.03-.61.08-.9L4.13 6.58l.9-1.56 2.29.77a5.24 5.24 0 0 1 1.56-.9L9.25 2.6h1.8l.37 2.39c.56.22 1.08.52 1.56.9l2.29-.77.9 1.56-1.95 1.52c.05.29.08.59.08.9Z"
+              stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
+        {/* SA avatar — links to settings */}
+        <Link
+          href="/settings"
+          className="nav-initials"
+          title={user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ''}
+          style={{ textDecoration: 'none' }}
+        >
+          {initials(user?.fullName ?? user?.firstName)}
+        </Link>
       </div>
     )
   }
@@ -91,12 +112,6 @@ function NavLinks() {
         >
           Saathi
         </Link>
-        <Link
-          href="/settings"
-          className={`nav-app-link${pathname === '/settings' ? ' nav-active' : ''}`}
-        >
-          Settings
-        </Link>
       </>
     )
   }
@@ -150,7 +165,7 @@ export default function Navbar() {
   return (
     <>
       <motion.nav style={{ borderBottom: navBorder }}>
-        <Link className="nav-logo" href="/">TradeSaath</Link>
+        <Link className="nav-logo" href="/" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '-0.02em' }}>TradeSaath</Link>
 
         <div className="nav-links">
           <ClerkErrorBoundary fallback={

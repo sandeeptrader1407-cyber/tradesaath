@@ -27,7 +27,7 @@ interface Session {
 type CoachTab = 'tomorrow' | 'patterns' | 'learning_path'
 
 const TAB_CONFIG: { key: CoachTab; label: string }[] = [
-  { key: 'tomorrow',      label: "Tomorrow's Plan" },
+  { key: 'tomorrow',      label: 'Next Session' },
   { key: 'patterns',      label: 'My Patterns' },
   { key: 'learning_path', label: 'Learning Path' },
 ]
@@ -104,7 +104,7 @@ export default function CoachPage() {
               Current plan: <strong>{plan === 'single' ? 'Single Report' : 'Free'}</strong>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/pricing" className="btn btn-accent">Upgrade to Pro — ₹799/mo</Link>
+              <Link href="/pricing" className="btn btn-accent">Upgrade to Pro: ₹799/mo</Link>
               <Link href="/upload" className="btn btn-ghost">Upload Trades</Link>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default function CoachPage() {
         <div className="wrap" style={{ maxWidth: 600, textAlign: 'center' }}>
           <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 24, fontWeight: 400, marginBottom: 8 }}>Saathi</h2>
           <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 20, fontFamily: 'var(--font-sans)' }}>
-            Upload your first trading session to unlock personalized AI coaching — pattern detection, learning paths, and data-driven improvement plans.
+            Upload your first trading session to unlock personalized AI coaching: pattern detection, learning paths, and data-driven improvement plans.
           </p>
           <Link href="/upload" className="btn btn-accent">Upload Trades &rarr;</Link>
         </div>
@@ -142,7 +142,7 @@ export default function CoachPage() {
             <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 28, fontWeight: 400, margin: 0 }}>Saathi</h2>
             <div style={{ fontSize: 14, color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginTop: 4 }}>Your trading companion. Always on. Always learning.</div>
           </div>
-          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(157,122,247,.1)', color: 'var(--purple)', fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>PRO</span>
+          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--color-ink)', color: 'var(--color-canvas)', fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>PRO</span>
         </div>
 
         {/* Context bar — session + trade count only, no P&L (currency-neutral) */}
@@ -152,7 +152,7 @@ export default function CoachPage() {
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{sessions.length}</span>
             {' sessions · '}
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{totalTrades.toLocaleString()}</span>
-            {' trades — your actual data'}
+            {' trades. Your actual data.'}
           </span>
         </div>
 
@@ -182,11 +182,11 @@ export default function CoachPage() {
         {aiLoading && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-body" style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
-                Generating {activeTabConfig?.label || 'coaching plan'}...
+              <div style={{ fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
+                Preparing your session plan...
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontFamily: 'var(--font-sans)' }}>
-                Saathi is analysing your <span style={{ fontFamily: 'var(--font-mono)' }}>{sessions.length}</span> sessions and <span style={{ fontFamily: 'var(--font-mono)' }}>{totalTrades}</span> trades
+                Saathi is analysing your <span style={{ fontFamily: 'var(--font-mono)' }}>{sessions.length}</span> sessions and <span style={{ fontFamily: 'var(--font-mono)' }}>{totalTrades.toLocaleString()}</span> trades
               </div>
             </div>
           </div>
@@ -296,8 +296,8 @@ export default function CoachPage() {
           return (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-sans)' }}>Personal Rules</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--muted)', fontWeight: 400 }}>{completed}/{merged.length} FOLLOWED</span>
+                <span style={{ fontFamily: 'var(--font-sans)' }}>Your Rules</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--muted)', fontWeight: 400 }}>{completed}/{merged.length} followed</span>
               </div>
               <div className="card-body">
                 <div style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 10, padding: 16, fontFamily: 'var(--font-mono)' }}>

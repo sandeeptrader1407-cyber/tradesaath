@@ -210,7 +210,7 @@ export default function TradingJourney() {
   const handleShare = async () => {
     if (!generatedStory) return
     try {
-      await navigator.clipboard.writeText(`My trading journey:\n\n${generatedStory}\n\n— generated on TradeSaath`)
+      await navigator.clipboard.writeText(`My trading journey:\n\n${generatedStory}\n\nGenerated on TradeSaath`)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch { /* silent */ }
@@ -378,7 +378,7 @@ export default function TradingJourney() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={sectionHeaderStyle}>Add Your Voice</span>
             <span style={{ fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-muted)' }}>
-              {filledSteps > 0 ? `${filledSteps}/5 chapters` : "optional — add your personal narrative"}
+              {filledSteps > 0 ? `${filledSteps}/5 chapters` : "optional. Add your personal narrative."}
             </span>
           </div>
           <Chevron open={showNarrative} />
