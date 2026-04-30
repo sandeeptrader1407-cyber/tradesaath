@@ -545,6 +545,141 @@ function StatsBar() {
   )
 }
 
+// ─── PRODUCT SCREENSHOT ──────────────────────────────────────────────────────
+function ProductScreenshot() {
+  return (
+    <section style={{
+      background: '#080C14',
+      padding: '96px 24px',
+      overflow: 'hidden',
+    }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 48 }}>
+          <div style={{
+            fontFamily: 'var(--font-sans)', fontSize: 11,
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: 'rgba(241,245,249,0.35)', marginBottom: 12,
+          }}>
+            The product
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontSize: 44,
+            fontWeight: 400, color: '#F1F5F9', lineHeight: 1.1,
+            letterSpacing: '-0.025em', marginBottom: 14,
+          }}>
+            This is what you see after<br />uploading your first session.
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-sans)', fontSize: 15,
+            color: 'rgba(241,245,249,0.5)', maxWidth: 480,
+            margin: '0 auto', lineHeight: 1.75,
+          }}>
+            Your score. Your patterns. Your cost. Your plan.
+            All from one file upload.
+          </p>
+        </div>
+
+        {/* Browser frame */}
+        <div style={{
+          borderRadius: 14,
+          overflow: 'hidden',
+          border: '0.5px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 40px 120px rgba(0,0,0,0.6)',
+        }}>
+          {/* Browser chrome bar */}
+          <div style={{
+            background: '#111827',
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+          }}>
+            {/* Traffic lights */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['#F43F5E', '#F59E0B', '#10B981'] as const).map((c, i) => (
+                <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />
+              ))}
+            </div>
+            {/* URL bar */}
+            <div style={{
+              flex: 1, maxWidth: 320, margin: '0 auto',
+              background: '#1E2936', borderRadius: 5,
+              padding: '4px 12px',
+              fontFamily: 'var(--font-mono)', fontSize: 11,
+              color: 'rgba(241,245,249,0.3)',
+            }}>
+              tradesaath.com/dashboard
+            </div>
+          </div>
+
+          {/* Screenshot */}
+          <div style={{ background: '#F5F3EE', lineHeight: 0 }}>
+            <img
+              src="/screenshots/dashboard-preview.png"
+              alt="TradeSaath dashboard showing discipline score, pattern analysis and monthly P&L"
+              style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+              onError={e => {
+                const el = e.currentTarget as HTMLImageElement
+                el.style.display = 'none'
+                const fallback = el.nextSibling as HTMLElement
+                if (fallback) fallback.style.display = 'flex'
+              }}
+            />
+            {/* Fallback placeholder */}
+            <div style={{
+              display: 'none',
+              height: 400,
+              background: '#F5F3EE',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 8,
+            }}>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 12,
+                color: '#94A3B8', textAlign: 'center', lineHeight: 1.6,
+              }}>
+                Add your dashboard screenshot to<br />
+                public/screenshots/dashboard-preview.png
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Caption row */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 32,
+          marginTop: 28,
+          flexWrap: 'wrap',
+        }}>
+          {[
+            { n: 'Discipline Score', d: 'Your trading psychology, scored 0-100' },
+            { n: 'Pattern Cost', d: 'Exact rupee cost of each bad habit' },
+            { n: 'Coaching Plan', d: 'Specific fix for your weakest area' },
+          ].map(({ n, d }) => (
+            <div key={n} style={{ textAlign: 'center' }}>
+              <div style={{
+                fontFamily: 'var(--font-sans)', fontSize: 13,
+                fontWeight: 500, color: '#F1F5F9', marginBottom: 3,
+              }}>{n}</div>
+              <div style={{
+                fontFamily: 'var(--font-sans)', fontSize: 12,
+                color: 'rgba(241,245,249,0.38)',
+              }}>{d}</div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </section>
+  )
+}
+
 // ─── HOW IT WORKS ────────────────────────────────────────────────────────────
 function HowItWorks() {
   const STEPS = [
@@ -813,6 +948,7 @@ export default function HomeClient() {
     <div id="page-home">
       <Hero />
       <BrokerStrip />
+      <ProductScreenshot />
       <StatsBar />
       <HowItWorks />
       <WhatTradersDiscover />
