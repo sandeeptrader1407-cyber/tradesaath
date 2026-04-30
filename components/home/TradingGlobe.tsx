@@ -140,8 +140,8 @@ export default function TradingGlobe() {
         const [x,y,z] = ll2xyz(lat, lon, r)
         return new THREE.Vector3(x, y, z)
       }
-      const minorMat = new THREE.LineBasicMaterial({ color: 0x1e4d8c, transparent: true, opacity: 0.45 })
-      const majorMat = new THREE.LineBasicMaterial({ color: 0x2e6bbf, transparent: true, opacity: 0.75 })
+      const minorMat = new THREE.LineBasicMaterial({ color: 0x6688aa, transparent: true, opacity: 0.25 })
+      const majorMat = new THREE.LineBasicMaterial({ color: 0x88aacc, transparent: true, opacity: 0.45 })
 
       // Latitude parallels — every 15°
       for (let lat = -75; lat <= 75; lat += 15) {
@@ -160,25 +160,25 @@ export default function TradingGlobe() {
       // Equator — prominent
       pivot.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(Array.from({ length: 145 }, (_, j) => mk(0, j * 2.5 - 180, R * 1.002))),
-        new THREE.LineBasicMaterial({ color: 0x3366cc, transparent: true, opacity: 0.9 })
+        new THREE.LineBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.75 })
       ))
       // Prime meridian — prominent
       pivot.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(Array.from({ length: 181 }, (_, j) => mk(-90 + j, 0, R * 1.002))),
-        new THREE.LineBasicMaterial({ color: 0x3366cc, transparent: true, opacity: 0.9 })
+        new THREE.LineBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.75 })
       ))
       // Tropics of Cancer / Capricorn — amber
       for (const lat of [23.5, -23.5]) {
         const pts = Array.from({ length: 145 }, (_, j) => mk(lat, j * 2.5 - 180))
         pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0x997733, transparent: true, opacity: 0.5 })
+          new THREE.LineBasicMaterial({ color: 0x7799bb, transparent: true, opacity: 0.30 })
         ))
       }
       // Arctic / Antarctic circles — light blue
       for (const lat of [66.5, -66.5]) {
         const pts = Array.from({ length: 145 }, (_, j) => mk(lat, j * 2.5 - 180))
         pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.4 })
+          new THREE.LineBasicMaterial({ color: 0x7799bb, transparent: true, opacity: 0.20 })
         ))
       }
 
