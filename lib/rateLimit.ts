@@ -11,15 +11,13 @@
  * so local dev and preview deploys without KV still work.
  */
 
-import { kv } from '@vercel/kv'
+import { kv, KV_AVAILABLE } from '@/lib/kv'
 
 interface RateLimitResult {
   success: boolean
   remaining: number
   resetIn: number
 }
-
-const KV_AVAILABLE = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
 
 // ---------- In-memory fallback (dev / preview without KV) ----------
 interface RateLimitEntry { count: number; resetAt: number }

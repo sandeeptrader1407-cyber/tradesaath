@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { kv } from '@vercel/kv'
+import { kv, KV_AVAILABLE } from '@/lib/kv'
 
 export const runtime = 'nodejs'
-
-const KV_AVAILABLE = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
-  || !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
 
 function todayKey(userId: string): string {
   const today = new Date().toISOString().split('T')[0]
