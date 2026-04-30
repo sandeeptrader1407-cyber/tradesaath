@@ -388,22 +388,115 @@ function Hero() {
 
 // ─── BROKER STRIP ────────────────────────────────────────────────────────────
 function BrokerStrip() {
-  const BROKERS = ['Zerodha', 'Upstox', 'Angel One', 'Groww', 'IIFL', 'Fyers', 'Motilal Oswal', '5Paisa', 'HDFC Sec', 'ICICI Direct', 'Sharekhan', 'Kotak', 'SBI Sec']
+  const ITEMS = [
+    { name: 'Zerodha',             region: 'IN' },
+    { name: 'Upstox',              region: 'IN' },
+    { name: 'Angel One',           region: 'IN' },
+    { name: 'Groww',               region: 'IN' },
+    { name: 'Fyers',               region: 'IN' },
+    { name: 'IIFL',                region: 'IN' },
+    { name: 'Motilal Oswal',       region: 'IN' },
+    { name: '5Paisa',              region: 'IN' },
+    { name: 'HDFC Sec',            region: 'IN' },
+    { name: 'ICICI Direct',        region: 'IN' },
+    { name: 'Kotak Neo',           region: 'IN' },
+    { name: 'Sharekhan',           region: 'IN' },
+    { name: 'SBI Sec',             region: 'IN' },
+    { name: 'Dhan',                region: 'IN' },
+    { name: 'Paytm Money',         region: 'IN' },
+    { name: 'Interactive Brokers', region: 'GL' },
+    { name: 'TD Ameritrade',       region: 'GL' },
+    { name: 'Robinhood',           region: 'GL' },
+    { name: 'eToro',               region: 'GL' },
+    { name: 'Saxo Bank',           region: 'GL' },
+    { name: 'XTB',                 region: 'GL' },
+    { name: 'IG Markets',          region: 'GL' },
+    { name: 'Webull',              region: 'GL' },
+    { name: 'Tastytrade',          region: 'GL' },
+    { name: 'Alpaca',              region: 'GL' },
+    { name: 'Oanda',               region: 'GL' },
+    { name: 'Plus500',             region: 'GL' },
+    { name: 'Capital.com',         region: 'GL' },
+    { name: 'Binance',             region: 'GL' },
+    { name: 'Coinbase',            region: 'GL' },
+  ]
+
+  const DOUBLED = [...ITEMS, ...ITEMS]
+
   return (
-    <div style={{ background: '#080C14', borderTop: '0.5px solid rgba(255,255,255,0.07)', borderBottom: '0.5px solid rgba(255,255,255,0.07)', padding: '14px 24px' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
-        <span style={{ flexShrink: 0, fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.28)', whiteSpace: 'nowrap', paddingRight: 20 }}>Works with</span>
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          {BROKERS.map((b, i) => (
-            <span key={b} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {i > 0 && <span style={{ color: 'rgba(241,245,249,0.15)', fontSize: 12, padding: '0 12px' }}>&middot;</span>}
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, color: 'rgba(241,245,249,0.5)', whiteSpace: 'nowrap' }}>{b}</span>
+    <div style={{
+      background: '#080C14',
+      borderTop: '0.5px solid rgba(255,255,255,0.07)',
+      borderBottom: '0.5px solid rgba(255,255,255,0.07)',
+      padding: '12px 0',
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+      {/* Left fade */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, zIndex: 2,
+        background: 'linear-gradient(to right, #080C14 0%, transparent 100%)',
+        pointerEvents: 'none',
+      }} />
+      {/* Right fade */}
+      <div style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, zIndex: 2,
+        background: 'linear-gradient(to left, #080C14 0%, transparent 100%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Label */}
+      <div style={{
+        position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)',
+        fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: 'rgba(241,245,249,0.22)',
+        zIndex: 3, whiteSpace: 'nowrap',
+      }}>
+        Works with
+      </div>
+
+      {/* Scrolling track */}
+      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 110 }}>
+        <div className="broker-marquee" style={{ display: 'flex', alignItems: 'center', gap: 0, willChange: 'transform' }}>
+          {DOUBLED.map((item, i) => (
+            <span
+              key={i}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                padding: '0 18px',
+                fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500,
+                whiteSpace: 'nowrap',
+                color: item.region === 'IN' ? 'rgba(241,245,249,0.55)' : 'rgba(241,245,249,0.35)',
+                borderRight: '0.5px solid rgba(255,255,255,0.06)',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.color =
+                  item.region === 'IN' ? '#F59E0B' : 'rgba(241,245,249,0.6)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.color =
+                  item.region === 'IN' ? 'rgba(241,245,249,0.55)' : 'rgba(241,245,249,0.35)'
+              }}
+            >
+              {item.name}
             </span>
           ))}
-          <span style={{ color: 'rgba(241,245,249,0.15)', fontSize: 12, padding: '0 12px' }}>&middot;</span>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 400, color: 'rgba(241,245,249,0.28)', whiteSpace: 'nowrap' }}>+20 more</span>
         </div>
       </div>
+
+      <style>{`
+        .broker-marquee {
+          animation: marquee-scroll 40s linear infinite;
+        }
+        .broker-marquee:hover {
+          animation-play-state: paused;
+        }
+        @keyframes marquee-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   )
 }
