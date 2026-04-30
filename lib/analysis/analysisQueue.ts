@@ -13,16 +13,16 @@
  * Future: migrate processing to QStash/Inngest for durable execution at scale.
  */
 
-import { kv } from '@vercel/kv'
+import { kv } from '@/lib/kv'
 import { analyseSession, type AnalyseSessionResult } from '@/lib/analysis/sessionAnalyser'
 
 const CONCURRENCY = 3
 const BATCH_TTL = 15 * 60 // seconds
 
+import { KV_AVAILABLE } from '@/lib/kv'
+
 function assertKvConfigured() {
-  const url   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) {
+  if (!KV_AVAILABLE) {
     throw new Error('KV_REST_API_URL (or UPSTASH_REDIS_REST_URL) and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_TOKEN) must be set.')
   }
 }
