@@ -86,7 +86,7 @@ export default function TradingGlobe() {
         const op = Math.max(0.02, Math.min(1, s.base + 0.15 * Math.sin(now * 0.001 + s.phase)))
         starCtx.beginPath()
         starCtx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2)
-        starCtx.fillStyle = `rgba(255,255,255,${op.toFixed(2)})`
+        starCtx.fillStyle = `rgba(180,210,255,${op.toFixed(2)})`
         starCtx.fill()
       }
     }
@@ -108,10 +108,14 @@ export default function TradingGlobe() {
       const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100)
       camera.position.z = 2.8
 
-      // Point light for globe depth
+      // Primary point light for globe depth
       const light = new THREE.PointLight(0xffffff, 0.6)
       light.position.set(3, 3, 5)
       scene.add(light)
+      // Cool-toned back light for edge contrast
+      const backLight = new THREE.PointLight(0x003366, 0.4)
+      backLight.position.set(-3, -2, -3)
+      scene.add(backLight)
       scene.add(new THREE.AmbientLight(0x1a2040, 1.2))
 
       const R = 1
@@ -123,41 +127,64 @@ export default function TradingGlobe() {
       pivot.add(new THREE.Mesh(
         new THREE.SphereGeometry(R, 64, 64),
         new THREE.MeshPhongMaterial({
-          color: 0x060D1F,
-          emissive: 0x0A1628,
-          emissiveIntensity: 0.3,
-          shininess: 8,
+          color: 0x030d1f,
+          emissive: 0x050f28,
+          emissiveIntensity: 0.5,
+          specular: 0x1a3a6a,
+          shininess: 20,
         })
       ))
 
-      // ── Grid lines (blue-tinted, 20° spacing) ─────────────────────────────
-      const mk = (lat: number, lon: number) => {
-        const [x,y,z] = ll2xyz(lat, lon, R * 1.001)
+      // ── Dual-density grid ─────────────────────────────────────────────────
+      const mk = (lat: number, lon: number, r = R * 1.001) => {
+        const [x,y,z] = ll2xyz(lat, lon, r)
         return new THREE.Vector3(x, y, z)
       }
-      const gridBlue = 0x4A90E2
-      for (let lat = -80; lat <= 80; lat += 20) {
+      const fineMat  = new THREE.LineBasicMaterial({ color: 0x1a3a6a, transparent: true, opacity: 0.18 })
+      const coarseMat = new THREE.LineBasicMaterial({ color: 0x2255aa, transparent: true, opacity: 0.35 })
+
+      // Latitude lines — every 10°
+      for (let lat = -80; lat <= 80; lat += 10) {
+        if (lat === 0) continue // equator drawn separately
         const pts = Array.from({ length: 73 }, (_, j) => mk(lat, j * 5 - 180))
-        const op  = lat === 0 ? 0.18 : 0.07
-        pivot.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: gridBlue, transparent: true, opacity: op })
-        ))
+        pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lat % 30 === 0 ? coarseMat : fineMat))
       }
-      for (let lon = -180; lon < 180; lon += 20) {
+      // Longitude lines — every 10°
+      for (let lon = -180; lon < 180; lon += 10) {
+        if (lon === 0) continue // prime meridian drawn separately
         const pts = Array.from({ length: 37 }, (_, j) => mk(-90 + j * 5, lon))
-        const op  = lon === 0 ? 0.14 : 0.07
-        pivot.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: gridBlue, transparent: true, opacity: op })
+        pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lon % 30 === 0 ? coarseMat : fineMat))
+      }
+      // Equator — bright highlight
+      pivot.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(Array.from({ length: 73 }, (_, j) => mk(0, j * 5 - 180, R * 1.0015))),
+        new THREE.LineBasicMaterial({ color: 0x3366cc, transparent: true, opacity: 0.6 })
+      ))
+      // Prime meridian
+      pivot.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(Array.from({ length: 37 }, (_, j) => mk(-90 + j * 5, 0))),
+        new THREE.LineBasicMaterial({ color: 0x1a4488, transparent: true, opacity: 0.35 })
+      ))
+      // Tropics & polar circles
+      for (const lat of [23.5, -23.5, 66.5, -66.5]) {
+        const pts = Array.from({ length: 73 }, (_, j) => mk(lat, j * 5 - 180))
+        pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: 0x1a4488, transparent: true, opacity: 0.25 })
         ))
       }
 
-      // ── Atmosphere: 3 nested shells (not in pivot — stay fixed) ───────────
+      // ── Atmosphere: rim glow + 5 nested shells ────────────────────────────
+      // Rim glow — tight bright shell at globe edge
+      scene.add(new THREE.Mesh(
+        new THREE.SphereGeometry(R * 1.02, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0x3366ff, transparent: true, opacity: 0.08, side: THREE.BackSide })
+      ))
       const atmo = [
-        { r: R * 1.06, c: 0x1B4FD8, o: 0.12 },
-        { r: R * 1.14, c: 0x0F3FA6, o: 0.06 },
-        { r: R * 1.25, c: 0x0A2A7A, o: 0.03 },
+        { r: R * 1.04, c: 0x2255cc, o: 0.18 },
+        { r: R * 1.08, c: 0x1840aa, o: 0.10 },
+        { r: R * 1.14, c: 0x112d88, o: 0.06 },
+        { r: R * 1.22, c: 0x0a1e66, o: 0.03 },
+        { r: R * 1.35, c: 0x060f44, o: 0.015 },
       ]
       atmo.forEach(({ r, c, o }) =>
         scene.add(new THREE.Mesh(
@@ -176,6 +203,10 @@ export default function TradingGlobe() {
         { latMin: 5,  latMax: 55, lonMin:  100, lonMax:  145, density: 0.40 },
         { latMin: -40, latMax: -10, lonMin: 113, lonMax:  154, density: 0.40 },
         { latMin: 60, latMax: 83, lonMin:  -55, lonMax:  -18, density: 0.25 },
+        // Northern Asia / Siberia
+        { latMin: 55, latMax: 75, lonMin:   18, lonMax:   80, density: 0.40 },
+        // Southeast Asia / Indonesia
+        { latMin: -5, latMax: 20, lonMin:   95, lonMax:  140, density: 0.40 },
       ]
       const dotPos: number[] = []
       regions.forEach(reg => {
@@ -191,7 +222,7 @@ export default function TradingGlobe() {
       const dotGeo = new THREE.BufferGeometry()
       dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(dotPos, 3))
       pivot.add(new THREE.Points(dotGeo,
-        new THREE.PointsMaterial({ size: 0.008, color: 0x2A5FCF, transparent: true, opacity: 0.5, sizeAttenuation: true })
+        new THREE.PointsMaterial({ size: 0.008, color: 0x3d6abf, transparent: true, opacity: 0.65, sizeAttenuation: true })
       ))
 
       // ── Market dots (3 layers each) ────────────────────────────────────────
@@ -224,7 +255,16 @@ export default function TradingGlobe() {
         core.position.copy(pos)
         pivot.add(core)
 
-        return { outer, pos, m }
+        // Ring halo — flat ring oriented to face outward
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.028, 0.034, 24),
+          new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+        )
+        ring.position.copy(pos)
+        ring.lookAt(pos.clone().multiplyScalar(2))
+        pivot.add(ring)
+
+        return { outer, ring, pos, m }
       })
 
       // ── Connection arcs + animated particles ──────────────────────────────
@@ -326,7 +366,7 @@ export default function TradingGlobe() {
         drawStars(now)
 
         if (!isDragging) {
-          pivot.rotation.y += 0.0012 + velY
+          pivot.rotation.y += 0.001 + velY
           velY *= 0.95
           velX *= 0.95
           // Gentle tilt oscillation — lerp towards oscillation target
@@ -334,13 +374,19 @@ export default function TradingGlobe() {
           pivot.rotation.x += (tiltTarget - pivot.rotation.x) * 0.015
         }
 
-        // Pulse outer market dots
+        // Pulse outer market dots + ring halos
         const t = now * 0.002
-        dotData.forEach(({ outer }, i) => {
-          const s = 1.0 + 0.55 * (0.5 + 0.5 * Math.sin(t + i * 0.7))
+        dotData.forEach(({ outer, ring }, i) => {
+          const phase = t + i * 0.7
+          const s = 1.0 + 0.55 * (0.5 + 0.5 * Math.sin(phase))
           outer.scale.setScalar(s)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(outer.material as any).opacity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t + i * 0.7))
+          ;(outer.material as any).opacity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(phase))
+          // Ring halo pulses on a slower, independent phase
+          const rPhase = now * 0.0014 + i * 0.7
+          ring.scale.setScalar(1 + 0.4 * (0.5 + 0.5 * Math.sin(rPhase)))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(ring.material as any).opacity = 0.15 + 0.2 * (0.5 + 0.5 * Math.sin(rPhase))
         })
 
         // Arc particles travel along curves
@@ -377,7 +423,7 @@ export default function TradingGlobe() {
   }, [])
 
   return (
-    <div>
+    <div style={{ background: '#020914', borderRadius: 12 }}>
       <div ref={containerRef} style={{ position: 'relative', width: '100%', cursor: 'grab' }} className="globe-wrap">
         <canvas ref={starsCanvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
         {tooltip && (
@@ -406,7 +452,7 @@ export default function TradingGlobe() {
           </div>
         )}
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(248,246,241,0.4)', textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(120,160,255,0.3)', textAlign: 'center', marginTop: 12, marginBottom: 0, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         16 markets &middot; 6 continents &middot; 1 companion
       </p>
       <style>{`
