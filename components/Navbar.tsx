@@ -33,7 +33,7 @@ function ClerkAuthButtons() {
         <Link href="/settings" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 32, height: 32, borderRadius: 6, textDecoration: 'none',
-          color: onSettings ? '#F8F6F1' : 'rgba(248,246,241,0.5)',
+          color: onSettings ? 'var(--color-ink)' : 'var(--color-muted)',
           transition: 'color 0.15s',
         }}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-label="Settings">
@@ -160,7 +160,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { scrollY } = useScroll()
   const borderOpacity = useTransform(scrollY, [0, 20], [0, 1])
-  const navBorder = useTransform(borderOpacity, (v) => `1px solid rgba(229,226,217,${v})`)
+  const navBorder = useTransform(borderOpacity, (v) => `0.5px solid rgba(209,213,219,${v})`)
 
   return (
     <>

@@ -140,15 +140,15 @@ nav {
   height: var(--nav-h);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px;
-  background: var(--color-ink);
-  border-bottom: 0.5px solid rgba(255,255,255,.08);
+  background: #FFFFFF;
+  border-bottom: 0.5px solid transparent;
 }
 
 .nav-logo {
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 400;
-  color: #F8F6F1;
+  color: var(--color-ink);
   text-decoration: none;
   letter-spacing: -.01em;
   flex-shrink: 0;
@@ -175,17 +175,17 @@ nav {
 
 .nav-links a:hover,
 .nav-app-link:hover,
-.nav-landing-link:hover { color: #F8F6F1 }
+.nav-landing-link:hover { color: var(--color-ink) }
 
 .nav-links a.nav-active,
-.nav-app-link.nav-active { color: #F8F6F1; border-bottom-color: #F8F6F1 }
+.nav-app-link.nav-active { color: var(--color-ink); border-bottom-color: var(--color-ink) }
 
 .nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0 }
 
 /* User initials circle */
 .nav-initials {
   width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(255,255,255,.1);
+  background: var(--color-ink);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 12px; color: #F8F6F1;
   flex-shrink: 0; font-weight: 500;
@@ -320,8 +320,8 @@ nav {
 /* ── Nav auth buttons ── */
 .nav-auth-btn {
   background: transparent;
-  border: 1px solid rgba(255,255,255,.2);
-  color: #F8F6F1;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-muted);
   height: 30px;
   padding: 0 14px;
   border-radius: 6px;
@@ -329,16 +329,16 @@ nav {
   font-family: var(--font-sans);
   font-weight: 400;
 }
-.nav-auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.35) }
+.nav-auth-btn:hover { background: var(--s2); border-color: var(--color-border-strong); color: var(--color-ink) }
 .nav-getstarted-btn {
-  background: #F8F6F1; color: var(--color-ink);
+  background: #F59E0B; color: #FFFFFF;
   height: 30px; padding: 0 16px; border-radius: 6px;
   font-size: 13px; font-family: var(--font-sans); font-weight: 500;
   border: none; cursor: pointer; white-space: nowrap; text-decoration: none;
   display: inline-flex; align-items: center;
   transition: background .15s;
 }
-.nav-getstarted-btn:hover { background: #EDE9E0 }
+.nav-getstarted-btn:hover { background: #D97706 }
 
 /* ═══════════════════════════════════════════════════════
    CARDS
