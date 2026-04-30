@@ -145,7 +145,12 @@ export async function GET(req: NextRequest) {
       trades: s.trade_count || 0,
       pnl: Number(s.net_pnl || 0),
       winRate: s.win_rate || 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dqsScore: Number((s as any).analysis?.dqs?.score || 0) || undefined,
     }))
+
+    // Last session date (most recent trade_date)
+    const lastSessionDate: string | null = sessions[0]?.trade_date || null
 
     if (sessionIds.length > 0) {
       const recentSessionDateMap = new Map(sessions.slice(0, 5).map(s => [s.id, s.trade_date || '']))
@@ -470,6 +475,43 @@ export async function GET(req: NextRequest) {
     }
     const patternsByTagArr = Object.values(patternsByTag).sort((a, b) => b.cost - a.cost)
 
+    // ── Month-scoped and last-month-scoped patterns (for trend pill) ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const monthSessionIds = new Set(monthSessions.map((s: any) => s.id as string))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastMonthSessionIds = new Set(lastMonthSessions.map((s: any) => s.id as string))
+    const monthPatternMap: Record<string, { label: string; count: number; cost: number }> = {}
+    const lastMonthPatternMap: Record<string, { label: string; count: number; cost: number }> = {}
+    for (const sess of sessions) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mp = (sess as any)?.analysis?.mistake_patterns
+      if (!Array.isArray(mp)) continue
+      const inMonth = monthSessionIds.has(sess.id)
+      const inLastMonth = lastMonthSessionIds.has(sess.id)
+      for (const p of mp) {
+        const label = String(p?.name || p?.pattern || '').trim()
+        if (!label) continue
+        const count = Number(p?.count || 0)
+        const cost = Math.max(0, Number(p?.cost || 0))
+        if (inMonth) {
+          if (!monthPatternMap[label]) monthPatternMap[label] = { label, count: 0, cost: 0 }
+          monthPatternMap[label].count += count
+          monthPatternMap[label].cost += cost
+        }
+        if (inLastMonth) {
+          if (!lastMonthPatternMap[label]) lastMonthPatternMap[label] = { label, count: 0, cost: 0 }
+          lastMonthPatternMap[label].count += count
+          lastMonthPatternMap[label].cost += cost
+        }
+      }
+    }
+    const monthPatternArr = Object.values(monthPatternMap).sort((a, b) => b.cost - a.cost)
+    // lastMonthPatternMap used only for topPatternLastMonth lookup below
+    // Top pattern trend: compare this month's count to last month's for the top all-time pattern
+    const topPatternLabel = patternsByTagArr[0]?.label || null
+    const topPatternThisMonth = topPatternLabel ? (monthPatternMap[topPatternLabel] || null) : null
+    const topPatternLastMonth = topPatternLabel ? (lastMonthPatternMap[topPatternLabel] || null) : null
+
     // Prefer the accurate excess-cost aggregate when available.
     if (patternsTotalCost > 0) {
       totalMistakeCost = patternsTotalCost
@@ -628,8 +670,12 @@ export async function GET(req: NextRequest) {
         subScores: dqsSubScores,
       },
       latestAiCoaching,
+      lastSessionDate,
       lastMonthPnl: lastMonthKPIs.totalPnl,
       lastMonthWinRate: lastMonthKPIs.winRate,
+      topPatternThisMonth,
+      topPatternLastMonth,
+      monthPatterns: monthPatternArr,
       patterns: {
         byTag: patternsByTagArr,
         totalMistakeCost: patternsTotalCost,

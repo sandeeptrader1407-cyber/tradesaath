@@ -73,7 +73,7 @@ export default function DecisionQualityScore({ score = 0, grade = null, factors 
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
             {pendingCount > 0
-              ? `${pendingCount} session${pendingCount === 1 ? '' : 's'} awaiting analysis — click "Run AI analysis" above to process them.`
+              ? `${pendingCount} session${pendingCount === 1 ? '' : 's'} awaiting analysis. Click "Run AI analysis" above to process them.`
               : "We score every session across 7 factors including Risk Management, Emotional Control, Position Sizing, and Exit Discipline."}
           </p>
         </div>

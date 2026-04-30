@@ -43,9 +43,13 @@ interface DashStats {
   streaks: { current: number; bestWin: number; worstLoss: number }
   risk: { maxDrawdown: number; avgLossAvgWin: string }
   recentTrades?: { time?: string; symbol?: string; side?: string; pnl?: number; tag?: string; sessionDate?: string }[]
-  recentSessions?: { date?: string; trades?: number; pnl?: number; winRate?: number }[]
+  recentSessions?: { date?: string; trades?: number; pnl?: number; winRate?: number; dqsScore?: number }[]
   lastMonthPnl?: number
   lastMonthWinRate?: number
+  lastSessionDate?: string | null
+  topPatternThisMonth?: { label: string; count: number; cost: number } | null
+  topPatternLastMonth?: { label: string; count: number; cost: number } | null
+  monthPatterns?: { label: string; count: number; cost: number }[]
   mistakeTrades?: { type: string; icon: string; count: number; cost: number }[]
   totalMistakeCost?: number
   counterfactualPnl?: number
@@ -275,15 +279,34 @@ export default function DashboardPage() {
   const lastMonthWR = stats?.lastMonthWinRate ?? 0
   const wrDelta = lastMonthWR > 0 ? winRate - lastMonthWR : null
 
+  // KPI 1 — P&L direction
+  const pnlSub = stats?.lastMonthPnl !== undefined && stats.lastMonthPnl !== 0
+    ? (stats.month.pnl > stats.lastMonthPnl
+        ? `↑ Improving vs last month`
+        : `↓ Down from last month`)
+    : `${stats?.month.sessions || 0} sessions`
+  const pnlSubColor = stats?.lastMonthPnl !== undefined && stats.lastMonthPnl !== 0
+    ? (stats.month.pnl > stats.lastMonthPnl ? "var(--color-profit)" : "var(--color-loss)")
+    : "var(--color-muted)"
+
+  // KPI 2 — WR delta + cross-metric insight
+  const wrCrossInsight = winRate > 50 && (stats?.month.pnl ?? 0) < 0
+    ? "High WR. Check position sizing."
+    : null
+
+  // KPI 4 — Discipline percentile
+  const disciplineLabel = score >= 72 ? "Top 10%" : score >= 58 ? "Above avg profitable" : score >= 41 ? "Above avg trader" : "Below average"
+  const disciplineColor = score >= 58 ? "var(--color-profit)" : score >= 41 ? "var(--color-muted)" : "var(--color-loss)"
+
   const kpiCards = stats ? [
     {
       label: "This Month P&L",
       value: fmtPnl(stats.month.pnl),
       color: stats.month.pnl >= 0 ? "var(--green)" : "var(--red)",
-      sub: stats.lastMonthPnl !== undefined && stats.lastMonthPnl !== 0
-        ? `prev month: ${fmtPnl(stats.lastMonthPnl)}`
-        : 'current month',
-      subColor: "var(--color-muted)",
+      sub: pnlSub,
+      subColor: pnlSubColor,
+      sub2: `${stats.month.sessions} sessions`,
+      sub2Color: "var(--color-muted)",
     },
     {
       label: "Win Rate",
@@ -291,12 +314,14 @@ export default function DashboardPage() {
       color: winRate >= 50 ? "var(--green)" : "var(--red)",
       sub: wrDelta !== null
         ? (Math.abs(wrDelta) < 0.5
-          ? 'stable vs last month'
+          ? 'Stable vs last month'
           : `${wrDelta > 0 ? '↑' : '↓'} ${wrDelta > 0 ? '+' : ''}${wrDelta.toFixed(1)}% vs last month`)
         : 'all-time',
       subColor: wrDelta !== null && Math.abs(wrDelta) >= 0.5
-        ? (wrDelta > 0 ? "var(--green)" : "var(--red)")
+        ? (wrDelta > 0 ? "var(--color-profit)" : "var(--color-loss)")
         : "var(--color-muted)",
+      sub2: wrCrossInsight,
+      sub2Color: "var(--color-muted)",
     },
     {
       label: "Best Day P&L",
@@ -309,8 +334,8 @@ export default function DashboardPage() {
       label: "Discipline",
       value: String(score),
       color: "var(--color-ink)",
-      sub: 'Avg: 41 · Profitable: 58',
-      subColor: "var(--color-muted)",
+      sub: disciplineLabel,
+      subColor: disciplineColor,
     },
   ] : []
 
@@ -383,8 +408,11 @@ export default function DashboardPage() {
               <span style={{ fontFamily: "var(--font-mono)" }}>{(stats?.sessionCount || 0).toLocaleString("en-IN")}</span>
               {" sessions · "}
               <span style={{ fontFamily: "var(--font-mono)" }}>{(stats?.totalTrades || 0).toLocaleString("en-IN")}</span>
-              {" trades · "}
-              {getMonthYear()}
+              {" trades"}
+              {stats?.lastSessionDate
+                ? <>{" · Last session: "}<span style={{ fontFamily: "var(--font-mono)" }}>{fmtShortDate(stats.lastSessionDate)}</span></>
+                : <>{" · "}{getMonthYear()}</>
+              }
             </p>
           </div>
           <button onClick={() => router.push("/upload")} className="btn btn-accent btn-sm shrink-0 dash-new-btn">
@@ -418,48 +446,113 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="dash-hero-score rounded-xl border p-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
                 <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted, #888780)", marginBottom: 12 }}>Your Score</div>
-                <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <svg width="120" height="120" viewBox="0 0 120 120">
-                      <circle cx="60" cy="60" r="48" fill="none" stroke="var(--s3)" strokeWidth="8" />
-                      <circle cx="60" cy="60" r="48" fill="none"
-                        stroke={score >= 60 ? "var(--green)" : score >= 40 ? "var(--gold)" : "var(--red)"}
-                        strokeWidth="8" strokeLinecap="round"
-                        strokeDasharray={2 * Math.PI * 48}
-                        strokeDashoffset={2 * Math.PI * 48 - (score / 100) * 2 * Math.PI * 48}
-                        transform="rotate(-90 60 60)"
-                        style={{ transition: "stroke-dashoffset 1.2s ease-out" }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 400, color: score >= 60 ? "var(--green)" : score >= 40 ? "var(--gold)" : "var(--red)" }}>{score}</div>
-                      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontFamily: "var(--font-sans)" }}>/ 100</div>
+                {(() => {
+                  const ringColor = score >= 80 ? "#0F7A5A" : score >= 60 ? "var(--color-profit)" : score >= 40 ? "#C07B2A" : "var(--color-loss)"
+                  const percentileLabel = score >= 72 ? "Top 10% of traders" : score >= 58 ? "Above profitable avg" : score >= 41 ? "Above avg trader" : "Below average"
+                  const sparkPts = stats?.equityCurve?.slice(-20) || []
+                  const sparkValues = sparkPts.map(p => Math.max(0, Math.min(100, 50 + (p.pnl / (Math.max(...sparkPts.map(x => Math.abs(x.pnl)), 1)) * 30))))
+                  const showSparkline = sparkValues.length >= 3
+                  const sparkMin = Math.min(...sparkValues)
+                  const sparkMax = Math.max(...sparkValues)
+                  const sparkRange = sparkMax - sparkMin || 1
+                  const sparkW = 80, sparkH = 20
+                  const sparkPolyline = sparkValues.map((v, i) => {
+                    const x = (i / (sparkValues.length - 1)) * sparkW
+                    const y = sparkH - ((v - sparkMin) / sparkRange) * sparkH
+                    return `${x},${y}`
+                  }).join(' ')
+                  return (
+                    <div className="flex flex-col items-center">
+                      <div className="relative" style={{ cursor: 'pointer' }}
+                        onClick={() => document.getElementById('section-score-detail')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <svg width="120" height="120" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--s3)" strokeWidth="8" />
+                          <circle cx="60" cy="60" r="48" fill="none"
+                            stroke={ringColor}
+                            strokeWidth="8" strokeLinecap="round"
+                            strokeDasharray={2 * Math.PI * 48}
+                            strokeDashoffset={2 * Math.PI * 48 - (score / 100) * 2 * Math.PI * 48}
+                            transform="rotate(-90 60 60)"
+                            style={{ transition: "stroke-dashoffset 1.2s ease-out" }}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 400, color: ringColor }}>{score}</div>
+                          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontFamily: "var(--font-sans)" }}>/ 100</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, marginTop: 6, color: ringColor, fontFamily: "var(--font-sans)", fontWeight: 400 }}>{percentileLabel}</div>
+                      {showSparkline && (
+                        <svg width={sparkW} height={sparkH} style={{ marginTop: 6 }}>
+                          <polyline points={sparkPolyline} fill="none" stroke={ringColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      {lowest && (
+                        <div style={{ fontSize: 11, marginTop: 8, textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-sans)" }}>
+                          Weakest area: <strong style={{ color: "var(--color-loss)" }}>{lowest.name}</strong> at <span style={{ fontFamily: "var(--font-mono)" }}>{lowest.value}%</span>
+                        </div>
+                      )}
+                      <Link href="/coach" style={{ fontSize: 11, marginTop: 6, color: "var(--accent)", fontFamily: "var(--font-sans)", fontWeight: 400, textDecoration: "none" }}>
+                        Fix in Saathi →
+                      </Link>
                     </div>
-                  </div>
-                  {lowest && (
-                    <div style={{ fontSize: 12, marginTop: 10, textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-sans)" }}>
-                      Drag: <strong style={{ color: "var(--red)" }}>{lowest.name}</strong> at <span style={{ fontFamily: "var(--font-mono)" }}>{lowest.value}%</span>
-                    </div>
-                  )}
-                </div>
+                  )
+                })()}
               </div>
 
               <div className="dash-hero-issue rounded-xl border p-5 flex flex-col" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 12 }}>Top Issue</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)" }}>Top Issue</div>
+                  {(() => {
+                    const thisM = stats?.topPatternThisMonth
+                    const lastM = stats?.topPatternLastMonth
+                    if (!thisM) return null
+                    let trend: 'worsening' | 'improving' | 'stable' = 'stable'
+                    if (lastM && lastM.count > 0) {
+                      const ratio = thisM.count / lastM.count
+                      if (ratio > 1.1) trend = 'worsening'
+                      else if (ratio < 0.9) trend = 'improving'
+                    } else if (thisM.count > 0 && !lastM) {
+                      trend = 'worsening'
+                    }
+                    const trendColors = {
+                      worsening: { bg: 'rgba(192,57,43,0.1)', border: 'rgba(192,57,43,0.3)', color: 'var(--color-loss)' },
+                      improving: { bg: 'rgba(29,158,117,0.1)', border: 'rgba(29,158,117,0.3)', color: 'var(--color-profit)' },
+                      stable: { bg: 'rgba(136,135,128,0.1)', border: 'rgba(136,135,128,0.3)', color: 'var(--color-muted)' },
+                    }
+                    const tc = trendColors[trend]
+                    const labels = { worsening: 'Worsening', improving: 'Improving', stable: 'Stable' }
+                    return (
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, padding: "2px 8px", borderRadius: 20, background: tc.bg, border: `1px solid ${tc.border}`, color: tc.color }}>
+                        {labels[trend]}
+                      </span>
+                    )
+                  })()}
+                </div>
                 <div className="flex-1 flex flex-col">
                   {topMistake ? (
                     <>
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 400, color: "var(--color-loss)", marginBottom: 4 }}>
                         {TAG_LABELS[topMistake.type] || topMistake.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
-                        Cost you <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>{fmtPnl(-topMistake.cost)}</span> across <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{topMistake.count}</span> {topMistake.count === 1 ? "trade" : "trades"} all-time
-                      </div>
+                      {stats?.topPatternThisMonth && stats.topPatternThisMonth.count > 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                          Cost you <span style={{ color: "var(--color-loss)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>{fmtPnl(-stats.topPatternThisMonth.cost)}</span> this month (<span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{stats.topPatternThisMonth.count}</span> {stats.topPatternThisMonth.count === 1 ? "trade" : "trades"})
+                        </div>
+                      ) : stats?.topPatternThisMonth ? (
+                        <div style={{ fontSize: 12, color: "var(--color-profit)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                          Clean month for this pattern
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                          Cost you <span style={{ color: "var(--color-loss)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>{fmtPnl(-topMistake.cost)}</span> across <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{topMistake.count}</span> {topMistake.count === 1 ? "trade" : "trades"} all-time
+                        </div>
+                      )}
                       <hr style={{ border: "none", borderTop: "0.5px solid var(--color-border)", margin: "12px 0" }} />
                       <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 4 }}>
-                        When it happens
+                        Your trigger
                       </div>
-                      <div style={{ fontSize: 12, color: "#444441", lineHeight: 1.5, fontFamily: "var(--font-sans)" }}>
+                      <div style={{ fontSize: 12, color: "var(--color-ink)", lineHeight: 1.5, fontFamily: "var(--font-sans)" }}>
                         {PATTERN_WHEN[TAG_LABELS[topMistake.type] || topMistake.type] ||
                          PATTERN_WHEN[topMistake.type] ||
                          "Review your last 10 flagged trades for the pattern"}
@@ -506,8 +599,13 @@ export default function DashboardPage() {
                     {k.value}
                   </p>
                   {k.sub && (
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 400, color: k.subColor, margin: "4px 0 0", lineHeight: 1 }}>
+                    <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 400, color: k.subColor, margin: "4px 0 0", lineHeight: 1.3 }}>
                       {k.sub}
+                    </p>
+                  )}
+                  {'sub2' in k && k.sub2 && (
+                    <p style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 400, color: (k as { sub2Color?: string }).sub2Color || "var(--color-muted)", margin: "3px 0 0", lineHeight: 1.3, fontStyle: 'italic' }}>
+                      {k.sub2}
                     </p>
                   )}
                 </div>
@@ -518,14 +616,16 @@ export default function DashboardPage() {
 
             {/* DQS breakdown */}
             <div id="section-score">
-              <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} /></ErrorBoundary>
+              <div id="section-score-detail">
+                <ErrorBoundary name="TradeSaathScore"><TradeSaathScore score={score} factors={factors} equityCurve={stats.equityCurve} /></ErrorBoundary>
+              </div>
             </div>
 
             {DIVIDER}
 
             {/* Equity curve + Heatmap */}
             <div id="section-performance">
-              <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} /></ErrorBoundary>
+              <ErrorBoundary name="EquityCurve"><DashboardEquityCurve equityCurve={stats.equityCurve} streaks={stats.streaks} risk={stats.risk} totalAllTimePnl={stats.actualAllTimePnl} /></ErrorBoundary>
 
               {DIVIDER}
 

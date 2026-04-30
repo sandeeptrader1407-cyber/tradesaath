@@ -97,6 +97,27 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
 
   const hasData = trades.length >= 5
 
+  // Find best and worst cells
+  const { bestDi, bestSi, worstDi, worstSi } = useMemo(() => {
+    let bestWR = -1, worstWR = 101, bestDi = -1, bestSi = -1, worstDi = -1, worstSi = -1
+    if (!hasData) return { bestDi, bestSi, worstDi, worstSi }
+    days.forEach((_, di) => {
+      slots.forEach((_, si) => {
+        const cell = grid[di][si]
+        if (cell.total < 3) return
+        const wr = (cell.wins / cell.total) * 100
+        if (wr > bestWR) { bestWR = wr; bestDi = di; bestSi = si }
+        if (wr < worstWR) { worstWR = wr; worstDi = di; worstSi = si }
+      })
+    })
+    return { bestDi, bestSi, worstDi, worstSi }
+  }, [days, slots, grid, hasData])
+
+  const bestLabel = bestDi >= 0 ? `${days[bestDi]} ${slots[bestSi]}` : null
+  const worstLabel = worstDi >= 0 ? `${days[worstDi]} ${slots[worstSi]}` : null
+  const bestWRVal = bestDi >= 0 ? Math.round((grid[bestDi][bestSi].wins / grid[bestDi][bestSi].total) * 100) : 0
+  const worstWRVal = worstDi >= 0 ? Math.round((grid[worstDi][worstSi].wins / grid[worstDi][worstSi].total) * 100) : 0
+
   return (
     <div className="rounded-xl border p-4 md:p-6" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -151,28 +172,30 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
                   {slots.map((_, si) => {
                     const cell = grid[di][si]
                     const wr = cell.total > 0 ? (cell.wins / cell.total) * 100 : null
-                    const lowConfidence = cell.total > 0 && cell.total < 3
+                    const isBest = di === bestDi && si === bestSi && bestDi >= 0
+                    const isWorst = di === worstDi && si === worstSi && worstDi >= 0
                     return (
                       <div
                         key={`${day}-${si}`}
-                        title={wr !== null
-                          ? `${Math.round(wr)}% win rate (${cell.total} trade${cell.total === 1 ? '' : 's'})${lowConfidence ? ' \u2014 low sample' : ''}`
-                          : "No trades in this slot"}
+                        title={wr !== null ? `${day} ${slots[si]}: ${Math.round(wr)}% win rate (${cell.total} trade${cell.total === 1 ? '' : 's'})` : `${day} ${slots[si]}: No trades`}
                         style={{
                           background: cellColor(wr),
                           borderRadius: 4,
                           height: 28,
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: 9,
-                          color: wr !== null
-                            ? (lowConfidence ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.8)")
-                            : "rgba(255,255,255,.15)",
+                          color: wr !== null ? "rgba(255,255,255,.8)" : "rgba(255,255,255,.15)",
                           fontFamily: "'JetBrains Mono', monospace",
                           cursor: "default",
                           transition: "transform .15s",
+                          position: 'relative',
+                          outline: isBest ? '2px solid var(--color-profit)' : isWorst ? '2px solid var(--color-loss)' : 'none',
+                          outlineOffset: '-1px',
                         }}
                       >
-                        {wr !== null ? `${Math.round(wr)}%` : "\u2014"}
+                        {wr !== null ? `${Math.round(wr)}%` : "—"}
+                        {isBest && <span style={{ position: 'absolute', top: 1, right: 2, fontSize: 8, color: 'var(--color-profit)', lineHeight: 1, pointerEvents: 'none' }}>&#9733;</span>}
+                        {isWorst && <span style={{ position: 'absolute', top: 1, right: 2, fontSize: 8, color: 'var(--color-loss)', lineHeight: 1, pointerEvents: 'none' }}>&#10005;</span>}
                       </div>
                     )
                   })}
@@ -204,6 +227,24 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
               No data
             </span>
           </div>
+
+          {/* Best / Avoid insight */}
+          {(bestLabel || worstLabel) && (
+            <div style={{ marginTop: 12, fontFamily: 'var(--font-sans)', fontSize: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {bestLabel && (
+                <span>
+                  <span style={{ color: 'var(--color-profit)', fontWeight: 500 }}>Best:</span>
+                  {' '}{bestLabel} ({bestWRVal}% win rate)
+                </span>
+              )}
+              {worstLabel && worstLabel !== bestLabel && (
+                <span>
+                  <span style={{ color: 'var(--color-loss)', fontWeight: 500 }}>Avoid:</span>
+                  {' '}{worstLabel} ({worstWRVal}% win rate)
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
