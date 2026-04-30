@@ -129,7 +129,7 @@ const PATTERN_WHEN: Record<string, string> = {
 }
 
 const DIVIDER = (
-  <hr style={{ border: "none", borderTop: "0.5px solid var(--color-border, #E5E2D9)", margin: 0 }} />
+  <hr style={{ border: "none", borderTop: "0.5px solid #E2E8F0", margin: 0 }} />
 )
 
 export default function DashboardPage() {
@@ -223,16 +223,48 @@ export default function DashboardPage() {
 
   if (!isLoaded || !isSignedIn) {
     return (
-      <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
+      <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "#F8FAFC" }}>
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
+          <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#F59E0B", borderTopColor: "transparent" }} />
         </div>
       </main>
     )
   }
 
   if (!loading && stats !== null && !stats.hasData) {
-    return (<><Toaster /><FirstSessionGuide /></>)
+    return (
+      <>
+        <Toaster />
+        <main style={{ background: '#F8FAFC', minHeight: '100vh' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '120px 24px 0' }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
+                <polyline points="17 8 12 3 7 8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="12" y1="3" x2="12" y2="15" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: '#0F172A', letterSpacing: '-0.02em', marginBottom: 10, lineHeight: 1.2 }}>
+              Upload your first session
+            </h2>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#64748B', lineHeight: 1.75, marginBottom: 28 }}>
+              Drop your Zerodha, Upstox, Angel One, or any broker trade file. TradeSaath reads it and shows you your patterns, score, and what to do next.
+            </p>
+            <a href="/upload" style={{ display: 'inline-flex', alignItems: 'center', background: '#F59E0B', color: '#080C14', height: 48, padding: '0 28px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+              Upload trades &rarr;
+            </a>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
+              PDF, CSV, or Excel &middot; Any broker &middot; Free
+            </p>
+          </div>
+        </main>
+      </>
+    )
   }
 
   const score = stats?.dqs?.overall ?? stats?.dqsScore ?? stats?.allTime?.disciplineScore ?? 0
@@ -352,8 +384,8 @@ export default function DashboardPage() {
       {showStickyNav && stats?.hasData && !loading && (
         <div className="dash-sticky-nav" style={{
           position: 'fixed', top: 'var(--nav-h, 52px)', left: 0, right: 0,
-          height: 36, background: 'var(--color-canvas)',
-          borderBottom: '0.5px solid var(--color-border)',
+          height: 36, background: '#FFFFFF',
+          borderBottom: '0.5px solid #E2E8F0',
           zIndex: 40, display: 'flex', alignItems: 'center',
           opacity: showStickyNav ? 1 : 0, transition: 'opacity 0.2s',
         }}>
@@ -363,9 +395,9 @@ export default function DashboardPage() {
                 onClick={() => document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth' })}
                 style={{
                   height: 36, padding: '0 16px', background: 'transparent', border: 'none',
-                  borderBottom: activeSection === id ? '2px solid var(--color-ink)' : '2px solid transparent',
+                  borderBottom: activeSection === id ? '2px solid #F59E0B' : '2px solid transparent',
                   fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400,
-                  color: activeSection === id ? 'var(--color-ink)' : 'var(--color-muted)',
+                  color: activeSection === id ? '#F59E0B' : '#94A3B8',
                   cursor: 'pointer', transition: 'color 0.15s',
                 }}>
                 {label}
@@ -375,7 +407,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-    <main className="min-h-screen pb-16 px-4" style={{ background: "var(--bg)", paddingTop: showStickyNav && stats?.hasData && !loading ? 116 : 80 }}>
+    <main className="min-h-screen pb-16 px-4" style={{ background: "#F8FAFC", paddingTop: showStickyNav && stats?.hasData && !loading ? 116 : 80 }}>
       <Toaster />
       <style>{`
         @keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -401,10 +433,10 @@ export default function DashboardPage() {
         {/* Header — name only, no time-of-day greeting */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 28, fontWeight: 400, color: "var(--color-ink, #1A1F2E)", margin: 0 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 400, color: "#0F172A", margin: 0 }}>
               {getDisplayName(user)}
             </h1>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-muted, #888780)", marginTop: 4, marginBottom: 0 }}>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#94A3B8", marginTop: 4, marginBottom: 0 }}>
               <span style={{ fontFamily: "var(--font-mono)" }}>{(stats?.sessionCount || 0).toLocaleString("en-IN")}</span>
               {" sessions · "}
               <span style={{ fontFamily: "var(--font-mono)" }}>{(stats?.totalTrades || 0).toLocaleString("en-IN")}</span>
@@ -415,14 +447,17 @@ export default function DashboardPage() {
               }
             </p>
           </div>
-          <button onClick={() => router.push("/upload")} className="btn btn-accent btn-sm shrink-0 dash-new-btn">
+          <button
+            onClick={() => router.push("/upload")}
+            className="dash-new-btn"
+            style={{ background: '#F59E0B', color: '#080C14', border: 'none', fontFamily: 'var(--font-sans)', fontWeight: 500, borderRadius: 8, height: 36, padding: '0 18px', fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
             New Analysis
           </button>
         </div>
 
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#F59E0B", borderTopColor: "transparent" }} />
           </div>
         )}
 

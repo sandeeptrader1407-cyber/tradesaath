@@ -42,7 +42,7 @@ function JourneyContent() {
           .journey-sub{font-size:13px!important}
         }
       `}</style>
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
         {/* Two-column page header */}
         <div className="journey-header" style={{
@@ -67,11 +67,11 @@ function JourneyContent() {
             </p>
             <h1 className="journey-title" style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 40,
+              fontSize: 44,
               fontWeight: 400,
               color: '#0F172A',
-              lineHeight: 1.15,
-              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              letterSpacing: '-0.025em',
               margin: '0 0 12px',
             }}>
               The story only your trades can tell.

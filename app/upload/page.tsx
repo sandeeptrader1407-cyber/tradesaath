@@ -93,7 +93,7 @@ export default function UploadPage() {
     })()
 
     return (
-      <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "var(--bg)" }}>
+      <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "#F8FAFC" }}>
         <Toaster />
         <div className="flex flex-col gap-6" style={{ maxWidth: 1100, margin: '0 auto' }}>
           {/* Header */}
@@ -160,7 +160,7 @@ export default function UploadPage() {
   }
 
   return (
-    <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: "var(--bg)" }}>
+    <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: "#F8FAFC" }}>
       <Toaster />
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
         {showBanner && (
@@ -215,15 +215,22 @@ export default function UploadPage() {
           </div>
         )}
 
-        <div className="text-center mb-2">
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: 'var(--color-ink)', margin: 0 }}>Upload Your Trades</h1>
-          <p style={{ marginTop: 10, fontSize: 15, fontFamily: 'var(--font-sans)', fontWeight: 400, color: 'var(--color-muted)', lineHeight: 1.65 }}>
-            Drop any broker file — PDF, CSV, or Excel.<br />
-            Your AI companion reads the psychology behind every trade.
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 400, color: '#0F172A', letterSpacing: '-0.02em', marginBottom: 8 }}>
+            Upload your trades
+          </h1>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#64748B', lineHeight: 1.7, margin: '0 0 16px' }}>
+            PDF, CSV, or Excel from any broker.
+            Auto-detected in under 10 seconds.
           </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+            {['PDF', 'CSV', 'Excel'].map(fmt => (
+              <span key={fmt} style={{ background: '#F1F5F9', color: '#64748B', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontFamily: 'var(--font-sans)' }}>{fmt}</span>
+            ))}
+          </div>
         </div>
         <AutoDetectBar />
-        <div className="rounded-xl border p-6 flex flex-col gap-5" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
+        <div style={{ background: '#FFFFFF', border: '2px dashed #E2E8F0', borderRadius: 16, padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           <Dropzone />
           <FileChips />
         </div>
