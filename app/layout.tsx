@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { DM_Sans, DM_Serif_Display, DM_Mono } from 'next/font/google'
+import { Inter, Fraunces, JetBrains_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import Navbar from '@/components/Navbar'
@@ -8,24 +8,25 @@ import Onboarding from '@/components/Onboarding'
 import AuthSync from '@/components/AuthSync'
 import AiChat from '@/components/AiChat'
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-dm-sans',
+  variable: '--font-sans',
   display: 'swap',
 })
 
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-dm-serif',
-  display: 'swap',
-})
-
-const dmMono = DM_Mono({
+const fraunces = Fraunces({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-dm-mono',
+  variable: '--font-display',
+  display: 'swap',
+  axes: ['opsz'],
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono',
   display: 'swap',
 })
 
@@ -42,7 +43,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable}`}
+        className={`${inter.variable} ${fraunces.variable} ${jetbrainsMono.variable}`}
       >
         <body>
           <AuthSync />

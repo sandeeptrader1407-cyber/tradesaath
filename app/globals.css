@@ -50,9 +50,9 @@
   --ease:      cubic-bezier(.4,0,.2,1);
 
   /* ── Typography — set by next/font CSS variables ── */
-  --font-sans:    var(--font-dm-sans, 'DM Sans', system-ui, sans-serif);
-  --font-display: var(--font-dm-serif, 'DM Serif Display', Georgia, serif);
-  --font-mono:    var(--font-dm-mono, 'DM Mono', 'Courier New', monospace);
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
 }
 
 /* ═══════════════════════════════════════════════════════
