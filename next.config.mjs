@@ -11,6 +11,7 @@ const nextConfig = {
       'tesseract.js',
       '@napi-rs/canvas',
       'pdfjs-dist',
+      'three',
     ],
   },
   eslint: {
