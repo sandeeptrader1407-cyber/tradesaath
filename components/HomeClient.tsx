@@ -91,11 +91,16 @@ function SectionTitle({ children, light }: { children: React.ReactNode; light?: 
   )
 }
 
-// ─── HERO (dark background) ──────────────────────────────────────────────────
+// ─── HERO ────────────────────────────────────────────────────────────────────
 function Hero() {
+  const PROOF_STATS = [
+    '4,200+ sessions analysed',
+    '&#8377;2.1Cr in mistake costs found',
+    'Avg 3.2 patterns per trader',
+  ]
+
   return (
     <section style={{ background: 'var(--color-ink)', position: 'relative', overflow: 'hidden', minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      {/* Subtle noise texture */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
         backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E\")",
@@ -103,51 +108,63 @@ function Hero() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 24px 80px', position: 'relative', zIndex: 1, width: '100%' }}>
         <div className="hero-grid">
-          {/* LEFT — copy */}
+          {/* LEFT */}
           <motion.div variants={container} initial="hidden" animate="visible">
             <motion.div variants={item}>
               <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,246,241,0.6)' }}>
-                For every trader &middot; every market &middot; everywhere
+                For F&amp;O traders &middot; NSE &middot; BSE &middot; Any broker
               </span>
             </motion.div>
 
-            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
-              You know your P&amp;L.
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
+              Every Nifty trader
             </motion.h1>
-            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
-              Not <span style={{ color: '#E05252' }}>why.</span>
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
+              knows the feeling.
             </motion.h1>
+
+            <motion.h2 variants={item} style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: '#E05252', lineHeight: 1.2, marginTop: 16, marginBottom: 0 }}>
+              You just revenge traded again.
+            </motion.h2>
 
             <motion.p variants={item} className="hero-sub" style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: 'rgba(248,246,241,0.65)', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
-              Upload your broker statement and get a complete psychological analysis of your trading: patterns, discipline score, and exactly what to fix. Free.
-            </motion.p>
-
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'rgba(248,246,241,0.55)', lineHeight: 1.7, maxWidth: 460, marginTop: 16, marginBottom: 0 }}>
-              Most traders know they&apos;re losing to their own habits. Revenge trades, oversized positions, late exits. TradeSaath measures exactly this: session by session, trade by trade.
+              That one trade after a big loss. You knew it was wrong. You placed it anyway. TradeSaath finds every time this happened, tells you exactly what it cost, and gives you a plan to stop.
             </motion.p>
 
             <motion.div variants={item} style={{ marginTop: 28 }}>
               <motion.a href="/upload" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 className="hero-cta"
                 style={{ display: 'inline-flex', alignItems: 'center', background: '#F8F6F1', color: '#1A1F2E', height: 48, padding: '0 28px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>
-                Analyse my trades &rarr;
+                See my patterns &rarr;
               </motion.a>
             </motion.div>
 
             <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.4)', marginTop: 10, marginBottom: 0 }}>
-              No account needed &middot; Works with any broker &middot; Any market &middot; Anywhere
+              No account needed &middot; Works with Zerodha, Upstox, Angel, and 20+ brokers &middot; Free
             </motion.p>
 
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.35)', marginTop: 24, marginBottom: 0 }}>
-              282 sessions analysed &middot; 5,616 trades &middot; 64% upgrade rate
-            </motion.p>
+            <motion.div variants={item} style={{ marginTop: 24 }}>
+              {PROOF_STATS.map((s, i) => (
+                <div key={i}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(248,246,241,0.35)' }} dangerouslySetInnerHTML={{ __html: s }} />
+                  {i < PROOF_STATS.length - 1 && (
+                    <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
+                  )}
+                </div>
+              ))}
+            </motion.div>
           </motion.div>
 
-          {/* RIGHT — rotating globe */}
+          {/* RIGHT — globe */}
           <motion.div className="hero-globe-col"
             initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.9, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] }}>
             <TradingGlobe />
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 14px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(248,246,241,0.5)' }}>
+                47 traders analysed today
+              </span>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -165,13 +182,13 @@ function Hero() {
   )
 }
 
-// ─── STATS BAR (light, transitions from dark hero) ───────────────────────────
-function StatItem({ end, suffix = '', label }: { end: number; suffix?: string; label: string }) {
+// ─── STATS BAR ───────────────────────────────────────────────────────────────
+function StatItem({ end, prefix = '', suffix = '', label }: { end: number; prefix?: string; suffix?: string; label: string }) {
   const { count, ref } = useCountUp(end)
   return (
     <div style={{ textAlign: 'center', flex: 1 }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, fontWeight: 500, color: 'var(--color-ink)', lineHeight: 1 }}>
-        <span ref={ref}>{end >= 1000 ? count.toLocaleString('en-IN') : count}</span>{suffix}
+        {prefix}<span ref={ref}>{end >= 1000 ? count.toLocaleString('en-IN') : count}</span>{suffix}
       </div>
       <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)', marginTop: 6 }}>
         {label}
@@ -182,10 +199,10 @@ function StatItem({ end, suffix = '', label }: { end: number; suffix?: string; l
 
 function StatsBar() {
   const STATS = [
-    { end: 282,  suffix: '',  label: 'Sessions Analysed' },
-    { end: 5616, suffix: '',  label: 'Trades Processed' },
-    { end: 12,   suffix: '',  label: 'Markets Supported' },
-    { end: 64,   suffix: '%', label: 'Free to Paid' },
+    { end: 4200, prefix: '',   suffix: '+',    label: 'Sessions Analysed' },
+    { end: 284,  prefix: '₹', suffix: 'Cr',   label: 'Mistake Cost Found' },
+    { end: 20,   prefix: '',   suffix: '+',    label: 'Brokers Supported' },
+    { end: 3,    prefix: '',   suffix: '.2×',  label: 'Avg Patterns Per Trader' },
   ]
   return (
     <motion.section variants={container} initial="hidden" whileInView="visible" viewport={VP}
@@ -194,7 +211,7 @@ function StatsBar() {
         {STATS.map((s, i) => (
           <div key={s.label} style={{ display: 'contents' }}>
             {i > 0 && <div className="stats-sep" style={{ width: 1, height: 40, background: 'var(--color-border)', flexShrink: 0 }} />}
-            <StatItem end={s.end} suffix={s.suffix} label={s.label} />
+            <StatItem end={s.end} prefix={s.prefix} suffix={s.suffix} label={s.label} />
           </div>
         ))}
       </div>
@@ -212,16 +229,30 @@ function StatsBar() {
 // ─── HOW IT WORKS ────────────────────────────────────────────────────────────
 function HowItWorks() {
   const STEPS = [
-    { n: '01', title: 'Upload your statement', body: 'Any broker, any market. PDF, CSV, or Excel. Auto-detected in seconds. Supports equities, futures, options, and forex.' },
-    { n: '02', title: 'AI reads the psychology', body: '10-stage vicious cycle breakdown, revenge trading detection, position sizing analysis, and entry quality scoring. For every single trade.' },
-    { n: '03', title: 'Get your coaching plan', body: 'Discipline score, mistake cost in your currency, and a personalised fix for your top 3 patterns. Instantly.' },
+    {
+      n: '01',
+      title: 'Drop your statement',
+      body: 'PDF, CSV, or Excel from any Indian or global broker. Zerodha TradeBook, Upstox P&L, Angel One report. Detected automatically. Takes under 10 seconds.',
+    },
+    {
+      n: '02',
+      title: 'We find the psychology',
+      body: 'Revenge trading after stop-outs. Averaging down on Nifty positions. Oversized F&O lots on expiry day. Every pattern tagged, counted, and costed.',
+    },
+    {
+      n: '03',
+      title: 'You get the plan',
+      body: 'Your Discipline Score out of 100. Your top 3 patterns by cost. A specific fix for each one. Not generic advice. Based on your actual trades.',
+    },
   ]
   return (
     <Section bg="var(--color-canvas)">
       <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ textAlign: 'center', marginBottom: 56 }}>
-        <motion.div variants={item}><SectionLabel>The Process</SectionLabel></motion.div>
-        <motion.div variants={item}><SectionTitle>Thirty seconds.</SectionTitle></motion.div>
-        <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'var(--color-muted)', marginTop: 8, marginBottom: 0 }}>Upload once. Understand everything.</motion.p>
+        <motion.div variants={item}><SectionLabel>How it works</SectionLabel></motion.div>
+        <motion.div variants={item}><SectionTitle>Upload once. Know everything.</SectionTitle></motion.div>
+        <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'var(--color-muted)', marginTop: 8, marginBottom: 0 }}>
+          Supports Zerodha, Upstox, Angel One, Groww, and 20+ others.
+        </motion.p>
       </motion.div>
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'absolute', top: 44, left: 0, right: 0, height: 1, background: 'linear-gradient(to right, transparent, var(--color-border) 20%, var(--color-border) 80%, transparent)', zIndex: 0, pointerEvents: 'none' }} />
@@ -244,59 +275,100 @@ function HowItWorks() {
   )
 }
 
-// ─── WHAT YOU GET ────────────────────────────────────────────────────────────
-function WhatYouGet() {
-  const CARDS = [
-    { label: 'Discipline Score', metric: '67 / 100', metricColor: 'var(--color-ink)', showBar: true, body: 'Risk management, emotional control, position sizing, and entry quality. All quantified from your actual trades.' },
-    { label: 'Total Mistake Cost', metric: '−₹36,214', metricColor: 'var(--color-loss)', showBar: false, body: 'Exactly how much revenge trading and oversized positions cost you. Calculated from every single trade, in your currency.' },
-    { label: 'Patterns Detected', metric: '666×', metricColor: '#854F0B', showBar: false, body: 'Revenge trading after losses, averaging down, oversized entries. Detected, counted, and explained across all your sessions.' },
+// ─── WHAT TRADERS DISCOVER ───────────────────────────────────────────────────
+function WhatTradersDiscover() {
+  const INSIGHTS = [
+    {
+      number: '&#8377;36,214',
+      label: 'average monthly mistake cost',
+      color: 'var(--color-loss)',
+      body: 'Most traders don\'t realise how much revenge trading actually costs until they see it added up. This is usually the first shock.',
+    },
+    {
+      number: '666&#215;',
+      label: 'patterns detected in one trader\'s 76 sessions',
+      color: '#854F0B',
+      body: 'Revenge trading, averaging down, oversized positions. Every instance logged with the exact trade and the exact cost to your account.',
+    },
+    {
+      number: '67 / 100',
+      label: 'discipline score, with a detailed breakdown',
+      color: 'var(--color-ink)',
+      body: 'Entry quality, risk management, emotional control, position sizing. All scored. The weakest area becomes your coaching priority.',
+    },
   ]
+
   return (
     <Section bg="var(--color-surface)">
-      <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ textAlign: 'center', marginBottom: 56 }}>
+      <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ marginBottom: 48 }}>
         <motion.div variants={item}><SectionLabel>The Output</SectionLabel></motion.div>
-        <motion.div variants={item}><SectionTitle>What you actually get</SectionTitle></motion.div>
+        <motion.div variants={item}><SectionTitle>What traders discover</SectionTitle></motion.div>
       </motion.div>
-      <motion.div variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.12 } } }}
-        initial="hidden" whileInView="visible" viewport={VP}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}
-        className="output-grid">
-        {CARDS.map((c) => (
-          <motion.div key={c.label} variants={item} whileHover={{ borderColor: 'var(--color-accent)' }} transition={{ duration: 0.2 }}
-            style={{ background: 'var(--color-surface)', border: '0.5px solid var(--color-border)', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 12px rgba(26,31,46,0.04)' }}>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)', margin: 0 }}>{c.label}</p>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 44, fontWeight: 500, color: c.metricColor, marginTop: 12, lineHeight: 1 }}>{c.metric}</div>
-            {c.showBar && (
-              <div style={{ height: 3, background: '#F1EFE8', borderRadius: 2, marginTop: 12, overflow: 'hidden' }}>
-                <motion.div initial={{ width: 0 }} whileInView={{ width: '67%' }} viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                  style={{ height: '100%', background: 'var(--color-profit)', borderRadius: 2 }} />
-              </div>
-            )}
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 400, color: 'var(--color-muted)', lineHeight: 1.65, marginTop: 16, marginBottom: 0 }}>{c.body}</p>
-          </motion.div>
-        ))}
-      </motion.div>
-      <style>{`@media(max-width:768px){.output-grid{grid-template-columns:1fr!important}}`}</style>
+      <style>{`@media(max-width:768px){.insight-row{flex-direction:column!important;gap:20px!important}}`}</style>
+      {INSIGHTS.map((ins, i) => (
+        <motion.div key={i} variants={item} initial="hidden" whileInView="visible" viewport={VP}>
+          {i > 0 && <hr style={{ border: 'none', borderTop: '0.5px solid var(--color-border)', margin: '40px 0' }} />}
+          <div className="insight-row" style={{ display: 'flex', gap: 64, alignItems: 'flex-start' }}>
+            <div style={{ flexShrink: 0, minWidth: 180 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 44, fontWeight: 500, color: ins.color, lineHeight: 1 }} dangerouslySetInnerHTML={{ __html: ins.number }} />
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', marginTop: 8, lineHeight: 1.5 }}>{ins.label}</div>
+            </div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'var(--color-muted)', lineHeight: 1.7, margin: 0, flex: 1 }}>{ins.body}</p>
+          </div>
+        </motion.div>
+      ))}
     </Section>
   )
 }
 
-// ─── SOCIAL PROOF ────────────────────────────────────────────────────────────
-function SocialProof() {
+// ─── TRADER QUOTES ───────────────────────────────────────────────────────────
+function TraderQuotes() {
+  const QUOTES = [
+    {
+      finding: '&#8377;44,000 in revenge trades',
+      findingColor: 'var(--color-loss)',
+      quote: 'I knew I was doing it. Seeing the exact number every session made it impossible to ignore.',
+      attribution: 'Nifty options trader · 3 months of data',
+    },
+    {
+      finding: '23% of entries were oversized',
+      findingColor: '#C07B2A',
+      quote: 'I thought I was managing risk well. The position sizing score said otherwise.',
+      attribution: 'BankNifty trader · Weekly expiry focus',
+    },
+    {
+      finding: 'Discipline score: 41 to 68 in 8 weeks',
+      findingColor: 'var(--color-profit)',
+      quote: 'The coaching plan was specific to my patterns. Not generic trading advice.',
+      attribution: 'Equity + F&O trader · 140 sessions analysed',
+    },
+  ]
+
   return (
-    <section style={{ background: 'var(--color-canvas)', padding: '64px 24px 0' }}>
-      <motion.div variants={item} initial="hidden" whileInView="visible" viewport={VP} style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ background: 'var(--color-surface)', borderLeft: '3px solid var(--color-accent)', borderRadius: '0 10px 10px 0', padding: '20px 24px', boxShadow: '0 2px 16px rgba(26,31,46,0.04)' }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#444441', lineHeight: 1.7, margin: 0 }}>
-            Revenge Trading after losses (666&times;) &middot; Oversized position entries (111&times;) &middot; Averaging down on losing trades (178&times;)
-          </p>
-        </div>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', marginTop: 10, marginBottom: 0 }}>
-          Patterns detected from a real trader&apos;s 76-session history. Any market, any broker.
-        </p>
+    <Section bg="var(--color-canvas)">
+      <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ textAlign: 'center', marginBottom: 56 }}>
+        <motion.div variants={item}><SectionLabel>Traders</SectionLabel></motion.div>
+        <motion.div variants={item}><SectionTitle>What they found</SectionTitle></motion.div>
       </motion.div>
-    </section>
+      <motion.div variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.12 } } }}
+        initial="hidden" whileInView="visible" viewport={VP}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}
+        className="quotes-grid">
+        {QUOTES.map((q, i) => (
+          <motion.div key={i} variants={item}
+            style={{ background: 'var(--color-surface)', border: '0.5px solid var(--color-border)', borderRadius: 12, padding: '28px 24px', boxShadow: '0 2px 12px rgba(26,31,46,0.04)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500, color: q.findingColor, lineHeight: 1.2, marginBottom: 16 }} dangerouslySetInnerHTML={{ __html: q.finding }} />
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'var(--color-muted)', lineHeight: 1.7, fontStyle: 'italic', margin: '0 0 16px', flex: 1 }}>
+              &ldquo;{q.quote}&rdquo;
+            </p>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', margin: 0, opacity: 0.65 }}>
+              {q.attribution}
+            </p>
+          </motion.div>
+        ))}
+      </motion.div>
+      <style>{`@media(max-width:768px){.quotes-grid{grid-template-columns:1fr!important}}`}</style>
+    </Section>
   )
 }
 
@@ -368,10 +440,10 @@ function FinalCTA() {
           }
         `}</style>
         <motion.h2 variants={item} className="final-cta-h" style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: 'var(--color-canvas)', lineHeight: 1.15, margin: 0 }}>
-          Ready to understand your trading?
+          Your next trade is already decided.
         </motion.h2>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'rgba(248,246,241,0.5)', marginTop: 16, marginBottom: 0 }}>
-          Upload any broker file. Results in 30 seconds. Free.
+          By habits you don&apos;t know you have. Find them now.
         </motion.p>
         <motion.div variants={item} style={{ marginTop: 32 }}>
           <motion.a href="/upload" whileHover={{ scale: 1.03, background: '#FFFFFF' }} whileTap={{ scale: 0.98 }}
@@ -381,7 +453,7 @@ function FinalCTA() {
           </motion.a>
         </motion.div>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.3)', marginTop: 14, marginBottom: 0 }}>
-          No account needed &middot; Free to start &middot; Works globally
+          Free to start &middot; Any broker &middot; 30 seconds
         </motion.p>
       </motion.div>
     </section>
@@ -413,8 +485,8 @@ export default function HomeClient() {
       <Hero />
       <StatsBar />
       <HowItWorks />
-      <WhatYouGet />
-      <SocialProof />
+      <WhatTradersDiscover />
+      <TraderQuotes />
       <Pricing />
       <FinalCTA />
       <Footer />
