@@ -117,7 +117,6 @@ function JournalContent() {
 
   const detailRef = useRef<HTMLDivElement>(null)
   const activeSession = sessions.find((s) => s.id === activeId) || null
-  // Derive active date from active session for CalendarCard selected-day highlight
   const activeDate = activeSession?.trade_date ?? null
 
   useEffect(() => {
@@ -136,39 +135,30 @@ function JournalContent() {
   }
 
   const trendLabel: Record<string, { label: string; color: string }> = {
-    worsening: { label: 'Getting worse', color: 'var(--color-loss)' },
-    improving:  { label: 'Improving',     color: 'var(--color-profit)' },
-    stable:     { label: 'Stable',        color: 'var(--color-muted)' },
+    worsening: { label: 'Getting worse', color: '#DC2626' },
+    improving:  { label: 'Improving',     color: '#16A34A' },
+    stable:     { label: 'Stable',        color: '#94A3B8' },
   }
 
   return (
-    <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: 'var(--color-canvas)' }}>
-      {/* Amber pattern banner colour tokens */}
-      <style>{`:root{
-        --pattern-banner-bg:#FAEEDA;
-        --pattern-banner-border:#BA7517;
-        --pattern-banner-text:#854F0B;
-      }`}</style>
-
+    <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: '#F8FAFC' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-        {/* Pattern detection banner — amber, no emoji */}
+        {/* Pattern detection banner */}
         {patterns.length > 0 && (
           <div style={{
-            background: 'var(--pattern-banner-bg)',
-            borderLeft: '3px solid var(--pattern-banner-border)',
-            borderRadius: '0 6px 6px 0',
+            background: '#FFFBEB',
+            borderLeft: '3px solid #F59E0B',
+            borderRadius: '0 8px 8px 0',
             padding: '10px 14px',
             marginBottom: 16,
             fontSize: 13,
             fontFamily: 'var(--font-sans)',
-            color: 'var(--pattern-banner-text)',
+            color: '#92400E',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  Patterns detected:
-                </span>
+                <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Patterns detected:</span>
                 {patterns.slice(0, 3).map((p, i) => (
                   <span key={i} style={{ whiteSpace: 'nowrap' }}>
                     {p.name}&nbsp;<span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>({p.count}x)</span>
@@ -184,29 +174,16 @@ function JournalContent() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={() => setPatternsExpanded(!patternsExpanded)}
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 400,
-                    color: 'var(--pattern-banner-text)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '2px 6px',
-                    whiteSpace: 'nowrap',
-                  }}
+                  style={{ fontSize: 12, fontWeight: 400, color: '#92400E', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', whiteSpace: 'nowrap' }}
                 >
                   {patternsExpanded ? 'Hide' : 'Details'}
                 </button>
                 <Link href="/coach?tab=patterns" style={{
-                  fontSize: 13,
-                  fontWeight: 400,
-                  color: 'var(--pattern-banner-text)',
-                  padding: '3px 10px',
-                  borderRadius: 5,
-                  border: '0.5px solid var(--pattern-banner-border)',
-                  background: 'rgba(186,119,23,.08)',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
+                  fontSize: 13, fontWeight: 400, color: '#B45309',
+                  padding: '3px 10px', borderRadius: 6,
+                  border: '0.5px solid #F59E0B',
+                  background: 'rgba(245,158,11,0.08)',
+                  textDecoration: 'none', whiteSpace: 'nowrap',
                   fontFamily: 'var(--font-sans)',
                 }}>
                   Saathi &rarr;
@@ -215,27 +192,19 @@ function JournalContent() {
             </div>
 
             {patternsExpanded && (
-              <div style={{ marginTop: 10, borderTop: '0.5px solid rgba(186,119,23,.3)', paddingTop: 10 }}>
+              <div style={{ marginTop: 10, borderTop: '0.5px solid rgba(245,158,11,0.3)', paddingTop: 10 }}>
                 {patterns.map((p, i) => {
                   const t = trendLabel[p.trend]
                   return (
                     <div key={i} style={{
                       display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                       padding: '5px 0',
-                      borderBottom: i < patterns.length - 1 ? '0.5px solid rgba(186,119,23,.15)' : 'none',
+                      borderBottom: i < patterns.length - 1 ? '0.5px solid rgba(245,158,11,0.15)' : 'none',
                     }}>
-                      <span style={{ fontWeight: 500, color: 'var(--pattern-banner-text)', minWidth: 160, fontSize: 13, fontFamily: 'var(--font-sans)' }}>
-                        {p.name}
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 400, color: 'var(--pattern-banner-text)', opacity: 0.8 }}>
-                        {p.count}x in {p.sessions} sessions
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: 'var(--color-loss)' }}>
-                        &#8377;{p.cost.toLocaleString('en-IN')}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 400, color: t.color, fontFamily: 'var(--font-sans)' }}>
-                        {t.label}
-                      </span>
+                      <span style={{ fontWeight: 500, color: '#92400E', minWidth: 160, fontSize: 13, fontFamily: 'var(--font-sans)' }}>{p.name}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 400, color: '#92400E', opacity: 0.8 }}>{p.count}x in {p.sessions} sessions</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#DC2626' }}>&#8377;{p.cost.toLocaleString('en-IN')}</span>
+                      <span style={{ fontSize: 11, fontWeight: 400, color: t.color, fontFamily: 'var(--font-sans)' }}>{t.label}</span>
                     </div>
                   )
                 })}
@@ -247,31 +216,25 @@ function JournalContent() {
         {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#F59E0B', borderTopColor: 'transparent' }} />
           </div>
         )}
 
-        {/* Empty state — no emoji */}
+        {/* Empty state */}
         {!loading && sessions.length === 0 && (
-          <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', padding: '48px 24px', textAlign: 'center', background: '#FFFFFF' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-ink)', marginBottom: 8 }}>
+          <div style={{ borderRadius: 12, border: '0.5px solid #E2E8F0', padding: '48px 24px', textAlign: 'center', background: '#FFFFFF' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400, color: '#0F172A', marginBottom: 8 }}>
               No sessions yet
             </h2>
-            <p style={{ fontSize: 14, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, fontFamily: 'var(--font-sans)', color: '#64748B', marginBottom: 20, lineHeight: 1.6 }}>
               Upload your first trading session to start building your journal.
             </p>
             <a
               href="/upload"
               style={{
-                display: 'inline-block',
-                padding: '10px 24px',
-                borderRadius: 8,
-                fontSize: 14,
-                fontFamily: 'var(--font-sans)',
-                fontWeight: 400,
-                background: 'var(--accent)',
-                color: 'var(--color-canvas)',
-                textDecoration: 'none',
+                display: 'inline-block', padding: '10px 24px', borderRadius: 8,
+                fontSize: 14, fontFamily: 'var(--font-sans)', fontWeight: 500,
+                background: '#F59E0B', color: '#0F172A', textDecoration: 'none',
               }}
             >
               Upload First Session &rarr;
@@ -287,18 +250,14 @@ function JournalContent() {
             <div className="flex flex-col md:flex-row gap-4">
               {/* Left panel */}
               <div className="w-full md:w-[280px] shrink-0">
-                <CalendarCard
-                  sessions={sessions}
-                  onSelectDate={handleDateSelect}
-                  activeDate={activeDate}
-                />
-                <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
+                <CalendarCard sessions={sessions} onSelectDate={handleDateSelect} activeDate={activeDate} />
+                <div style={{ borderRadius: 10, border: '0.5px solid #E2E8F0', overflow: 'hidden', background: '#FFFFFF' }}>
                   <SessionList sessions={sessions} activeId={activeId} onSelect={setActiveId} />
                 </div>
               </div>
 
               {/* Right panel */}
-              <div ref={detailRef} style={{ flex: 1, borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden', background: '#FFFFFF' }}>
+              <div ref={detailRef} style={{ flex: 1, borderRadius: 10, border: '0.5px solid #E2E8F0', overflow: 'hidden', background: '#FFFFFF' }}>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <SessionDetail session={activeSession as any} />
               </div>
