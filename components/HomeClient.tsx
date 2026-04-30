@@ -545,132 +545,359 @@ function StatsBar() {
   )
 }
 
-// ─── PRODUCT SCREENSHOT ──────────────────────────────────────────────────────
-function ProductScreenshot() {
+// ─── Interactive product demo ─────────────────────────────────────────────────
+function ProductDemo() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'journey' | 'saathi'>('dashboard')
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
+
+  const TABS = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'journal',   label: 'Journal'   },
+    { id: 'journey',   label: 'Journey'   },
+    { id: 'saathi',    label: 'Saathi'    },
+  ] as const
+
+  const EQUITY = [-4200, 2100, -1800, 6400, -800, 3200, 8100, -2400, 1600, 9200, -600, 4800, 11200, -1200, 7600]
+  const maxVal = Math.max(...EQUITY.map(Math.abs))
+
+  const SESSIONS = [
+    { date: '2 Apr',  trades: 14, wr: 57, pnl:  3240, dqs: 72 },
+    { date: '28 Mar', trades:  9, wr: 44, pnl: -1820, dqs: 41 },
+    { date: '25 Mar', trades: 18, wr: 61, pnl:  5180, dqs: 68 },
+    { date: '21 Mar', trades: 11, wr: 36, pnl: -4210, dqs: 29 },
+    { date: '18 Mar', trades:  7, wr: 71, pnl:  2640, dqs: 81 },
+  ]
+
+  const PATTERNS = [
+    { name: 'Revenge trading', count: 666, cost: 36214, pct: 78, color: '#F43F5E' },
+    { name: 'Averaging down',  count: 178, cost: 12800, pct: 55, color: '#F59E0B' },
+    { name: 'Oversized lots',  count: 111, cost: 9400,  pct: 44, color: '#F59E0B' },
+    { name: 'Late exit',       count: 84,  cost: 6200,  pct: 33, color: '#94A3B8' },
+  ]
+
+  const JOURNEY_CHAPTERS = [
+    { week: 'Week 1', score: 41, color: '#F43F5E', text: 'The data did not lie. Revenge trading was costing more each week than the profitable trades were making. The pattern had a name now.' },
+    { week: 'Week 4', score: 54, color: '#F59E0B', text: 'The pre-session checklist changed something. Knowing that every entry would be tagged made the bad trades feel different before they happened.' },
+    { week: 'Week 8', score: 68, color: '#10B981', text: 'Still not perfect. But the discipline score does not lie either. 68 is not a number you can fake — it comes from 140 sessions of actual data.' },
+  ]
+
+  const dqsCircle = (score: number, size: number, strokeW: number) => {
+    const r = (size - strokeW) / 2
+    const circ = 2 * Math.PI * r
+    const fill = (score / 100) * circ
+    const color = score >= 70 ? '#10B981' : score >= 50 ? '#F59E0B' : '#F43F5E'
+    return { r, circ, fill, color }
+  }
+
   return (
-    <section style={{
-      background: '#080C14',
-      padding: '96px 24px',
-      overflow: 'hidden',
-    }}>
+    <section style={{ background: '#080C14', padding: '96px 24px', overflow: 'hidden' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: 11,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: 'rgba(241,245,249,0.35)', marginBottom: 12,
-          }}>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.35)', marginBottom: 12 }}>
             The product
           </div>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontSize: 44,
-            fontWeight: 400, color: '#F1F5F9', lineHeight: 1.1,
-            letterSpacing: '-0.025em', marginBottom: 14,
-          }}>
-            This is what you see after<br />uploading your first session.
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 44, fontWeight: 400, color: '#F1F5F9', lineHeight: 1.1, letterSpacing: '-0.025em', marginBottom: 14 }}>
+            Everything you get after<br />your first upload.
           </h2>
-          <p style={{
-            fontFamily: 'var(--font-sans)', fontSize: 15,
-            color: 'rgba(241,245,249,0.5)', maxWidth: 480,
-            margin: '0 auto', lineHeight: 1.75,
-          }}>
-            Your score. Your patterns. Your cost. Your plan.
-            All from one file upload.
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'rgba(241,245,249,0.5)', maxWidth: 460, margin: '0 auto', lineHeight: 1.75 }}>
+            Click each tab to explore the four tools that come with every TradeSaath account.
           </p>
         </div>
 
         {/* Browser frame */}
-        <div style={{
-          borderRadius: 14,
-          overflow: 'hidden',
-          border: '0.5px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 40px 120px rgba(0,0,0,0.6)',
-        }}>
-          {/* Browser chrome bar */}
-          <div style={{
-            background: '#111827',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-          }}>
-            {/* Traffic lights */}
-            <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ borderRadius: 14, overflow: 'hidden', border: '0.5px solid rgba(255,255,255,0.1)', boxShadow: '0 40px 120px rgba(0,0,0,0.5)' }}>
+
+          {/* Browser chrome */}
+          <div style={{ background: '#111827', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               {(['#F43F5E', '#F59E0B', '#10B981'] as const).map((c, i) => (
                 <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />
               ))}
             </div>
-            {/* URL bar */}
-            <div style={{
-              flex: 1, maxWidth: 320, margin: '0 auto',
-              background: '#1E2936', borderRadius: 5,
-              padding: '4px 12px',
-              fontFamily: 'var(--font-mono)', fontSize: 11,
-              color: 'rgba(241,245,249,0.3)',
-            }}>
-              tradesaath.com/dashboard
+            <div style={{ flex: 1, maxWidth: 300, margin: '0 auto', background: '#1E2936', borderRadius: 5, padding: '4px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(241,245,249,0.3)' }}>
+              tradesaath.com/{activeTab}
             </div>
           </div>
 
-          {/* Screenshot */}
-          <div style={{ background: '#F5F3EE', lineHeight: 0 }}>
-            <img
-              src="/screenshots/dashboard-preview.png"
-              alt="TradeSaath dashboard showing discipline score, pattern analysis and monthly P&L"
-              style={{ width: '100%', display: 'block', objectFit: 'cover' }}
-              onError={e => {
-                const el = e.currentTarget as HTMLImageElement
-                el.style.display = 'none'
-                const fallback = el.nextSibling as HTMLElement
-                if (fallback) fallback.style.display = 'flex'
-              }}
-            />
-            {/* Fallback placeholder */}
-            <div style={{
-              display: 'none',
-              height: 400,
-              background: '#F5F3EE',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: 8,
-            }}>
-              <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: 12,
-                color: '#94A3B8', textAlign: 'center', lineHeight: 1.6,
-              }}>
-                Add your dashboard screenshot to<br />
-                public/screenshots/dashboard-preview.png
-              </div>
+          {/* App navbar inside frame */}
+          <div style={{ background: '#FAFAFA', borderBottom: '0.5px solid #E2E8F0', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, color: '#0F172A', padding: '12px 0' }}>TradeSaath</span>
+            <div style={{ display: 'flex', gap: 0 }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '14px 16px', fontFamily: 'var(--font-sans)', fontSize: 13,
+                    fontWeight: activeTab === tab.id ? 500 : 400,
+                    color: activeTab === tab.id ? '#0F172A' : '#94A3B8',
+                    borderBottom: activeTab === tab.id ? '2px solid #F59E0B' : '2px solid transparent',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1A1F2E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#F8F6F1', flexShrink: 0 }}>SA</div>
+          </div>
+
+          {/* Tab content */}
+          <div style={{ background: '#F5F3EE', minHeight: 520 }}>
+
+            {/* DASHBOARD */}
+            {activeTab === 'dashboard' && (
+              <div style={{ padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                  <div>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Sandeep</h1>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>76 sessions · 5,616 trades · Last session: 2 Apr</p>
+                  </div>
+                  <div style={{ background: '#1A1F2E', color: '#F8F6F1', padding: '8px 16px', borderRadius: 7, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>New Analysis</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  {/* Score card */}
+                  <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '18px 20px' }}>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 14 }}>YOUR SCORE</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      {(() => {
+                        const { r, circ, fill, color } = dqsCircle(67, 72, 5)
+                        return (
+                          <svg width="72" height="72" style={{ flexShrink: 0, transform: 'rotate(-90deg)' }}>
+                            <circle cx="36" cy="36" r={r} fill="none" stroke="#F1EFE8" strokeWidth="5" />
+                            <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="5"
+                              strokeDasharray={`${fill} ${circ - fill}`} strokeLinecap="round" />
+                            <text x="36" y="40" textAnchor="middle" style={{ transform: 'rotate(90deg) translate(0,-72px)', fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 500, fill: color }}>67</text>
+                          </svg>
+                        )
+                      })()}
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#10B981', marginBottom: 4 }}>Above profitable avg</div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#94A3B8' }}>Weakest: <span style={{ color: '#DC2626' }}>Entry Quality 18%</span></div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#F59E0B', marginTop: 4, cursor: 'pointer' }}>Fix in Saathi →</div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Top Issue card */}
+                  <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8' }}>TOP ISSUE</div>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, padding: '2px 7px', background: 'rgba(244,63,94,0.08)', color: '#DC2626', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 20 }}>Worsening</span>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: '#DC2626', marginBottom: 6 }}>Revenge Trading</div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#64748B', marginBottom: 8 }}>Cost you −₹36,214 this month (106 trades)</div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 3 }}>YOUR TRIGGER</div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#374151' }}>After losses — within 1-3 trades</div>
+                  </div>
+                  {/* Pre-session card */}
+                  <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '18px 20px' }}>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 10 }}>PRE-SESSION</div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#64748B', marginBottom: 10 }}>Set your focus for today:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {['No revenge entries', 'Stop at 10:30 AM', 'Max 8 trades', 'Fixed 20 lots'].map((chip, i) => (
+                        <span key={chip} style={{ fontFamily: 'var(--font-sans)', fontSize: 11, padding: '4px 10px', border: `1px solid ${i === 0 ? '#F59E0B' : '#E2E8F0'}`, background: i === 0 ? '#FFFBEB' : '#FFFFFF', color: i === 0 ? '#B45309' : '#64748B', borderRadius: 20, cursor: 'pointer' }}>{chip}</span>
+                      ))}
+                    </div>
+                    <div style={{ width: '100%', padding: '8px 12px', background: '#1A1F2E', color: '#F8F6F1', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'center' }}>Begin session →</div>
+                  </div>
+                </div>
+                {/* KPI row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+                  {[
+                    { label: 'THIS MONTH P&L', val: '+₹1,236',  sub: 'Improving vs last month', c: '#10B981' },
+                    { label: 'WIN RATE',        val: '52.8%',    sub: '+2.6% vs last month',   c: '#10B981' },
+                    { label: 'BEST DAY P&L',   val: '+₹14,229', sub: 'on 21 Feb · 7 trades',  c: '#94A3B8' },
+                    { label: 'DISCIPLINE',     val: '67',        sub: 'Above avg profitable',  c: '#10B981' },
+                  ].map(({ label, val, sub, c }) => (
+                    <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 8 }}>{label}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, color: '#0F172A', marginBottom: 4 }}>{val}</div>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: c }}>{sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* JOURNAL */}
+            {activeTab === 'journal' && (
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Journal</h1>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>Every session, reviewed. Every pattern, logged.</p>
+                </div>
+                {/* Equity bars */}
+                <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 14 }}>SESSION PERFORMANCE</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 80 }}>
+                    {EQUITY.map((v, i) => {
+                      const h = Math.max(4, (Math.abs(v) / maxVal) * 72)
+                      const isPos = v >= 0
+                      return (
+                        <div key={i}
+                          onMouseEnter={() => setHoveredBar(i)}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          style={{
+                            flex: 1, height: h, borderRadius: '3px 3px 0 0',
+                            background: hoveredBar === i ? (isPos ? '#16A34A' : '#DC2626') : (isPos ? '#10B981' : '#F43F5E'),
+                            opacity: hoveredBar !== null && hoveredBar !== i ? 0.5 : 1,
+                            cursor: 'pointer', transition: 'all 0.12s',
+                            alignSelf: isPos ? 'flex-end' : 'flex-start',
+                          }}
+                          title={`Session ${i + 1}: ${v >= 0 ? '+' : ''}₹${v.toLocaleString('en-IN')}`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: '#94A3B8' }}>
+                    <span>Feb</span><span>Mar</span><span>Apr</span>
+                  </div>
+                </div>
+                {/* Session list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {SESSIONS.map((s, i) => {
+                    const { color } = dqsCircle(s.dqs, 32, 3)
+                    const isLucky = s.pnl > 0 && s.dqs < 50
+                    const isBest = i === 0
+                    return (
+                      <div key={i} style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#94A3B8', minWidth: 40 }}>{s.date}</div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#374151' }}>{s.trades} trades</span>
+                          <span style={{ color: '#D3D1C7', margin: '0 6px' }}>·</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#94A3B8' }}>{s.wr}% WR</span>
+                          <span style={{ color: '#D3D1C7', margin: '0 6px' }}>·</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#94A3B8' }}>DQS <span style={{ color }}>{s.dqs}</span></span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {isBest && <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, padding: '2px 7px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 20 }}>Best</span>}
+                          {isLucky && <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, padding: '2px 7px', background: 'rgba(192,123,42,0.1)', color: '#C07B2A', border: '1px solid rgba(192,123,42,0.3)', borderRadius: 20 }}>Review</span>}
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, color: s.pnl >= 0 ? '#10B981' : '#DC2626' }}>
+                            {s.pnl >= 0 ? '+' : ''}₹{Math.abs(s.pnl).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* JOURNEY */}
+            {activeTab === 'journey' && (
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 28 }}>
+                  <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Journey</h1>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>The story only your trades can tell.</p>
+                </div>
+                {/* Score timeline bars */}
+                <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '18px 20px', marginBottom: 20 }}>
+                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 16 }}>DISCIPLINE SCORE OVER TIME</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 80, marginBottom: 8 }}>
+                    {[41, 44, 47, 54, 51, 58, 61, 68].map((score, i) => {
+                      const { color } = dqsCircle(score, 32, 3)
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color }}>{score}</div>
+                          <div style={{ width: '100%', height: (score / 100) * 60, background: color, borderRadius: '3px 3px 0 0', opacity: 0.85 }} />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 10, color: '#94A3B8' }}>
+                    <span>Week 1</span><span>Week 8</span>
+                  </div>
+                </div>
+                {/* Story chapters */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {JOURNEY_CHAPTERS.map(({ week, score, color, text }) => (
+                    <div key={week} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                      <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 500, color, lineHeight: 1 }}>{score}</div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{week}</div>
+                      </div>
+                      <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '14px 16px', flex: 1 }}>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: '#374151', lineHeight: 1.7, margin: 0, fontStyle: 'italic' }}>{text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SAATHI */}
+            {activeTab === 'saathi' && (
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Saathi</h1>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>Your trading companion. Always on. Always learning.</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  {/* Chat */}
+                  <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 340 }}>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 4 }}>COACHING CHAT</div>
+                    {[
+                      { role: 'saathi', text: 'Reviewed 76 sessions and 5,616 trades. Your revenge trading cost ₹36,214 last month. Want to work on a plan to reduce it?' },
+                      { role: 'user',   text: 'Yes — what should I actually do differently?' },
+                      { role: 'saathi', text: 'Your data shows 78% of revenge trades happen within 3 entries of a loss. Try this: after any losing trade, write down one reason before your next entry. That 30-second pause breaks the emotional loop.' },
+                    ].map((msg, i) => (
+                      <div key={i} style={{ padding: '10px 12px', borderRadius: 8, maxWidth: '88%', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', background: msg.role === 'user' ? '#1A1F2E' : '#F8FAFC', border: msg.role === 'user' ? 'none' : '0.5px solid #E2E8F0' }}>
+                        {msg.role === 'saathi' && <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 500, color: '#F59E0B', marginBottom: 4 }}>Saathi</div>}
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: msg.role === 'user' ? '#F8F6F1' : '#374151', lineHeight: 1.6, margin: 0 }}>{msg.text}</p>
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1, background: '#F8FAFC', border: '0.5px solid #E2E8F0', borderRadius: 6, padding: '8px 12px', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>Ask Saathi anything...</div>
+                      <div style={{ background: '#F59E0B', color: '#080C14', padding: '8px 14px', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Send</div>
+                    </div>
+                  </div>
+                  {/* Patterns + plan */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '16px' }}>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 12 }}>YOUR PATTERNS (COST RANK)</div>
+                      {PATTERNS.map(p => (
+                        <div key={p.name} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#374151' }}>{p.name}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: p.color }}>−₹{p.cost.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div style={{ height: 3, background: '#F1EFE8', borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ width: `${p.pct}%`, height: '100%', background: p.color, borderRadius: 2 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B45309', marginBottom: 8 }}>THIS WEEK&apos;S PLAN</div>
+                      {['No entries within 3 trades of a stop-out', 'Write one sentence before each entry', 'Max 8 trades per session'].map((rule, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
+                          <span style={{ color: '#F59E0B', flexShrink: 0, fontSize: 12, marginTop: 1 }}>&#10003;</span>
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{rule}</span>
+                        </div>
+              ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
 
-        {/* Caption row */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 32,
-          marginTop: 28,
-          flexWrap: 'wrap',
-        }}>
+        {/* Caption pills */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 28, flexWrap: 'wrap' }}>
           {[
-            { n: 'Discipline Score', d: 'Your trading psychology, scored 0-100' },
-            { n: 'Pattern Cost', d: 'Exact rupee cost of each bad habit' },
-            { n: 'Coaching Plan', d: 'Specific fix for your weakest area' },
+            { n: 'Discipline Score', d: 'Your psychology, scored 0-100' },
+            { n: 'Pattern Cost',     d: 'Exact rupee cost per bad habit'  },
+            { n: 'Coaching Plan',    d: 'Specific fix from your own data' },
+            { n: 'Trading Story',    d: 'Your journey written from trades' },
           ].map(({ n, d }) => (
             <div key={n} style={{ textAlign: 'center' }}>
-              <div style={{
-                fontFamily: 'var(--font-sans)', fontSize: 13,
-                fontWeight: 500, color: '#F1F5F9', marginBottom: 3,
-              }}>{n}</div>
-              <div style={{
-                fontFamily: 'var(--font-sans)', fontSize: 12,
-                color: 'rgba(241,245,249,0.38)',
-              }}>{d}</div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, color: '#F1F5F9', marginBottom: 2 }}>{n}</div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(241,245,249,0.38)' }}>{d}</div>
             </div>
           ))}
         </div>
@@ -948,7 +1175,7 @@ export default function HomeClient() {
     <div id="page-home">
       <Hero />
       <BrokerStrip />
-      <ProductScreenshot />
+      <ProductDemo />
       <StatsBar />
       <HowItWorks />
       <WhatTradersDiscover />
