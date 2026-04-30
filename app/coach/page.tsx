@@ -131,8 +131,6 @@ export default function CoachPage() {
   const kpis = computeKPIs(kpiSessions)
   const totalTrades = kpis.totalTrades
 
-  const activeTabConfig = TAB_CONFIG.find(t => t.key === tab)
-
   return (
     <section style={{ paddingTop: 80, paddingBottom: 60 }}>
       <div className="wrap" style={{ maxWidth: 800 }}>

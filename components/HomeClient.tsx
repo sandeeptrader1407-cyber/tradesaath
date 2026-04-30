@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   motion,
-  useScroll,
-  useTransform,
   useInView,
   type Variants,
 } from 'framer-motion'
+
+const TradingGlobe = dynamic(() => import('./home/TradingGlobe'), {
+  ssr: false,
+  loading: () => <div style={{ height: 400 }} />,
+})
 
 // ─── Shared animation variants ──────────────────────────────────────────────
 const container: Variants = {
@@ -87,97 +91,63 @@ function SectionTitle({ children, light }: { children: React.ReactNode; light?: 
   )
 }
 
-// ─── HERO ────────────────────────────────────────────────────────────────────
+// ─── HERO (dark background) ──────────────────────────────────────────────────
 function Hero() {
-  const { scrollY } = useScroll()
-  const cardY = useTransform(scrollY, [0, 600], [0, -50])
-
   return (
-    <section style={{ background: 'var(--color-canvas)', position: 'relative', overflow: 'hidden' }}>
+    <section style={{ background: 'var(--color-ink)', position: 'relative', overflow: 'hidden', minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
+      {/* Subtle noise texture */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E\")",
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E\")",
       }} />
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 24px 96px', position: 'relative', zIndex: 1 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 24px 80px', position: 'relative', zIndex: 1, width: '100%' }}>
         <div className="hero-grid">
-          {/* LEFT */}
+          {/* LEFT — copy */}
           <motion.div variants={container} initial="hidden" animate="visible">
             <motion.div variants={item}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--color-border-strong)', padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,246,241,0.6)' }}>
                 For every trader &middot; every market &middot; everywhere
               </span>
             </motion.div>
 
-            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 20, marginBottom: 0 }}>
               You know your P&amp;L.
             </motion.h1>
-            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
-              Not <span style={{ color: 'var(--color-loss)' }}>why.</span>
+            <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 58, fontWeight: 400, color: '#F8F6F1', lineHeight: 1.1, marginTop: 4, marginBottom: 0 }}>
+              Not <span style={{ color: '#E05252' }}>why.</span>
             </motion.h1>
 
-            <motion.p variants={item} className="hero-sub" style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: '#444441', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
+            <motion.p variants={item} className="hero-sub" style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, color: 'rgba(248,246,241,0.65)', lineHeight: 1.75, maxWidth: 480, marginTop: 20, marginBottom: 0 }}>
               Upload your broker statement and get a complete psychological analysis of your trading: patterns, discipline score, and exactly what to fix. Free.
             </motion.p>
 
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'rgba(26,31,46,0.65)', lineHeight: 1.7, maxWidth: 460, marginTop: 16, marginBottom: 0 }}>
+            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 400, color: 'rgba(248,246,241,0.55)', lineHeight: 1.7, maxWidth: 460, marginTop: 16, marginBottom: 0 }}>
               Most traders know they&apos;re losing to their own habits. Revenge trades, oversized positions, late exits. TradeSaath measures exactly this: session by session, trade by trade.
             </motion.p>
 
             <motion.div variants={item} style={{ marginTop: 28 }}>
               <motion.a href="/upload" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 className="hero-cta"
-                style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--color-ink)', color: 'var(--color-canvas)', height: 48, padding: '0 28px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>
+                style={{ display: 'inline-flex', alignItems: 'center', background: '#F8F6F1', color: '#1A1F2E', height: 48, padding: '0 28px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>
                 Analyse my trades &rarr;
               </motion.a>
             </motion.div>
 
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', marginTop: 10, marginBottom: 0 }}>
+            <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.4)', marginTop: 10, marginBottom: 0 }}>
               No account needed &middot; Works with any broker &middot; Any market &middot; Anywhere
             </motion.p>
 
-            <motion.p variants={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', marginTop: 24, marginBottom: 0 }}>
+            <motion.p variants={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 400, color: 'rgba(248,246,241,0.35)', marginTop: 24, marginBottom: 0 }}>
               282 sessions analysed &middot; 5,616 trades &middot; 64% upgrade rate
             </motion.p>
           </motion.div>
 
-          {/* RIGHT — parallax card */}
-          <motion.div className="hero-card-col" style={{ y: cardY }}
-            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}>
-            <div style={{ background: 'var(--color-surface)', border: '0.5px solid var(--color-border)', borderRadius: 16, padding: 28, boxShadow: '0 8px 48px rgba(26,31,46,0.08)' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', margin: '0 0 12px' }}>Your Score</p>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <div style={{ position: 'relative', width: 80, height: 80 }}>
-                  <svg viewBox="0 0 80 80" width={80} height={80}>
-                    <circle cx={40} cy={40} r={35} fill="none" stroke="#F1EFE8" strokeWidth={6} />
-                    <motion.circle cx={40} cy={40} r={35} fill="none" stroke="var(--color-profit)" strokeWidth={6} strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 35}
-                      initial={{ pathLength: 0 }} animate={{ pathLength: 0.67 }}
-                      transition={{ duration: 1.2, delay: 0.6, ease: 'easeOut' }}
-                      style={{ rotate: '-90deg', transformOrigin: '40px 40px' }}
-                    />
-                  </svg>
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, color: 'var(--color-ink)', lineHeight: 1 }}>67</span>
-                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--color-muted)' }}>/100</span>
-                  </div>
-                </div>
-              </div>
-              <hr style={{ border: 'none', borderTop: '0.5px solid var(--color-border)', margin: '16px 0' }} />
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', margin: 0 }}>Top Issue</p>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--color-loss)', margin: '4px 0 2px' }}>Revenge Trading</p>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)', margin: 0 }}>&minus;&#8377;36,214 across 106 trades</p>
-              <hr style={{ border: 'none', borderTop: '0.5px solid var(--color-border)', margin: '16px 0' }} />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {['52.8% win', '76 sessions', 'DQS 67'].map((label) => (
-                  <span key={label} style={{ background: '#F1EFE8', borderRadius: 20, padding: '3px 10px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)' }}>{label}</span>
-                ))}
-              </div>
-            </div>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)', textAlign: 'center', marginTop: 10 }}>
-              Real data from an active trader&apos;s account
-            </p>
+          {/* RIGHT — rotating globe */}
+          <motion.div className="hero-globe-col"
+            initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] }}>
+            <TradingGlobe />
           </motion.div>
         </div>
       </div>
@@ -185,8 +155,7 @@ function Hero() {
       <style>{`
         .hero-grid{display:grid;grid-template-columns:55fr 45fr;gap:64px;align-items:center}
         @media(max-width:768px){
-          .hero-card-col{display:none}
-          .hero-grid{grid-template-columns:1fr!important;gap:0!important}
+          .hero-grid{grid-template-columns:1fr!important;gap:40px!important}
           .hero-h1{font-size:40px!important}
           .hero-sub{font-size:15px!important}
           .hero-cta{display:flex!important;width:100%!important;justify-content:center!important;box-sizing:border-box}
@@ -196,15 +165,15 @@ function Hero() {
   )
 }
 
-// ─── STATS BAR ───────────────────────────────────────────────────────────────
+// ─── STATS BAR (light, transitions from dark hero) ───────────────────────────
 function StatItem({ end, suffix = '', label }: { end: number; suffix?: string; label: string }) {
   const { count, ref } = useCountUp(end)
   return (
     <div style={{ textAlign: 'center', flex: 1 }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, fontWeight: 500, color: 'var(--color-canvas)', lineHeight: 1 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, fontWeight: 500, color: 'var(--color-ink)', lineHeight: 1 }}>
         <span ref={ref}>{end >= 1000 ? count.toLocaleString('en-IN') : count}</span>{suffix}
       </div>
-      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(248,246,241,0.5)', marginTop: 6 }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)', marginTop: 6 }}>
         {label}
       </div>
     </div>
@@ -215,16 +184,16 @@ function StatsBar() {
   const STATS = [
     { end: 282,  suffix: '',  label: 'Sessions Analysed' },
     { end: 5616, suffix: '',  label: 'Trades Processed' },
-    { end: 9,    suffix: '',  label: 'Pro Traders' },
-    { end: 64,   suffix: '%', label: 'Free-to-Paid' },
+    { end: 12,   suffix: '',  label: 'Markets Supported' },
+    { end: 64,   suffix: '%', label: 'Free to Paid' },
   ]
   return (
     <motion.section variants={container} initial="hidden" whileInView="visible" viewport={VP}
-      style={{ background: 'var(--color-ink)', padding: '40px 24px' }}>
+      style={{ background: 'var(--color-canvas)', padding: '40px 24px', borderTop: '0.5px solid var(--color-border)', borderBottom: '0.5px solid var(--color-border)' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center' }} className="stats-row">
         {STATS.map((s, i) => (
           <div key={s.label} style={{ display: 'contents' }}>
-            {i > 0 && <div className="stats-sep" style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />}
+            {i > 0 && <div className="stats-sep" style={{ width: 1, height: 40, background: 'var(--color-border)', flexShrink: 0 }} />}
             <StatItem end={s.end} suffix={s.suffix} label={s.label} />
           </div>
         ))}
