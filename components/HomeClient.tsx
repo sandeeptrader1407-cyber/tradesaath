@@ -653,7 +653,7 @@ function ProductDemo() {
               <div style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                   <div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Sandeep</h1>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Your Dashboard</h1>
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>76 sessions · 5,616 trades · Last session: 2 Apr</p>
                   </div>
                   <div style={{ background: '#1A1F2E', color: '#F8F6F1', padding: '8px 16px', borderRadius: 7, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>New Analysis</div>

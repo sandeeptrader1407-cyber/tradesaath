@@ -31,7 +31,7 @@ function JourneyContent() {
   ]
 
   return (
-    <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: 'var(--color-canvas, #F8F6F1)' }}>
+    <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: '#F8FAFC' }}>
       <style>{`
         @media(max-width:640px){
           .journey-stats-col{display:none!important}
@@ -42,7 +42,7 @@ function JourneyContent() {
           .journey-sub{font-size:13px!important}
         }
       `}</style>
-      <div style={{ maxWidth: 768, margin: '0 auto' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* Two-column page header */}
         <div className="journey-header" style={{
@@ -60,26 +60,27 @@ function JourneyContent() {
               fontWeight: 400,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              color: 'var(--color-muted)',
+              color: '#94A3B8',
               margin: '0 0 12px',
             }}>
               Your Trading Story
             </p>
             <h1 className="journey-title" style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 36,
+              fontSize: 40,
               fontWeight: 400,
-              color: 'var(--color-ink)',
-              lineHeight: 1.2,
+              color: '#0F172A',
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
               margin: '0 0 12px',
             }}>
               The story only your trades can tell.
             </h1>
             <p className="journey-sub" style={{
               fontFamily: 'var(--font-sans)',
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 400,
-              color: 'var(--color-muted)',
+              color: '#64748B',
               lineHeight: 1.6,
               margin: 0,
             }}>
@@ -91,9 +92,9 @@ function JourneyContent() {
           <div className="journey-stats-col" style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, paddingTop: 6 }}>
             {pills.map(pill => (
               <div key={pill.label} style={{
-                background: 'var(--color-canvas)',
-                border: '0.5px solid var(--color-border)',
-                borderRadius: 8,
+                background: '#FFFFFF',
+                border: '0.5px solid #E2E8F0',
+                borderRadius: 10,
                 padding: '8px 14px',
                 display: 'flex',
                 alignItems: 'center',
@@ -106,16 +107,16 @@ function JourneyContent() {
                   fontWeight: 400,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  color: 'var(--color-muted)',
+                  color: '#94A3B8',
                   minWidth: 60,
                 }}>
                   {pill.label}
                 </span>
                 <span style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: 500,
-                  color: 'var(--color-ink)',
+                  color: '#0F172A',
                 }}>
                   {pill.value}
                 </span>

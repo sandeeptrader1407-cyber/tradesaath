@@ -23,7 +23,6 @@ interface Session {
   } | null
 }
 
-// Reduced to 3 tabs — remove This Week and Monthly Goals
 type CoachTab = 'tomorrow' | 'patterns' | 'learning_path'
 
 const TAB_CONFIG: { key: CoachTab; label: string }[] = [
@@ -84,27 +83,29 @@ export default function CoachPage() {
   if (loading || planLoading) {
     return (
       <section style={{ paddingTop: 100, textAlign: 'center', minHeight: '80vh' }}>
-        <div className="wrap"><div style={{ color: 'var(--muted)', fontSize: 14, fontFamily: 'var(--font-sans)' }}>Loading coach...</div></div>
+        <div className="wrap">
+          <div style={{ color: '#94A3B8', fontSize: 14, fontFamily: 'var(--font-sans)' }}>Loading coach...</div>
+        </div>
       </section>
     )
   }
 
   if (!isPro) {
     return (
-      <section style={{ paddingTop: 80, paddingBottom: 60 }}>
+      <section style={{ paddingTop: 96, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600 }}>
-          <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-            <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 24, fontWeight: 400, marginBottom: 8 }}>Saathi</h2>
-            <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 8, fontFamily: 'var(--font-sans)' }}>
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 12, padding: 48, textAlign: 'center' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>Saathi</h2>
+            <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 16, fontFamily: 'var(--font-sans)' }}>
               {plan === 'single'
                 ? 'Your Single Report plan gives you full trade analysis. Upgrade to Pro for personalized AI coaching with pattern detection, learning paths, and data-driven improvement plans.'
                 : 'Saathi is a Pro feature. Get personalized coaching plans, pattern analysis, learning paths, and monthly goals based on your actual trading data.'}
             </p>
-            <div style={{ padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block', background: 'rgba(240,180,41,.08)', border: '1px solid rgba(240,180,41,.25)', fontSize: 12, color: 'var(--gold)', fontFamily: 'var(--font-sans)' }}>
+            <div style={{ padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 12, color: '#F59E0B', fontFamily: 'var(--font-sans)' }}>
               Current plan: <strong>{plan === 'single' ? 'Single Report' : 'Free'}</strong>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/pricing" className="btn btn-accent">Upgrade to Pro: ₹799/mo</Link>
+              <Link href="/pricing" style={{ background: '#F59E0B', color: '#0F172A', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontFamily: 'var(--font-sans)', fontWeight: 500, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Upgrade to Pro: ₹799/mo</Link>
               <Link href="/upload" className="btn btn-ghost">Upload Trades</Link>
             </div>
           </div>
@@ -115,13 +116,15 @@ export default function CoachPage() {
 
   if (sessions.length === 0) {
     return (
-      <section style={{ paddingTop: 80, paddingBottom: 60 }}>
+      <section style={{ paddingTop: 96, paddingBottom: 60 }}>
         <div className="wrap" style={{ maxWidth: 600, textAlign: 'center' }}>
-          <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 24, fontWeight: 400, marginBottom: 8 }}>Saathi</h2>
-          <p style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.7, marginBottom: 20, fontFamily: 'var(--font-sans)' }}>
-            Upload your first trading session to unlock personalized AI coaching: pattern detection, learning paths, and data-driven improvement plans.
-          </p>
-          <Link href="/upload" className="btn btn-accent">Upload Trades &rarr;</Link>
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 12, padding: 48 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>Saathi</h2>
+            <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 20, fontFamily: 'var(--font-sans)' }}>
+              Upload your first trading session to unlock personalized AI coaching: pattern detection, learning paths, and data-driven improvement plans.
+            </p>
+            <Link href="/upload" style={{ background: '#F59E0B', color: '#0F172A', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontFamily: 'var(--font-sans)', fontWeight: 500, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Upload Trades &rarr;</Link>
+          </div>
         </div>
       </section>
     )
@@ -132,29 +135,30 @@ export default function CoachPage() {
   const totalTrades = kpis.totalTrades
 
   return (
-    <section style={{ paddingTop: 80, paddingBottom: 60 }}>
-      <div className="wrap" style={{ maxWidth: 800 }}>
+    <section style={{ paddingTop: 96, paddingBottom: 60 }}>
+      <div className="wrap" style={{ maxWidth: 860 }}>
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 28, fontWeight: 400, margin: 0 }}>Saathi</h2>
-            <div style={{ fontSize: 14, color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginTop: 4 }}>Your trading companion. Always on. Always learning.</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, margin: 0, color: '#0F172A', letterSpacing: '-0.02em' }}>Saathi</h2>
+            <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'var(--font-sans)', marginTop: 4 }}>Your trading companion. Always on. Always learning.</div>
           </div>
-          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--color-ink)', color: 'var(--color-canvas)', fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>PRO</span>
+          <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: '#080C14', color: '#F59E0B', fontFamily: 'var(--font-sans)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>PRO</span>
         </div>
 
-        {/* Context bar — session + trade count only, no P&L (currency-neutral) */}
-        <div style={{ background: 'var(--color-canvas, #F8F6F1)', borderRadius: 8, padding: '10px 16px', marginBottom: 20 }}>
-          <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--color-muted, #888780)' }}>
+        {/* Context bar */}
+        <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
+          <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: '#64748B' }}>
             Reviewed{' '}
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{sessions.length}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: '#0F172A' }}>{sessions.length}</span>
             {' sessions · '}
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{totalTrades.toLocaleString()}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: '#0F172A' }}>{totalTrades.toLocaleString()}</span>
             {' trades. Your actual data.'}
           </span>
         </div>
 
-        {/* Tab switcher — 3 tabs, clean style */}
+        {/* Tab switcher */}
         <style>{`
           @media(max-width:768px){
             .coach-tabs{gap:4px!important}
@@ -167,10 +171,11 @@ export default function CoachPage() {
         <div className="coach-tabs" style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
           {TAB_CONFIG.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} className="coach-tab-btn" style={{
-              height: 36, padding: '0 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400,
-              background: tab === t.key ? 'var(--color-ink, #1A1F2E)' : 'transparent',
-              color: tab === t.key ? 'var(--color-canvas, #F8F6F1)' : 'var(--muted)',
+              height: 36, padding: '0 16px', borderRadius: 7, cursor: 'pointer',
+              fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: tab === t.key ? 500 : 400,
+              background: tab === t.key ? '#0F172A' : 'transparent',
+              color: tab === t.key ? '#F8FAFC' : '#94A3B8',
+              border: tab === t.key ? 'none' : '0.5px solid #E2E8F0',
               transition: 'all 0.1s',
             }}>{t.label}</button>
           ))}
@@ -178,13 +183,17 @@ export default function CoachPage() {
 
         {/* AI Loading */}
         {aiLoading && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-body" style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <div style={{ fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, marginBottom: 14 }}>
+            <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+              <div style={{ fontSize: 13, color: '#0F172A', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
                 Preparing your session plan...
               </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontFamily: 'var(--font-sans)' }}>
-                Saathi is analysing your <span style={{ fontFamily: 'var(--font-mono)' }}>{sessions.length}</span> sessions and <span style={{ fontFamily: 'var(--font-mono)' }}>{totalTrades.toLocaleString()}</span> trades
+              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'var(--font-sans)' }}>
+                Saathi is analysing your{' '}
+                <span style={{ fontFamily: 'var(--font-mono)', color: '#0F172A' }}>{sessions.length}</span>
+                {' '}sessions and{' '}
+                <span style={{ fontFamily: 'var(--font-mono)', color: '#0F172A' }}>{totalTrades.toLocaleString()}</span>
+                {' '}trades
               </div>
             </div>
           </div>
@@ -196,14 +205,13 @@ export default function CoachPage() {
             {aiPlan.title && (
               <div style={{ marginBottom: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 <div>
-                  <h3 style={{ fontFamily: "var(--font-display, 'DM Serif Display', serif)", fontSize: 20, fontWeight: 400, marginBottom: 2 }}>{aiPlan.title}</h3>
-                  {aiPlan.subtitle && <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>{aiPlan.subtitle}</div>}
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, marginBottom: 2, color: '#0F172A' }}>{aiPlan.title}</h3>
+                  {aiPlan.subtitle && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'var(--font-sans)' }}>{aiPlan.subtitle}</div>}
                 </div>
-                {/* Print button — only on Tomorrow's Plan */}
                 {tab === 'tomorrow' && (
                   <button
                     onClick={() => window.print()}
-                    style={{ height: 32, padding: '0 12px', borderRadius: 6, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontSize: 12, fontFamily: 'var(--font-sans)', cursor: 'pointer', flexShrink: 0, fontWeight: 400 }}
+                    style={{ height: 32, padding: '0 12px', borderRadius: 6, border: '0.5px solid #E2E8F0', background: 'transparent', color: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-sans)', cursor: 'pointer', flexShrink: 0, fontWeight: 400 }}
                   >
                     Print plan
                   </button>
@@ -212,58 +220,62 @@ export default function CoachPage() {
             )}
 
             {aiPlan.sections?.map((section: { title: string; subtitle?: string; icon?: string; items?: { tag: string; text: string }[]; content?: string; scenarios?: { type: string; text: string }[]; zones?: { name: string; color: string; criteria: string }[]; current?: string }, si: number) => (
-              <div key={si} className="card" style={{ marginBottom: 14 }}>
-                <div className="card-head">{section.title}</div>
-                {section.subtitle && <div style={{ fontSize: 11, color: 'var(--muted)', padding: '0 16px 8px', fontFamily: 'var(--font-sans)' }}>{section.subtitle}</div>}
-                <div className="card-body">
+              <div key={si} style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, marginBottom: 14 }}>
+                <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E2E8F0', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, color: '#0F172A', letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>{section.title}</div>
+                {section.subtitle && <div style={{ fontSize: 11, color: '#94A3B8', padding: '0 16px 8px', fontFamily: 'var(--font-sans)' }}>{section.subtitle}</div>}
+                <div style={{ padding: '8px 0' }}>
                   {section.items && section.items.map((item: { tag: string; text: string }, ii: number) => {
                     const tagColors: Record<string, { bg: string; color: string }> = {
-                      STOP: { bg: 'rgba(240,93,108,.1)', color: 'var(--red)' },
-                      DO: { bg: 'rgba(54,211,153,.1)', color: 'var(--green)' },
-                      PRACTICE: { bg: 'rgba(91,141,239,.1)', color: 'var(--blue)' },
+                      STOP:     { bg: 'rgba(220,38,38,0.08)',  color: '#DC2626' },
+                      DO:       { bg: 'rgba(16,185,129,0.08)', color: '#10B981' },
+                      PRACTICE: { bg: 'rgba(55,138,221,0.08)', color: '#378ADD' },
                     }
                     const tc = tagColors[item.tag] || tagColors.DO
                     return (
                       <div key={ii} style={{ borderLeft: `3px solid ${tc.color}`, display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 14px' }}>
-                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: tc.bg, color: tc.color, flexShrink: 0, minWidth: 80, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>{item.tag}</span>
-                        <span style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text2)', fontFamily: 'var(--font-sans)' }}>{item.text}</span>
+                        <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: tc.bg, color: tc.color, flexShrink: 0, minWidth: 80, textAlign: 'center' as const, fontFamily: 'var(--font-sans)' }}>{item.tag}</span>
+                        <span style={{ fontSize: 13, lineHeight: 1.7, color: '#374151', fontFamily: 'var(--font-sans)' }}>{item.text}</span>
                       </div>
                     )
                   })}
                   {section.content && (
-                    <div style={{ background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, fontSize: 12, lineHeight: 1.9, color: 'var(--text2)', whiteSpace: 'pre-line', fontFamily: 'var(--font-sans)' }}>
+                    <div style={{ margin: '0 16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16, fontSize: 12, lineHeight: 1.9, color: '#374151', whiteSpace: 'pre-line' as const, fontFamily: 'var(--font-sans)' }}>
                       {section.content}
                     </div>
                   )}
                   {section.scenarios && section.scenarios.map((sc: { type: string; text: string }, sci: number) => {
-                    const scColors: Record<string, string> = { best: 'var(--green)', likely: 'var(--gold)', worst: 'var(--red)' }
+                    const scColors: Record<string, string> = { best: '#10B981', likely: '#F59E0B', worst: '#DC2626' }
                     return (
-                      <div key={sci} style={{ borderLeft: `3px solid ${scColors[sc.type] || 'var(--muted)'}`, padding: '10px 14px' }}>
-                        <strong style={{ color: scColors[sc.type], textTransform: 'uppercase', fontSize: 11, fontFamily: 'var(--font-sans)' }}>{sc.type} CASE:</strong>
-                        <span style={{ fontSize: 13, marginLeft: 8, color: 'var(--text2)', fontFamily: 'var(--font-sans)' }}>{sc.text}</span>
+                      <div key={sci} style={{ borderLeft: `3px solid ${scColors[sc.type] || '#94A3B8'}`, padding: '10px 14px' }}>
+                        <strong style={{ color: scColors[sc.type], textTransform: 'uppercase' as const, fontSize: 11, fontFamily: 'var(--font-sans)' }}>{sc.type} CASE:</strong>
+                        <span style={{ fontSize: 13, marginLeft: 8, color: '#374151', fontFamily: 'var(--font-sans)' }}>{sc.text}</span>
                       </div>
                     )
                   })}
                   {section.zones && (
-                    <>
+                    <div style={{ padding: '0 16px 8px' }}>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" style={{ fontSize: 12, marginBottom: 8 }}>
                         {section.zones.map((z: { name: string; color: string; criteria: string }, zi: number) => {
-                          const zColors: Record<string, string> = { red: 'rgba(240,93,108,.08)', gold: 'rgba(245,166,35,.08)', green: 'rgba(16,185,129,.08)' }
-                          const zBorders: Record<string, string> = { red: 'rgba(240,93,108,.2)', gold: 'rgba(245,166,35,.2)', green: 'rgba(16,185,129,.2)' }
+                          const zBgs:    Record<string, string> = { red: 'rgba(220,38,38,0.06)',    gold: 'rgba(245,158,11,0.06)',  green: 'rgba(16,185,129,0.06)' }
+                          const zBorders:Record<string, string> = { red: 'rgba(220,38,38,0.2)',     gold: 'rgba(245,158,11,0.2)',   green: 'rgba(16,185,129,0.2)'  }
+                          const zText:   Record<string, string> = { red: '#DC2626',                 gold: '#F59E0B',                green: '#10B981'               }
                           return (
-                            <div key={zi} style={{ background: zColors[z.color] || 'var(--s2)', border: `1px solid ${zBorders[z.color] || 'var(--border)'}`, borderRadius: 8, padding: 12, textAlign: 'center' }}>
-                              <div style={{ color: `var(--${z.color})`, fontWeight: 500, fontSize: 14, fontFamily: 'var(--font-sans)' }}>{z.name}</div>
-                              <div style={{ color: 'var(--muted2)', marginTop: 4, whiteSpace: 'pre-line', fontSize: 11, fontFamily: 'var(--font-sans)' }}>{z.criteria}</div>
+                            <div key={zi} style={{ background: zBgs[z.color] || '#F8FAFC', border: `1px solid ${zBorders[z.color] || '#E2E8F0'}`, borderRadius: 8, padding: 12, textAlign: 'center' as const }}>
+                              <div style={{ color: zText[z.color] || '#94A3B8', fontWeight: 500, fontSize: 14, fontFamily: 'var(--font-sans)' }}>{z.name}</div>
+                              <div style={{ color: '#64748B', marginTop: 4, whiteSpace: 'pre-line' as const, fontSize: 11, fontFamily: 'var(--font-sans)' }}>{z.criteria}</div>
                             </div>
                           )
                         })}
                       </div>
                       {section.current && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
-                          You are currently in the <strong style={{ color: `var(--${section.current === 'RED' ? 'red' : section.current === 'YELLOW' ? 'gold' : 'green'})` }}>{section.current} ZONE</strong>
+                        <div style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center' as const, fontFamily: 'var(--font-sans)' }}>
+                          You are currently in the{' '}
+                          <strong style={{ color: section.current === 'RED' ? '#DC2626' : section.current === 'YELLOW' ? '#F59E0B' : '#10B981' }}>
+                            {section.current} ZONE
+                          </strong>
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -292,29 +304,29 @@ export default function CoachPage() {
           if (merged.length === 0) return null
           const completed = merged.filter(r => rulesChecked[r]).length
           return (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-sans)' }}>Your Rules</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--muted)', fontWeight: 400 }}>{completed}/{merged.length} followed</span>
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, marginBottom: 14 }}>
+              <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, color: '#0F172A', letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>
+                <span>Your Rules</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#94A3B8', fontWeight: 400 }}>{completed}/{merged.length} followed</span>
               </div>
-              <div className="card-body">
-                <div style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 10, padding: 16, fontFamily: 'var(--font-mono)' }}>
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: 16, fontFamily: 'var(--font-mono)' }}>
                   {merged.map((rule, i) => {
                     const checked = !!rulesChecked[rule]
                     return (
                       <div key={rule} role="button" tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); toggleRule(rule) }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRule(rule) } }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', minHeight: 56, borderBottom: i < merged.length - 1 ? '1px dashed rgba(0,0,0,.08)' : 'none', cursor: 'pointer', opacity: checked ? 0.55 : 1, userSelect: 'none' }}>
-                        <span style={{ width: 16, height: 16, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--muted)'}`, borderRadius: 3, background: checked ? 'var(--accent)' : 'transparent', color: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', minHeight: 56, borderBottom: i < merged.length - 1 ? '1px dashed rgba(0,0,0,.08)' : 'none', cursor: 'pointer', opacity: checked ? 0.55 : 1, userSelect: 'none' as const }}>
+                        <span style={{ width: 16, height: 16, flexShrink: 0, border: `1.5px solid ${checked ? '#F59E0B' : '#94A3B8'}`, borderRadius: 3, background: checked ? '#F59E0B' : 'transparent', color: '#080C14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
                           {checked ? '✓' : ''}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 400, color: checked ? 'var(--muted)' : 'var(--text)', textDecoration: checked ? 'line-through' : 'none', letterSpacing: '.02em' }}>{rule}</span>
+                        <span style={{ fontSize: 12, fontWeight: 400, color: checked ? '#94A3B8' : '#0F172A', textDecoration: checked ? 'line-through' : 'none', letterSpacing: '.02em' }}>{rule}</span>
                       </div>
                     )
                   })}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 10, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
+                <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 10, textAlign: 'center' as const, fontFamily: 'var(--font-sans)' }}>
                   Tap to mark followed. State persists across sessions.
                 </div>
               </div>
@@ -324,19 +336,19 @@ export default function CoachPage() {
 
         {/* Discipline Trend */}
         {sessions.length > 1 && (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head" style={{ fontFamily: 'var(--font-sans)' }}>Discipline Trend</div>
-            <div className="card-body">
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, marginBottom: 14 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E2E8F0', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, color: '#0F172A', letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>Discipline Trend</div>
+            <div style={{ padding: '16px 16px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 60, marginBottom: 8 }}>
                 {sessions.slice(0, 14).reverse().map((s, i) => {
                   const dqs = s.dqs_score || 0
                   const h = Math.max(4, (dqs / 100) * 56)
-                  const c = dqs >= 60 ? 'var(--green)' : dqs >= 40 ? 'var(--gold)' : 'var(--red)'
+                  const c = dqs >= 60 ? '#10B981' : dqs >= 40 ? '#F59E0B' : '#F43F5E'
                   return <div key={i} style={{ flex: 1, height: h, background: c, borderRadius: 2, opacity: 0.7 }} title={`DQS: ${dqs}`} />
                 })}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
-                DQS trend across <span style={{ fontFamily: 'var(--font-mono)' }}>{Math.min(sessions.length, 14)}</span> sessions
+              <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' as const, fontFamily: 'var(--font-sans)' }}>
+                DQS trend across <span style={{ fontFamily: 'var(--font-mono)', color: '#0F172A' }}>{Math.min(sessions.length, 14)}</span> sessions
               </div>
             </div>
           </div>
