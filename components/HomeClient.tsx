@@ -956,125 +956,180 @@ function HowItWorks() {
   )
 }
 
-// ─── WHAT TRADERS DISCOVER (DARK BENTO) ─────────────────────────────────────
-function WhatTradersDiscover() {
-  const INSIGHTS = [
+// ─── TRADERS JOURNEY ─────────────────────────────────────────────
+function TradersJourney() {
+  const STORIES = [
     {
-      number: '&#8377;36,214',
-      label: 'average monthly mistake cost',
-      color: '#FF6B6B',
-      body: 'Most traders don\'t realise how much revenge trading actually costs until they see it added up. This is usually the first shock.',
+      flag: '🇮🇳',
+      market: 'Nifty Options · Mumbai',
+      moment: 'The number nobody wants to see.',
+      quote: 'I thought I was revenge trading once in a while. The data said 106 times — in a single month. That number changed everything.',
+      finding: '₹36,214',
+      findingLabel: 'lost to revenge trades in one month',
+      findingColor: '#F43F5E',
+      week: 'Week 1',
+      dqs: 41,
+      dqsColor: '#F43F5E',
     },
     {
-      number: '666&#215;',
-      label: 'patterns detected in one trader\'s 76 sessions',
-      color: '#FBBF24',
-      body: 'Revenge trading, averaging down, oversized positions. Every instance logged with the exact trade and the exact cost to your account.',
+      flag: '🇸🇬',
+      market: 'SGX Nifty · Singapore',
+      moment: 'Profitable, but not for the right reasons.',
+      quote: 'My win rate looked fine. Then I saw that 31% of my profitable trades were lucky exits — I had held past my target by accident.',
+      finding: '31%',
+      findingLabel: 'of wins were undisciplined holds',
+      findingColor: '#F59E0B',
+      week: 'Week 3',
+      dqs: 54,
+      dqsColor: '#F59E0B',
     },
     {
-      number: '67 / 100',
-      label: 'discipline score, with a detailed breakdown',
-      color: '#F1F5F9',
-      body: 'Entry quality, risk management, emotional control, position sizing. All scored. The weakest area becomes your coaching priority.',
+      flag: '🇬🇧',
+      market: 'FTSE Options · London',
+      moment: 'The pattern had a name. And a price tag.',
+      quote: 'Averaging down. I knew I did it. I did not know it was responsible for 68% of my total losses. Seeing the cost per pattern was the clearest thing I had ever read about my trading.',
+      finding: '68%',
+      findingLabel: 'of total losses from one pattern',
+      findingColor: '#F59E0B',
+      week: 'Week 5',
+      dqs: 58,
+      dqsColor: '#F59E0B',
+    },
+    {
+      flag: '🇺🇸',
+      market: 'SPX Options · New York',
+      moment: 'The pre-session plan actually worked.',
+      quote: 'Three rules. Write them before open. Follow them. My discipline score went from 44 to 71 in six weeks. Not because I became a better analyst — because I stopped making the same mistakes.',
+      finding: '44 → 71',
+      findingLabel: 'discipline score in 6 weeks',
+      findingColor: '#10B981',
+      week: 'Week 6',
+      dqs: 71,
+      dqsColor: '#10B981',
+    },
+    {
+      flag: '🇦🇪',
+      market: 'Crypto + Equity · Dubai',
+      moment: 'The moment the journal started writing itself.',
+      quote: 'Every session has a story now. Not just P&L — the trigger, the pattern, the cost, the lesson. I used to journal manually and give up after a week. This does it automatically from the file.',
+      finding: '140',
+      findingLabel: 'sessions with automated coaching notes',
+      findingColor: '#818CF8',
+      week: 'Week 8',
+      dqs: 79,
+      dqsColor: '#10B981',
     },
   ]
 
   return (
-    <section style={{ background: '#080C14' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '96px 24px 80px' }}>
-        <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ marginBottom: 56 }}>
-          <motion.div variants={item}><SectionLabel light>The Output</SectionLabel></motion.div>
-          <motion.div variants={item}><SectionTitle light>What traders discover</SectionTitle></motion.div>
+    <section style={{ background: '#080C14', padding: '96px 0 112px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+
+        {/* Header */}
+        <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ marginBottom: 80 }}>
+          <motion.div variants={item}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.35)', marginBottom: 16 }}>
+              Traders worldwide
+            </div>
+          </motion.div>
+          <motion.div variants={item}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: '#F1F5F9', lineHeight: 1.1, letterSpacing: '-0.025em', maxWidth: 640, margin: 0 }}>
+              Five traders.<br />Five countries.<br />One pattern.
+            </h2>
+          </motion.div>
+          <motion.div variants={item}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 16, color: 'rgba(241,245,249,0.45)', marginTop: 20, lineHeight: 1.75, maxWidth: 520 }}>
+              The market is different. The currency is different. The psychology is identical.
+            </p>
+          </motion.div>
         </motion.div>
 
-        <div className="bento-grid">
-          <motion.div variants={item} initial="hidden" whileInView="visible" viewport={VP} className="bento-item-1"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '36px 32px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1 }} />
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 52, fontWeight: 500, color: INSIGHTS[0].color, lineHeight: 1, marginBottom: 12 }} dangerouslySetInnerHTML={{ __html: INSIGHTS[0].number }} />
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(241,245,249,0.35)', marginBottom: 20, lineHeight: 1.5 }}>{INSIGHTS[0].label}</div>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(241,245,249,0.5)', lineHeight: 1.7, margin: 0 }}>{INSIGHTS[0].body}</p>
-          </motion.div>
+        {/* Journey timeline */}
+        <div style={{ position: 'relative' }}>
+          {/* Vertical line */}
+          <div style={{ position: 'absolute', left: 19, top: 0, bottom: 0, width: '0.5px', background: 'linear-gradient(to bottom, rgba(245,158,11,0.6), rgba(245,158,11,0.1))' }} />
 
-          <motion.div variants={item} initial="hidden" whileInView="visible" viewport={VP} className="bento-item-2"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '32px 28px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 48, fontWeight: 500, color: INSIGHTS[1].color, lineHeight: 1, marginBottom: 12 }} dangerouslySetInnerHTML={{ __html: INSIGHTS[1].number }} />
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(241,245,249,0.35)', marginBottom: 16, lineHeight: 1.5 }}>{INSIGHTS[1].label}</div>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(241,245,249,0.5)', lineHeight: 1.7, margin: 0 }}>{INSIGHTS[1].body}</p>
-          </motion.div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {STORIES.map((s, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -24 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: '-80px' }}
+                transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
+                style={{ display: 'flex', gap: 40, alignItems: 'flex-start', paddingBottom: i < STORIES.length - 1 ? 64 : 0 }}
+              >
+                {/* Timeline dot */}
+                <div style={{ flexShrink: 0, position: 'relative', zIndex: 1, marginTop: 6 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#0D1421', border: `1.5px solid ${s.dqsColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                    {s.flag}
+                  </div>
+                </div>
 
-          <motion.div variants={item} initial="hidden" whileInView="visible" viewport={VP} className="bento-item-3"
-            style={{ background: 'rgba(255,165,0,0.06)', border: '0.5px solid rgba(251,191,36,0.2)', borderRadius: 12, padding: '32px 28px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 48, fontWeight: 500, color: INSIGHTS[2].color, lineHeight: 1, marginBottom: 12 }} dangerouslySetInnerHTML={{ __html: INSIGHTS[2].number }} />
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(241,245,249,0.35)', marginBottom: 16, lineHeight: 1.5 }}>{INSIGHTS[2].label}</div>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(241,245,249,0.5)', lineHeight: 1.7, margin: 0 }}>{INSIGHTS[2].body}</p>
-          </motion.div>
+                {/* Content card */}
+                <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '28px 32px', position: 'relative', overflow: 'hidden' }}>
+                  {/* Accent line */}
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: s.dqsColor, opacity: 0.5, borderRadius: '3px 0 0 3px' }} />
+
+                  {/* Top row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'rgba(241,245,249,0.4)', letterSpacing: '0.06em' }}>{s.market}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(241,245,249,0.2)', padding: '2px 8px', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 20 }}>{s.week}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '4px 10px' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: s.dqsColor }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: s.dqsColor }}>DQS {s.dqs}</span>
+                    </div>
+                  </div>
+
+                  {/* Moment title */}
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#F1F5F9', lineHeight: 1.3, marginBottom: 16, letterSpacing: '-0.01em' }}>
+                    {s.moment}
+                  </h3>
+
+                  {/* Quote */}
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'rgba(241,245,249,0.6)', lineHeight: 1.75, margin: '0 0 24px' }}>
+                    &ldquo;{s.quote}&rdquo;
+                  </p>
+
+                  {/* Finding */}
+                  <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500, color: s.findingColor, lineHeight: 1 }}>{s.finding}</span>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(241,245,249,0.35)' }}>{s.findingLabel}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
-        <style>{`
-          .bento-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:16px}
-          .bento-item-1{grid-column:1;grid-row:1/3;min-height:400px}
-          .bento-item-2{grid-column:2;grid-row:1}
-          .bento-item-3{grid-column:2;grid-row:2}
-          @media(max-width:768px){
-            .bento-grid{grid-template-columns:1fr!important}
-            .bento-item-1,.bento-item-2,.bento-item-3{grid-column:1!important;grid-row:auto!important;min-height:auto!important}
-          }
-        `}</style>
-      </div>
-    </section>
-  )
-}
-
-// ─── TRADER QUOTES ───────────────────────────────────────────────────────────
-function TraderQuotes() {
-  const QUOTES = [
-    {
-      finding: '&#8377;44,000 in revenge trades',
-      findingColor: '#FF6B6B',
-      quote: 'I knew I was doing it. Seeing the exact number every session made it impossible to ignore.',
-      attribution: 'Nifty options trader · 3 months of data',
-    },
-    {
-      finding: '23% of entries were oversized',
-      findingColor: '#FBBF24',
-      quote: 'I thought I was managing risk well. The position sizing score said otherwise.',
-      attribution: 'BankNifty trader · Weekly expiry focus',
-    },
-    {
-      finding: 'Discipline score: 41 to 68 in 8 weeks',
-      findingColor: '#34D399',
-      quote: 'The coaching plan was specific to my patterns. Not generic trading advice.',
-      attribution: 'Equity + F&O trader · 140 sessions analysed',
-    },
-  ]
-
-  return (
-    <section style={{ background: '#0D1421' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 96px' }}>
-        <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ textAlign: 'center', marginBottom: 56, paddingTop: 80 }}>
-          <motion.div variants={item}><SectionLabel light>Traders</SectionLabel></motion.div>
-          <motion.div variants={item}><SectionTitle light>What they found</SectionTitle></motion.div>
+        {/* Bottom CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          style={{ marginTop: 80, textAlign: 'center', borderTop: '0.5px solid rgba(255,255,255,0.07)', paddingTop: 56 }}
+        >
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 400, color: 'rgba(241,245,249,0.7)', marginBottom: 8, fontStyle: 'italic' }}>
+            Your number is waiting in your trade file.
+          </p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(241,245,249,0.35)', marginBottom: 32 }}>
+            Upload once. See everything.
+          </p>
+          <a href="/sign-up" style={{ display: 'inline-block', background: '#F59E0B', color: '#080C14', padding: '12px 32px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, textDecoration: 'none', letterSpacing: '0.01em' }}>
+            Start free — upload your trades
+          </a>
         </motion.div>
-        <motion.div variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.12 } } }}
-          initial="hidden" whileInView="visible" viewport={VP}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}
-          className="quotes-grid">
-          {QUOTES.map((q, i) => (
-            <motion.div key={i} variants={item}
-              style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '28px 24px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500, color: q.findingColor, lineHeight: 1.3, marginBottom: 16 }} dangerouslySetInnerHTML={{ __html: q.finding }} />
-              <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 400, color: 'rgba(241,245,249,0.62)', lineHeight: 1.7, fontStyle: 'italic', margin: '0 0 16px', flex: 1 }}>
-                &ldquo;{q.quote}&rdquo;
-              </p>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400, color: 'rgba(241,245,249,0.32)', margin: 0 }}>
-                {q.attribution}
-              </p>
-            </motion.div>
-          ))}
-        </motion.div>
-        <style>{`@media(max-width:768px){.quotes-grid{grid-template-columns:1fr!important}}`}</style>
+
       </div>
+
+      <style>{`
+        @media(max-width:768px){
+          .journey-card-inner{padding:20px 18px!important}
+        }
+      `}</style>
     </section>
   )
 }
@@ -1178,8 +1233,7 @@ export default function HomeClient() {
       <ProductDemo />
       <StatsBar />
       <HowItWorks />
-      <WhatTradersDiscover />
-      <TraderQuotes />
+      <TradersJourney />
       <Pricing />
       <FinalCTA />
     </div>
