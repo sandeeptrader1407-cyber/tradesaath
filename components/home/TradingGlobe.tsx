@@ -2,167 +2,278 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+// ── Markets ──────────────────────────────────────────────────────────────────
 const MARKETS = [
-  { name: 'NYSE',     lat:  40.7, lon:  -74.0, color: '#4ADE80' },
-  { name: 'LSE',      lat:  51.5, lon:   -0.1, color: '#60A5FA' },
-  { name: 'TSE',      lat:  35.7, lon:  139.7, color: '#F472B6' },
-  { name: 'SSE',      lat:  31.2, lon:  121.5, color: '#FB923C' },
-  { name: 'NSE',      lat:  19.1, lon:   72.9, color: '#A78BFA' },
-  { name: 'ASX',      lat: -33.9, lon:  151.2, color: '#34D399' },
-  { name: 'Euronext', lat:  48.9, lon:    2.3, color: '#FCD34D' },
-  { name: 'SGX',      lat:   1.3, lon:  103.8, color: '#22D3EE' },
-  { name: 'HKEX',     lat:  22.3, lon:  114.2, color: '#F87171' },
-  { name: 'TSX',      lat:  43.7, lon:  -79.4, color: '#86EFAC' },
-  { name: 'B3',       lat: -23.5, lon:  -46.6, color: '#FCA5A5' },
-  { name: 'MOEX',     lat:  55.8, lon:   37.6, color: '#93C5FD' },
+  { name: 'NYSE',     full: 'New York Stock Exchange',    lat:  40.71, lon: -74.01, color: '#4ADE80' },
+  { name: 'Nasdaq',   full: 'Nasdaq',                     lat:  40.75, lon: -73.98, color: '#34D399' },
+  { name: 'LSE',      full: 'London Stock Exchange',      lat:  51.51, lon:  -0.09, color: '#60A5FA' },
+  { name: 'TSE',      full: 'Tokyo Stock Exchange',       lat:  35.69, lon: 139.70, color: '#F472B6' },
+  { name: 'SSE',      full: 'Shanghai Stock Exchange',    lat:  31.23, lon: 121.47, color: '#FB923C' },
+  { name: 'BSE',      full: 'Bombay Stock Exchange',      lat:  18.93, lon:  72.83, color: '#F59E0B' },
+  { name: 'ASX',      full: 'Australian Securities Exch', lat: -33.87, lon: 151.21, color: '#34D399' },
+  { name: 'Euronext', full: 'Euronext Paris',             lat:  48.86, lon:   2.35, color: '#FCD34D' },
+  { name: 'SGX',      full: 'Singapore Exchange',         lat:   1.29, lon: 103.85, color: '#22D3EE' },
+  { name: 'HKEX',     full: 'Hong Kong Exchanges',        lat:  22.29, lon: 114.16, color: '#F87171' },
+  { name: 'TSX',      full: 'Toronto Stock Exchange',     lat:  43.65, lon: -79.38, color: '#86EFAC' },
+  { name: 'B3',       full: 'B3 São Paulo',               lat: -23.55, lon: -46.63, color: '#FCA5A5' },
+  { name: 'MOEX',     full: 'Moscow Exchange',            lat:  55.75, lon:  37.62, color: '#93C5FD' },
+  { name: 'JSE',      full: 'Johannesburg Stock Exch',    lat: -26.20, lon:  28.04, color: '#FBBF24' },
+  { name: 'KRX',      full: 'Korea Stock Exchange',       lat:  37.57, lon: 126.98, color: '#A78BFA' },
+  { name: 'Tadawul',  full: 'Saudi Exchange',             lat:  24.68, lon:  46.72, color: '#FDE68A' },
 ] as const
 
 const ARC_PAIRS: readonly [string, string][] = [
-  ['NYSE', 'LSE'],
-  ['LSE', 'NSE'],
-  ['NSE', 'TSE'],
-  ['SGX', 'ASX'],
+  ['NYSE',  'LSE'],
+  ['LSE',   'Euronext'],
+  ['LSE',   'BSE'],
+  ['BSE',   'TSE'],
+  ['SGX',   'ASX'],
+  ['HKEX',  'TSE'],
 ]
 
-interface Tooltip { name: string; color: string; x: number; y: number }
+interface Tooltip { name: string; full: string; color: string; x: number; y: number }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function ll2xyz(lat: number, lon: number, r: number): [number, number, number] {
+  const la = lat * Math.PI / 180
+  const lo = lon * Math.PI / 180
+  return [r * Math.cos(la) * Math.cos(lo), r * Math.sin(la), r * Math.cos(la) * Math.sin(lo)]
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function TradingGlobe() {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
   const starsCanvasRef = useRef<HTMLCanvasElement>(null)
   const [tooltip, setTooltip] = useState<Tooltip | null>(null)
 
-  // Stars background — drawn once on a 2D canvas
   useEffect(() => {
-    const canvas = starsCanvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    canvas.width = canvas.offsetWidth || 600
-    canvas.height = canvas.offsetHeight || 400
-    for (let i = 0; i < 200; i++) {
-      ctx.beginPath()
-      ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 1.2, 0, Math.PI * 2)
-      ctx.fillStyle = `rgba(255,255,255,${(0.08 + Math.random() * 0.25).toFixed(2)})`
-      ctx.fill()
-    }
-  }, [])
-
-  // Three.js globe
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    const container   = containerRef.current
+    const starsCanvas = starsCanvasRef.current
+    if (!container || !starsCanvas) return
 
     let animFrame: number
-    let disposed = false
+    let disposed  = false
     let isDragging = false
-    let prevX = 0
-    let prevY = 0
+    let prevX = 0, prevY = 0
+    let velY = 0, velX = 0
 
+    // ── Star data (generated once, animated each frame) ──────────────────────
+    const starCtx = starsCanvas.getContext('2d')
+    starsCanvas.width  = container.clientWidth  || 700
+    starsCanvas.height = container.clientHeight || 420
+
+    interface Star { x: number; y: number; r: number; base: number; phase: number }
+    const stars: Star[] = []
+    const push = (count: number, rMin: number, rMax: number, oMin: number, oMax: number) => {
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random(), y: Math.random(),
+          r: rMin + Math.random() * (rMax - rMin),
+          base: oMin + Math.random() * (oMax - oMin),
+          phase: Math.random() * Math.PI * 2,
+        })
+      }
+    }
+    push(20,  1.8, 2.2, 0.6, 0.9)   // large
+    push(80,  0.8, 1.4, 0.3, 0.6)   // medium
+    push(300, 0.3, 0.7, 0.1, 0.3)   // small
+
+    const drawStars = (now: number) => {
+      if (!starCtx) return
+      const w = starsCanvas.width, h = starsCanvas.height
+      starCtx.clearRect(0, 0, w, h)
+      for (const s of stars) {
+        const op = Math.max(0.02, Math.min(1, s.base + 0.15 * Math.sin(now * 0.001 + s.phase)))
+        starCtx.beginPath()
+        starCtx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2)
+        starCtx.fillStyle = `rgba(255,255,255,${op.toFixed(2)})`
+        starCtx.fill()
+      }
+    }
+
+    // ── Three.js ──────────────────────────────────────────────────────────────
     import('three').then((THREE) => {
       if (disposed || !containerRef.current) return
       const cont = containerRef.current
-      const W = cont.clientWidth
-      const H = cont.clientHeight
+      const W = cont.clientWidth, H = cont.clientHeight
 
-      // Renderer
       const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
       renderer.setSize(W, H)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.setClearColor(0x000000, 0)
       cont.appendChild(renderer.domElement)
-      renderer.domElement.style.position = 'absolute'
-      renderer.domElement.style.inset = '0'
+      renderer.domElement.style.cssText = 'position:absolute;inset:0'
 
-      // Scene + camera
-      const scene = new THREE.Scene()
+      const scene  = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100)
       camera.position.z = 2.8
 
-      const R = 1
+      // Point light for globe depth
+      const light = new THREE.PointLight(0xffffff, 0.6)
+      light.position.set(3, 3, 5)
+      scene.add(light)
+      scene.add(new THREE.AmbientLight(0x1a2040, 1.2))
 
-      // Pivot group — everything that rotates together
+      const R = 1
       const pivot = new THREE.Group()
+      pivot.rotation.x = 0.2
       scene.add(pivot)
 
-      // Globe sphere
+      // ── Globe sphere (Phong for lighting depth) ────────────────────────────
       pivot.add(new THREE.Mesh(
         new THREE.SphereGeometry(R, 64, 64),
-        new THREE.MeshBasicMaterial({ color: 0x0A0F1E })
+        new THREE.MeshPhongMaterial({
+          color: 0x060D1F,
+          emissive: 0x0A1628,
+          emissiveIntensity: 0.3,
+          shininess: 8,
+        })
       ))
 
-      // lat/lon → Vector3
-      const ll = (lat: number, lon: number, r: number) => {
-        const la = lat * Math.PI / 180
-        const lo = lon * Math.PI / 180
-        return new THREE.Vector3(r * Math.cos(la) * Math.cos(lo), r * Math.sin(la), r * Math.cos(la) * Math.sin(lo))
+      // ── Grid lines (blue-tinted, 20° spacing) ─────────────────────────────
+      const mk = (lat: number, lon: number) => {
+        const [x,y,z] = ll2xyz(lat, lon, R * 1.001)
+        return new THREE.Vector3(x, y, z)
+      }
+      const gridBlue = 0x4A90E2
+      for (let lat = -80; lat <= 80; lat += 20) {
+        const pts = Array.from({ length: 73 }, (_, j) => mk(lat, j * 5 - 180))
+        const op  = lat === 0 ? 0.18 : 0.07
+        pivot.add(new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: gridBlue, transparent: true, opacity: op })
+        ))
+      }
+      for (let lon = -180; lon < 180; lon += 20) {
+        const pts = Array.from({ length: 37 }, (_, j) => mk(-90 + j * 5, lon))
+        const op  = lon === 0 ? 0.14 : 0.07
+        pivot.add(new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: gridBlue, transparent: true, opacity: op })
+        ))
       }
 
-      // Latitude grid lines (every 15°)
-      const gridMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06 })
-      for (let lat = -75; lat <= 75; lat += 15) {
-        const pts = Array.from({ length: 65 }, (_, j) => ll(lat, j * 5.625 - 180, R * 1.001))
-        pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat))
-      }
-      // Longitude grid lines (every 15°)
-      for (let lon = -180; lon < 180; lon += 15) {
-        const pts = Array.from({ length: 65 }, (_, j) => ll(-90 + j * 2.8125, lon, R * 1.001))
-        pivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat))
-      }
+      // ── Atmosphere: 3 nested shells (not in pivot — stay fixed) ───────────
+      const atmo = [
+        { r: R * 1.06, c: 0x1B4FD8, o: 0.12 },
+        { r: R * 1.14, c: 0x0F3FA6, o: 0.06 },
+        { r: R * 1.25, c: 0x0A2A7A, o: 0.03 },
+      ]
+      atmo.forEach(({ r, c, o }) =>
+        scene.add(new THREE.Mesh(
+          new THREE.SphereGeometry(r, 32, 32),
+          new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.BackSide })
+        ))
+      )
 
-      // Atmosphere glow (outside pivot, spherically symmetric)
-      scene.add(new THREE.Mesh(
-        new THREE.SphereGeometry(R * 1.1, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0x0F4C81, transparent: true, opacity: 0.09, side: THREE.BackSide })
+      // ── Continent dot cloud (~2000 pts via THREE.Points) ─────────────────
+      const regions = [
+        { latMin: 25, latMax: 70, lonMin: -130, lonMax:  -60, density: 0.35 },
+        { latMin: -55, latMax: 12, lonMin:  -80, lonMax:  -35, density: 0.35 },
+        { latMin: 36, latMax: 70, lonMin:  -10, lonMax:   40, density: 0.45 },
+        { latMin: -35, latMax: 37, lonMin:  -18, lonMax:   52, density: 0.30 },
+        { latMin: 10, latMax: 70, lonMin:   40, lonMax:  100, density: 0.30 },
+        { latMin: 5,  latMax: 55, lonMin:  100, lonMax:  145, density: 0.40 },
+        { latMin: -40, latMax: -10, lonMin: 113, lonMax:  154, density: 0.40 },
+        { latMin: 60, latMax: 83, lonMin:  -55, lonMax:  -18, density: 0.25 },
+      ]
+      const dotPos: number[] = []
+      regions.forEach(reg => {
+        const area  = (reg.latMax - reg.latMin) * (reg.lonMax - reg.lonMin)
+        const count = Math.floor(area * reg.density)
+        for (let i = 0; i < count; i++) {
+          const lat = reg.latMin + Math.random() * (reg.latMax - reg.latMin)
+          const lon = reg.lonMin + Math.random() * (reg.lonMax - reg.lonMin)
+          const [x, y, z] = ll2xyz(lat, lon, R * 1.002)
+          dotPos.push(x, y, z)
+        }
+      })
+      const dotGeo = new THREE.BufferGeometry()
+      dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(dotPos, 3))
+      pivot.add(new THREE.Points(dotGeo,
+        new THREE.PointsMaterial({ size: 0.008, color: 0x2A5FCF, transparent: true, opacity: 0.5, sizeAttenuation: true })
       ))
 
-      // Market dots
+      // ── Market dots (3 layers each) ────────────────────────────────────────
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const outerMeshes: any[] = []
       const dotData = MARKETS.map((m) => {
-        const pos = ll(m.lat, m.lon, R * 1.003)
+        const [px, py, pz] = ll2xyz(m.lat, m.lon, R * 1.003)
+        const pos = new THREE.Vector3(px, py, pz)
         const hex = parseInt(m.color.slice(1), 16)
+
         const outer = new THREE.Mesh(
-          new THREE.SphereGeometry(0.018, 8, 8),
-          new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.45 })
+          new THREE.SphereGeometry(0.022, 8, 8),
+          new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.35 })
         )
         outer.position.copy(pos)
         pivot.add(outer)
         outerMeshes.push(outer)
-        const inner = new THREE.Mesh(
-          new THREE.SphereGeometry(0.009, 8, 8),
+
+        const mid = new THREE.Mesh(
+          new THREE.SphereGeometry(0.016, 8, 8),
+          new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.4 })
+        )
+        mid.position.copy(pos)
+        pivot.add(mid)
+
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(0.008, 6, 6),
           new THREE.MeshBasicMaterial({ color: hex })
         )
-        inner.position.copy(pos)
-        pivot.add(inner)
+        core.position.copy(pos)
+        pivot.add(core)
+
         return { outer, pos, m }
       })
 
-      // Connection arcs
-      ARC_PAIRS.forEach(([a, b]) => {
+      // ── Connection arcs + animated particles ──────────────────────────────
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const arcParticles: { curve: any; t: number; speed: number; mesh: any }[] = []
+
+      ARC_PAIRS.forEach(([a, b], i) => {
         const ia = MARKETS.findIndex(m => m.name === a)
         const ib = MARKETS.findIndex(m => m.name === b)
         if (ia < 0 || ib < 0) return
-        const p1 = dotData[ia].pos.clone()
-        const p2 = dotData[ib].pos.clone()
+        const p1  = dotData[ia].pos.clone()
+        const p2  = dotData[ib].pos.clone()
         const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
-        mid.normalize().multiplyScalar(R + 0.38)
-        const pts = new THREE.QuadraticBezierCurve3(p1, mid, p2).getPoints(50)
+        mid.normalize().multiplyScalar(R + 0.42)
+        const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2)
+
+        // Static arc line
         pivot.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14 })
+          new THREE.BufferGeometry().setFromPoints(curve.getPoints(60)),
+          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06 })
         ))
+
+        // Animated particle
+        const originHex = parseInt(dotData[ia].m.color.slice(1), 16)
+        const particleMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.006, 5, 5),
+          new THREE.MeshBasicMaterial({ color: originHex, transparent: true, opacity: 0 })
+        )
+        pivot.add(particleMesh)
+        arcParticles.push({
+          curve,
+          t:     Math.random(),
+          speed: 0.0008 + i * 0.00018,
+          mesh:  particleMesh,
+        })
       })
 
-      // Raycaster for hover tooltips
+      // ── Raycaster for tooltips ────────────────────────────────────────────
       const raycaster = new THREE.Raycaster()
-      const mouse = new THREE.Vector2()
+      const mouse     = new THREE.Vector2()
 
-      // Event handlers
-      const onMouseDown = (e: MouseEvent) => { isDragging = true; prevX = e.clientX; prevY = e.clientY }
+      // ── Events ────────────────────────────────────────────────────────────
+      const onMouseDown = (e: MouseEvent) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; velY = 0; velX = 0 }
       const onMouseMove = (e: MouseEvent) => {
         if (isDragging) {
-          pivot.rotation.y += (e.clientX - prevX) * 0.008
-          pivot.rotation.x = Math.max(-0.85, Math.min(0.85, pivot.rotation.x + (e.clientY - prevY) * 0.005))
+          velY = (e.clientX - prevX) * 0.008
+          velX = (e.clientY - prevY) * 0.005
+          pivot.rotation.y += velY
+          pivot.rotation.x  = Math.max(-0.85, Math.min(0.85, pivot.rotation.x + velX))
           prevX = e.clientX; prevY = e.clientY
         }
         const rect = renderer.domElement.getBoundingClientRect()
@@ -175,68 +286,86 @@ export default function TradingGlobe() {
           const idx = outerMeshes.indexOf(hits[0].object as any)
           if (idx >= 0) {
             const wp = dotData[idx].pos.clone().applyMatrix4(pivot.matrixWorld).project(camera)
-            const cW = renderer.domElement.clientWidth
-            const cH = renderer.domElement.clientHeight
-            setTooltip({ name: dotData[idx].m.name, color: dotData[idx].m.color, x: (wp.x + 1) / 2 * cW, y: -(wp.y - 1) / 2 * cH })
+            const cW = renderer.domElement.clientWidth, cH = renderer.domElement.clientHeight
+            setTooltip({ name: dotData[idx].m.name, full: dotData[idx].m.full, color: dotData[idx].m.color, x: (wp.x + 1) / 2 * cW, y: -(wp.y - 1) / 2 * cH })
           }
-        } else {
-          setTooltip(null)
-        }
+        } else { setTooltip(null) }
       }
-      const onMouseUp = () => { isDragging = false }
-      const onTouchStart = (e: TouchEvent) => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY }
-      const onTouchMove = (e: TouchEvent) => {
+      const onMouseUp   = () => { isDragging = false }
+      const onTouchStart = (e: TouchEvent) => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY; velY = 0 }
+      const onTouchMove  = (e: TouchEvent) => {
         if (!isDragging) return
-        pivot.rotation.y += (e.touches[0].clientX - prevX) * 0.008
+        velY = (e.touches[0].clientX - prevX) * 0.008
+        pivot.rotation.y += velY
         prevX = e.touches[0].clientX; prevY = e.touches[0].clientY
       }
       const onTouchEnd = () => { isDragging = false }
 
-      renderer.domElement.addEventListener('mousedown', onMouseDown)
-      renderer.domElement.addEventListener('mousemove', onMouseMove)
-      window.addEventListener('mouseup', onMouseUp)
+      renderer.domElement.addEventListener('mousedown',  onMouseDown)
+      renderer.domElement.addEventListener('mousemove',  onMouseMove)
+      window.addEventListener('mouseup',   onMouseUp)
       renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: true })
-      window.addEventListener('touchmove', onTouchMove, { passive: true })
-      window.addEventListener('touchend', onTouchEnd)
+      window.addEventListener('touchmove', onTouchMove,  { passive: true })
+      window.addEventListener('touchend',  onTouchEnd)
 
-      // Resize observer
+      // ── Resize ────────────────────────────────────────────────────────────
       const ro = new ResizeObserver(() => {
         if (!containerRef.current) return
-        const w = containerRef.current.clientWidth
-        const h = containerRef.current.clientHeight
-        camera.aspect = w / h
-        camera.updateProjectionMatrix()
-        renderer.setSize(w, h)
+        const w = containerRef.current.clientWidth, h = containerRef.current.clientHeight
+        camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h)
+        if (starsCanvas) { starsCanvas.width = w; starsCanvas.height = h }
       })
       ro.observe(cont)
 
-      // Animation loop
+      // ── Animation loop ────────────────────────────────────────────────────
       const animate = () => {
         if (disposed) return
         animFrame = requestAnimationFrame(animate)
-        if (!isDragging) pivot.rotation.y += 0.0015
-        // Pulse market dots
-        const t = Date.now() * 0.003
+        const now = Date.now()
+
+        drawStars(now)
+
+        if (!isDragging) {
+          pivot.rotation.y += 0.0012 + velY
+          velY *= 0.95
+          velX *= 0.95
+          // Gentle tilt oscillation — lerp towards oscillation target
+          const tiltTarget = 0.2 + 0.12 * Math.sin(now * 0.0002)
+          pivot.rotation.x += (tiltTarget - pivot.rotation.x) * 0.015
+        }
+
+        // Pulse outer market dots
+        const t = now * 0.002
         dotData.forEach(({ outer }, i) => {
-          outer.scale.setScalar(1 + 0.55 * (0.5 + 0.5 * Math.sin(t + i * 0.52)))
+          const s = 1.0 + 0.55 * (0.5 + 0.5 * Math.sin(t + i * 0.7))
+          outer.scale.setScalar(s)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(outer.material as any).opacity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t + i * 0.7))
         })
+
+        // Arc particles travel along curves
+        arcParticles.forEach(p => {
+          p.t = (p.t + p.speed) % 1
+          const pt = p.curve.getPoint(p.t)
+          p.mesh.position.copy(pt)
+          p.mesh.material.opacity = Math.sin(p.t * Math.PI)
+        })
+
         renderer.render(scene, camera)
       }
       animate()
 
-      // Expose cleanup via container property
+      // ── Cleanup closure ───────────────────────────────────────────────────
       ;(cont as typeof cont & { _gc?: () => void })._gc = () => {
-        renderer.domElement.removeEventListener('mousedown', onMouseDown)
-        renderer.domElement.removeEventListener('mousemove', onMouseMove)
-        window.removeEventListener('mouseup', onMouseUp)
+        renderer.domElement.removeEventListener('mousedown',  onMouseDown)
+        renderer.domElement.removeEventListener('mousemove',  onMouseMove)
+        window.removeEventListener('mouseup',   onMouseUp)
         renderer.domElement.removeEventListener('touchstart', onTouchStart)
         window.removeEventListener('touchmove', onTouchMove)
-        window.removeEventListener('touchend', onTouchEnd)
+        window.removeEventListener('touchend',  onTouchEnd)
         ro.disconnect()
         renderer.dispose()
-        if (renderer.domElement.parentNode) {
-          renderer.domElement.parentNode.removeChild(renderer.domElement)
-        }
+        if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
       }
     }).catch(() => {})
 
@@ -250,46 +379,39 @@ export default function TradingGlobe() {
   return (
     <div>
       <div ref={containerRef} style={{ position: 'relative', width: '100%', cursor: 'grab' }} className="globe-wrap">
-        {/* Star field canvas — behind the Three.js canvas */}
-        <canvas
-          ref={starsCanvasRef}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-        />
-        {/* Three.js canvas is appended here by the renderer */}
+        <canvas ref={starsCanvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
         {tooltip && (
           <div style={{
             position: 'absolute',
             left: tooltip.x,
             top: tooltip.y,
             transform: 'translate(-50%, -130%)',
-            background: 'rgba(10,15,30,0.92)',
-            border: `1px solid ${tooltip.color}`,
-            borderRadius: 6,
-            padding: '4px 10px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: tooltip.color,
+            background: 'rgba(5,10,24,0.95)',
+            border: `1px solid ${tooltip.color}88`,
+            borderRadius: 8,
+            padding: '8px 12px',
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
             zIndex: 10,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            boxShadow: `0 4px 20px rgba(0,0,0,0.4), 0 0 12px ${tooltip.color}26`,
           }}>
-            {tooltip.name}
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: tooltip.color, fontWeight: 500 }}>
+              {tooltip.name}
+            </div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'rgba(248,246,241,0.6)', marginTop: 2 }}>
+              {tooltip.full}
+            </div>
           </div>
         )}
       </div>
-      <p style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 12,
-        color: 'rgba(248,246,241,0.4)',
-        textAlign: 'center',
-        marginTop: 12,
-        marginBottom: 0,
-      }}>
-        12 markets &middot; 6 continents &middot; 1 companion
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(248,246,241,0.4)', textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+        16 markets &middot; 6 continents &middot; 1 companion
       </p>
       <style>{`
-        .globe-wrap { height: 400px }
-        @media(max-width: 768px) { .globe-wrap { height: 280px } }
+        .globe-wrap { height: 420px }
+        @media(max-width: 768px) { .globe-wrap { height: 300px } }
       `}</style>
     </div>
   )
