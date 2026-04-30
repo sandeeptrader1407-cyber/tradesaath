@@ -18,6 +18,7 @@ interface Session {
   trades?: number
   pnl?: number
   winRate?: number
+  dqsScore?: number
 }
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
 }
 
 function fmtPnl(v: number) {
+  if (v === 0) return null
   const s = Math.abs(Math.round(v)).toLocaleString('en-IN')
   return v >= 0 ? `+₹${s}` : `−₹${s}`
 }
@@ -38,20 +40,33 @@ function fmtDate(d?: string): string {
   } catch { return d }
 }
 
-const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-  win:        { bg: 'rgba(29,158,117,0.08)',  color: 'var(--green)' },
-  disciplined:{ bg: 'rgba(29,158,117,0.08)',  color: 'var(--green)' },
-  revenge:    { bg: 'rgba(192,57,43,0.08)',   color: 'var(--red)' },
-  fomo:       { bg: 'rgba(192,57,43,0.08)',   color: 'var(--red)' },
+function cleanSymbol(s?: string): string {
+  if (!s) return 'Unknown'
+  return s.replace(/\.0+$/, '')
 }
 
-function tagStyle(tag?: string): { bg: string; color: string } {
-  if (!tag) return { bg: 'var(--s2)', color: 'var(--color-muted)' }
+function isTagFlagged(tag?: string): boolean {
+  if (!tag) return false
   const t = tag.toLowerCase()
-  for (const [k, v] of Object.entries(TAG_COLORS)) {
-    if (t.includes(k)) return v
-  }
-  return { bg: 'var(--s2)', color: 'var(--color-muted)' }
+  return t.includes('revenge') || t.includes('fomo') || t.includes('oversize') || t.includes('over') || t.includes('avg') || t.includes('panic') || t.includes('late')
+}
+
+function isTagDisciplined(tag?: string): boolean {
+  if (!tag) return false
+  const t = tag.toLowerCase()
+  return t.includes('win') || t.includes('disciplin')
+}
+
+function tagBadgeStyle(tag?: string): React.CSSProperties {
+  if (isTagFlagged(tag)) return { background: 'rgba(192,57,43,0.08)', color: 'var(--color-loss)', border: '1px solid rgba(192,57,43,0.2)' }
+  if (isTagDisciplined(tag)) return { background: 'rgba(29,158,117,0.08)', color: 'var(--color-profit)', border: '1px solid rgba(29,158,117,0.2)' }
+  return { background: 'var(--s2)', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }
+}
+
+function dqsColor(score: number): string {
+  if (score >= 70) return 'var(--color-profit)'
+  if (score >= 50) return '#C07B2A'
+  return 'var(--color-loss)'
 }
 
 export default function RecentActivity({ recentTrades = [], recentSessions = [] }: Props) {
@@ -69,6 +84,13 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
     }).slice(0, 5)
   })()
 
+  const mostRecentSessionDate = uniqueTrades.find(t => t.sessionDate)?.sessionDate
+  const firstFlaggedIdx = uniqueTrades.findIndex(t => isTagFlagged(t.tag))
+  const allDisciplined = uniqueTrades.length > 0 && uniqueTrades.every(t => !isTagFlagged(t.tag) || isTagDisciplined(t.tag))
+
+  // Best session (highest P&L)
+  const maxPnl = recentSessions.length > 0 ? Math.max(...recentSessions.map(s => s.pnl ?? 0)) : 0
+
   const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <div style={{ fontSize: 14, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)', marginBottom: 12 }}>
       {children}
@@ -82,15 +104,22 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
         <SectionTitle>Recent Trades</SectionTitle>
         {uniqueTrades.length === 0 ? (
           <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)', padding: '16px 0', textAlign: 'center', margin: 0 }}>
-            No trades yet — upload your first file
+            No trades yet. Upload your first file.
           </p>
         ) : (
           <>
+            {/* Session header */}
+            {mostRecentSessionDate && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)', fontStyle: 'italic', marginBottom: 8, marginTop: 0 }}>
+                From: {fmtDate(mostRecentSessionDate)}
+              </p>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {uniqueTrades.map((t, i) => {
-                const ts = tagStyle(t.tag)
+                const ts = tagBadgeStyle(t.tag)
                 const isHovered = tradeHover === i
                 const dest = t.sessionDate ? `/journal?date=${t.sessionDate}` : '/journal'
+                const pnlStr = fmtPnl(t.pnl || 0)
                 return (
                   <div
                     key={`${t.time}-${t.symbol}-${i}`}
@@ -98,15 +127,10 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                     onMouseEnter={() => setTradeHover(i)}
                     onMouseLeave={() => setTradeHover(null)}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 6px',
-                      borderRadius: 6,
-                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 6px', borderRadius: 6, cursor: 'pointer',
                       background: isHovered ? 'var(--color-canvas)' : 'transparent',
-                      transition: 'background 0.15s',
-                      gap: 8,
+                      transition: 'background 0.15s', gap: 8,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -114,7 +138,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                         {t.time || '--:--'}
                       </span>
                       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {t.symbol || 'Unknown'}
+                        {cleanSymbol(t.symbol)}
                       </span>
                       <span style={{
                         fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 400,
@@ -127,17 +151,20 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                       {t.tag && (
                         <span style={{
                           fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 400,
-                          padding: '1px 5px', borderRadius: 3, flexShrink: 0,
-                          background: ts.bg, color: ts.color,
+                          padding: '1px 5px', borderRadius: 3, flexShrink: 0, ...ts,
                         }}>
                           {t.tag}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                        {fmtPnl(t.pnl || 0)}
-                      </span>
+                      {pnlStr ? (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {pnlStr}
+                        </span>
+                      ) : (
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)', fontStyle: 'italic' }}>Breakeven</span>
+                      )}
                       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-border)', opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s' }}>
                         →
                       </span>
@@ -146,12 +173,25 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                 )
               })}
             </div>
+
+            {/* Sequence insight */}
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '0.5px solid var(--color-border)' }}>
+              {firstFlaggedIdx >= 0 ? (
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)', fontStyle: 'italic', margin: 0 }}>
+                  Trade {firstFlaggedIdx + 1} was flagged.{' '}
+                  <Link href="/journal" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Review in Journal</Link>
+                </p>
+              ) : allDisciplined ? (
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-profit)', fontStyle: 'italic', margin: 0 }}>
+                  Clean session. All trades followed your rules.
+                </p>
+              ) : null}
+            </div>
+
             <Link href="/journal" style={{
-              display: 'block', marginTop: 10, paddingTop: 10,
-              borderTop: '0.5px solid var(--color-border)',
+              display: 'block', marginTop: 8,
               fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400,
-              color: 'var(--color-muted)', textDecoration: 'none',
-              transition: 'color 0.15s',
+              color: 'var(--color-muted)', textDecoration: 'none', transition: 'color 0.15s',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-ink)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}>
@@ -166,7 +206,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
         <SectionTitle>Recent Sessions</SectionTitle>
         {recentSessions.length === 0 ? (
           <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-muted)', padding: '16px 0', textAlign: 'center', margin: 0 }}>
-            No sessions yet — analyse your first trade file
+            No sessions yet. Analyse your first trade file.
           </p>
         ) : (
           <>
@@ -175,6 +215,9 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                 const isHovered = sessionHover === i
                 const dest = s.date ? `/journal?date=${s.date}` : '/journal'
                 const wr = Math.round((s.winRate || 0) * 10) / 10
+                const pnlStr = fmtPnl(s.pnl || 0)
+                const isBest = (s.pnl ?? 0) === maxPnl && maxPnl > 0
+                const isLuckyWin = (s.pnl ?? 0) > 0 && (s.dqsScore ?? 0) > 0 && (s.dqsScore ?? 0) < 50
                 return (
                   <div
                     key={`${s.date}-${i}`}
@@ -182,41 +225,51 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
                     onMouseEnter={() => setSessionHover(i)}
                     onMouseLeave={() => setSessionHover(null)}
                     style={{
-                      padding: '8px 6px',
-                      borderRadius: 6,
-                      cursor: 'pointer',
+                      padding: '8px 6px', borderRadius: 6, cursor: 'pointer',
                       background: isHovered ? 'var(--color-canvas)' : 'transparent',
                       transition: 'background 0.15s',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
                       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 400, color: 'var(--color-ink)' }}>
                         {fmtDate(s.date)}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: (s.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                          {fmtPnl(s.pnl || 0)}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {pnlStr ? (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: (s.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {pnlStr}
+                          </span>
+                        ) : (
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)', fontStyle: 'italic' }}>Breakeven</span>
+                        )}
+                        {isBest && (
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, padding: '1px 6px', borderRadius: 20, background: 'rgba(29,158,117,0.1)', color: 'var(--color-profit)', border: '1px solid rgba(29,158,117,0.3)' }}>
+                            Best
+                          </span>
+                        )}
+                        {isLuckyWin && (
+                          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, padding: '1px 6px', borderRadius: 20, background: 'rgba(192,123,42,0.1)', color: '#C07B2A', border: '1px solid rgba(192,123,42,0.3)' }}
+                            title="Good result but low discipline. Review this session.">
+                            Review
+                          </span>
+                        )}
                         <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-border)', opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s' }}>
                           →
                         </span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-muted)' }}>
                         {s.trades || 0} {(s.trades || 0) === 1 ? 'trade' : 'trades'}
                       </span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)' }}>
                         {wr}%
                       </span>
-                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', borderRadius: 2,
-                          width: `${Math.min(100, s.winRate || 0)}%`,
-                          background: (s.winRate || 0) >= 50 ? 'var(--green)' : 'var(--red)',
-                          transition: 'width 0.6s',
-                        }} />
-                      </div>
+                      {(s.dqsScore ?? 0) > 0 && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: dqsColor(s.dqsScore!) }}>
+                          DQS {s.dqsScore}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
@@ -226,8 +279,7 @@ export default function RecentActivity({ recentTrades = [], recentSessions = [] 
               display: 'block', marginTop: 10, paddingTop: 10,
               borderTop: '0.5px solid var(--color-border)',
               fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 400,
-              color: 'var(--color-muted)', textDecoration: 'none',
-              transition: 'color 0.15s',
+              color: 'var(--color-muted)', textDecoration: 'none', transition: 'color 0.15s',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-ink)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}>

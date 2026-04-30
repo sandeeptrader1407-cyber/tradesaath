@@ -89,7 +89,9 @@
       "Bash(rm -f \"C:/Users/SK/Desktop/tradesaath/.git/index.lock\")",
       "Bash(curl *)",
       "Bash(npx vercel *)",
-      "Bash(sort find *)"
+      "Bash(sort find *)",
+      "Bash(cat .nvmrc)",
+      "Bash(cat .node-version)"
     ]
   }
 }
