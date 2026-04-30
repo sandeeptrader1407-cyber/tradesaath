@@ -144,6 +144,17 @@ function JournalContent() {
     <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: '#F8FAFC' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
+        {/* Page header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+          <div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94A3B8', margin: '0 0 8px' }}>Session Log</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 400, color: '#0F172A', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.1 }}>Journal</h1>
+          </div>
+          <a href="/upload" style={{ display: 'inline-flex', alignItems: 'center', background: '#F59E0B', color: '#080C14', height: 40, padding: '0 18px', borderRadius: 7, fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>
+            + New session
+          </a>
+        </div>
+
         {/* Pattern detection banner */}
         {patterns.length > 0 && (
           <div style={{
