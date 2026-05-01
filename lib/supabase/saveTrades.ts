@@ -11,15 +11,26 @@ export type DedupStats = {
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase dynamic row shapes, trade objects from multiple parsers */
 
 /** Compute aggregate stats from a trades array */
+/** An open/unmatched position: no exit price and zero P&L. */
+function isOpenPosition(t: any): boolean {
+  const exitPrice = t.exit_price ?? t.exit ?? t.exitPrice
+  const pnl = t.pnl ?? 0
+  const hasNoExit = !exitPrice || Number(exitPrice) === 0
+  return hasNoExit && Number(pnl) === 0
+}
+
 function computeSessionStats(trades: any[]) {
-  const netPnl = trades.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
-  const wins = trades.filter((t: any) => (t.pnl || 0) > 0).length
-  const losses = trades.filter((t: any) => (t.pnl || 0) < 0).length
-  const grossWin = trades
+  const openPositions = trades.filter(isOpenPosition)
+  const closed = trades.filter(t => !isOpenPosition(t))
+
+  const netPnl = closed.reduce((s: number, t: any) => s + (t.pnl || 0), 0)
+  const wins = closed.filter((t: any) => (t.pnl || 0) > 0).length
+  const losses = closed.filter((t: any) => (t.pnl || 0) < 0).length
+  const grossWin = closed
     .filter((t: any) => (t.pnl || 0) > 0)
     .reduce((s: number, t: any) => s + t.pnl, 0)
   const grossLoss = Math.abs(
-    trades
+    closed
       .filter((t: any) => (t.pnl || 0) < 0)
       .reduce((s: number, t: any) => s + t.pnl, 0)
   )
@@ -27,11 +38,13 @@ function computeSessionStats(trades: any[]) {
     net_pnl: netPnl,
     win_count: wins,
     loss_count: losses,
-    win_rate: trades.length > 0 ? Math.round((wins / trades.length) * 10000) / 100 : 0,
+    win_rate: closed.length > 0 ? Math.round((wins / closed.length) * 10000) / 100 : 0,
     profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
-    best_trade: trades.length > 0 ? Math.max(...trades.map((t: any) => t.pnl || 0)) : 0,
-    worst_trade: trades.length > 0 ? Math.min(...trades.map((t: any) => t.pnl || 0)) : 0,
-    trade_count: trades.length,
+    best_trade: closed.length > 0 ? Math.max(...closed.map((t: any) => t.pnl || 0)) : 0,
+    worst_trade: closed.length > 0 ? Math.min(...closed.map((t: any) => t.pnl || 0)) : 0,
+    // trade_count reflects closed trades only; open_position_count is stored for UI display
+    trade_count: closed.length,
+    open_position_count: openPositions.length,
   }
 }
 
