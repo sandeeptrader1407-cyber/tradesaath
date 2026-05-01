@@ -3,6 +3,19 @@
 import { useState } from "react"
 import { formatPnl } from "@/lib/format/money"
 
+async function triggerReanalyse(sessionId: string, onDone: () => void) {
+  try {
+    const res = await fetch('/api/analyse/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, force: true }),
+    })
+    if (res.ok) onDone()
+  } catch {
+    // non-blocking — user can retry
+  }
+}
+
 interface Trade {
   entry_time?: string
   exit_time?: string
@@ -78,6 +91,7 @@ const sectionContentStyle: React.CSSProperties = {
 
 export default function SessionDetail({ session }: Props) {
   const [expandedTrade, setExpandedTrade] = useState<number | null>(null)
+  const [reanalyseState, setReanalyseState] = useState<'idle' | 'loading' | 'done'>('idle')
 
   if (!session) {
     return (
@@ -98,6 +112,20 @@ export default function SessionDetail({ session }: Props) {
     }
   } catch {
     trades = []
+  }
+
+  const analysis = (typeof session.analysis === 'object' && session.analysis !== null)
+    ? session.analysis as Record<string, unknown>
+    : null
+  const analysedTradeCount = Number(analysis?.analysed_trade_count)
+  const isStale = trades.length > 0
+    && Number.isFinite(analysedTradeCount)
+    && analysedTradeCount !== trades.length
+
+  function handleReanalyse() {
+    if (!session || reanalyseState === 'loading') return
+    setReanalyseState('loading')
+    triggerReanalyse(session.id, () => setReanalyseState('done'))
   }
 
   return (
@@ -130,6 +158,43 @@ export default function SessionDetail({ session }: Props) {
           {formatPnl(Number(session.net_pnl || 0))}
         </div>
       </div>
+
+      {/* Stale-analysis banner */}
+      {isStale && reanalyseState !== 'done' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+          background: '#FFFBEB', border: '0.5px solid #F59E0B', borderRadius: 8,
+          padding: '10px 14px', marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: '#92400E', flex: 1, minWidth: 0 }}>
+            <span style={{ fontWeight: 500 }}>Analysis is outdated.</span>{' '}
+            Generated for {analysedTradeCount} trade{analysedTradeCount === 1 ? '' : 's'};
+            session now has {trades.length}. Coaching numbers may be incorrect.
+          </div>
+          <button
+            onClick={handleReanalyse}
+            disabled={reanalyseState === 'loading'}
+            style={{
+              fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+              color: '#92400E', background: 'rgba(245,158,11,0.12)',
+              border: '0.5px solid #F59E0B', borderRadius: 6,
+              padding: '5px 12px', cursor: reanalyseState === 'loading' ? 'default' : 'pointer',
+              opacity: reanalyseState === 'loading' ? 0.6 : 1, flexShrink: 0,
+            }}
+          >
+            {reanalyseState === 'loading' ? 'Re-analysing...' : 'Re-analyse'}
+          </button>
+        </div>
+      )}
+      {reanalyseState === 'done' && (
+        <div style={{
+          fontSize: 13, fontFamily: 'var(--font-sans)', color: '#16A34A',
+          background: 'rgba(22,163,74,.08)', border: '0.5px solid rgba(22,163,74,.3)',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+        }}>
+          Re-analysis complete. Reload the page to see updated coaching.
+        </div>
+      )}
 
       {/* Trade Timeline */}
       {trades.length === 0 ? (

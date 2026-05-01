@@ -149,7 +149,18 @@ function buildCounterfactual(trade: any, d: DetectedTrade): string {
 /* ────────────────────────────────────────────────────────────────── */
 
 export function generateSessionSummary(session: any, r: PatternResult): string {
-  const date = session.trade_date || ''
+  // Derive date from the trades array; fall back to session.trade_date.
+  // This prevents stale session.trade_date from leaking wrong dates into the narrative.
+  const tradeJSONBDates: string[] = Array.isArray(session.trades)
+    ? Array.from(new Set<string>(
+        (session.trades as any[])
+          .map((t: any) => String(t.date || t.trade_date || '').substring(0, 10))
+          .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      ))
+    : []
+  const date = tradeJSONBDates.length === 1
+    ? tradeJSONBDates[0]
+    : (session.trade_date || '')
   const mktTrend: string | undefined = session.market_context?.sessionTrend
   const trendPhrase = mktTrend === 'strongly_up'   ? 'a strongly trending-up session'
     : mktTrend === 'up'             ? 'a broadly rising session'
@@ -226,6 +237,8 @@ export interface AnalysisJSON {
   coaching_points: string[]
   analysed_at: string
   analysed_version: number
+  /** Number of trades used to generate this analysis — used for staleness detection. */
+  analysed_trade_count: number
   ai_coaching?: string
   validation?: { ok: boolean; warnings: string[] }
 }
@@ -305,6 +318,7 @@ export function buildAnalysisJSON(session: any, r: PatternResult, aiCoaching?: s
     coaching_points: r.coachingPoints,
     analysed_at: new Date().toISOString(),
     analysed_version: 4,
+    analysed_trade_count: r.meta.totalTrades,
     ai_coaching: aiCoaching,
     validation: r.validation,
   }
