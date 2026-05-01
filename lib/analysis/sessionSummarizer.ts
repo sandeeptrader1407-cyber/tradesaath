@@ -66,17 +66,37 @@ function buildTechnical(trade: any, d: DetectedTrade): string {
   const timeVal = trade.time ?? trade.entry_time
   const ts = timeVal ? ` at ${timeVal}` : ''
   const base = `${side || 'Trade'} on ${sym}${ts}${entry ? ` @ ₹${entry}` : ''}.`
-  switch (d.tag) {
-    case 'revenge':     return `${base} Entry came right after a prior loss in the same instrument — reactive, not structural.`
-    case 'averaging':   return `${base} Added to a losing position on ${sym} rather than waiting for confirmation of reversal.`
-    case 'fomo':        return `${base} Entry timing and/or size suggests the trade was driven by fear of missing a move rather than a defined setup.`
-    case 'panic':       return `${base} Exit happened before the thesis had time to develop — the chart hadn't invalidated the setup.`
-    case 'overtrading': return `${base} This was trade #${d.index + 1} — past the fatigue threshold. Decision quality decays here.`
-    case 'oversize':    return `${base} Position size is well above your typical — single-trade variance dominates, not skill.`
-    case 'late_exit':   return `${base} Held far past your average holding time and the loss compounded.`
-    case 'disciplined': return `${base} Entry taken in your high-probability window with normal size. This is the process that compounds.`
-    case 'win':         return `${base} ${d.pnl >= 0 ? 'Clean execution against the plan.' : 'Setup didn\'t work out — no behavioural flag.'}`
-  }
+
+  const me = trade._marketEnrichment as {
+    trendAtEntry?: string
+    entryContext?: string
+    exitContext?: string
+  } | undefined
+
+  const marketLine = [me?.entryContext, me?.exitContext].filter(Boolean).join(' ')
+
+  const tagLine = (() => {
+    switch (d.tag) {
+      case 'revenge':
+        return me?.trendAtEntry === 'counter_trend'
+          ? `Entry came right after a prior loss and against the short-term trend — reactive and directionally wrong.`
+          : `Entry came right after a prior loss in the same instrument — reactive, not structural.`
+      case 'panic':
+        return me?.exitContext?.includes('favour')
+          ? `Exit happened before the thesis played out — and price confirmed your original direction afterwards.`
+          : `Exit happened before the thesis had time to develop — the chart hadn't invalidated the setup.`
+      case 'averaging':   return `Added to a losing position on ${sym} rather than waiting for confirmation of reversal.`
+      case 'fomo':        return `Entry timing and/or size suggests the trade was driven by fear of missing a move rather than a defined setup.`
+      case 'overtrading': return `This was trade #${d.index + 1} — past the fatigue threshold. Decision quality decays here.`
+      case 'oversize':    return `Position size is well above your typical — single-trade variance dominates, not skill.`
+      case 'late_exit':   return `Held far past your average holding time and the loss compounded.`
+      case 'disciplined': return `Entry taken in your high-probability window with normal size. This is the process that compounds.`
+      case 'win':         return d.pnl >= 0 ? `Clean execution against the plan.` : `Setup didn't work out — no behavioural flag.`
+      default:            return null
+    }
+  })()
+
+  return [base, marketLine, tagLine].filter(Boolean).join(' ')
 }
 
 function buildPsychology(d: DetectedTrade): string {
@@ -100,10 +120,22 @@ function buildCounterfactual(trade: any, d: DetectedTrade): string {
   const lossAbs = fmtINR(Math.abs(pnl))
   const costAbs = fmtINR(Math.abs(d.cost))
   switch (d.tag) {
-    case 'revenge':     return `Right action: take the ${lossAbs} loss, close the terminal for 15 minutes. The avoidable excess here was ${costAbs}.`
+    case 'revenge': {
+      const me = (trade as any)._marketEnrichment
+      if (me?.trendAtEntry === 'counter_trend') {
+        return `Right action: take the ${lossAbs} loss, step away for 15 min. You re-entered against the trend — two strikes at once.`
+      }
+      return `Right action: take the ${lossAbs} loss, close the terminal for 15 minutes. The avoidable excess here was ${costAbs}.`
+    }
     case 'averaging':   return `Right action: take the first loss and walk. Averaging added ${costAbs} beyond the baseline loss.`
     case 'fomo':        return `Right action: skip. Wait for a pullback. Skipping would have saved ${costAbs} beyond your average loss.`
-    case 'panic':       return `Right action: honour the stop, not the fear. Exiting at real invalidation would have saved ${costAbs}.`
+    case 'panic': {
+      const me = (trade as any)._marketEnrichment
+      if (me?.postExitMove?.direction === 'reversed') {
+        return `Right action: honour the stop, not the fear. Price moved ${me.postExitMove.magnitude.toFixed(1)}% in your favour after you exited — your setup was right, your nerve wasn't.`
+      }
+      return `Right action: honour the stop, not the fear. Exiting at real invalidation would have saved ${costAbs}.`
+    }
     case 'overtrading': return `Right action: stop at your daily cap. Trades past the cap cost ${costAbs} beyond baseline.`
     case 'oversize':    return `Right action: normal size. Same setup at 1× would have cost ~${fmtINR(pnl / 2)} — same process, half the damage.`
     case 'late_exit':   return `Right action: exit at your planned invalidation. Holding cost ${costAbs} beyond baseline.`
