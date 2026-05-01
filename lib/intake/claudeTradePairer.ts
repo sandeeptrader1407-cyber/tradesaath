@@ -18,9 +18,9 @@ type AnyTrade = Record<string, any>;
 export function tradesNeedPairing(trades: AnyTrade[]): boolean {
   if (trades.length < 2) return false;
 
-  // Count trades with null/undefined/0 pnl
+  // Count trades with null/undefined/0 pnl (0 treated as unpaired — brokers often emit 0 for open legs)
   const nullPnlCount = trades.filter(
-    t => t.pnl === null || t.pnl === undefined
+    t => t.pnl === null || t.pnl === undefined || t.pnl === 0
   ).length;
 
   // If more than 60% have null pnl, they likely need pairing

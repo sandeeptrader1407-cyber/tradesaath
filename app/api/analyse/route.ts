@@ -554,12 +554,21 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   if (trades.length === 0) {
     // Free-tier users: suggest supported formats instead of calling expensive Claude AI
     if (userPlan === 'free') {
+      const knownBroker = brokerHint
+        ? `We detected this may be a ${brokerHint} file, but couldn't parse it automatically.`
+        : 'We couldn\'t parse this file format automatically.'
       return NextResponse.json(
         {
-          error: 'We couldn\'t parse this file format automatically. Try exporting as CSV from your broker, or upgrade to unlock AI-powered parsing for any file type.',
+          error: `${knownBroker} Try exporting as CSV from your broker, or upgrade to unlock AI-powered parsing for any file type.`,
           code: 'PARSE_FAILED_FREE',
           upgradeUrl: '/pricing',
-          suggestions: ['Export trades as CSV from your broker platform', 'Use a supported broker format (Zerodha, Groww, Angel One, etc.)', 'Upgrade to unlock AI parsing for PDFs, screenshots, and unsupported formats'],
+          suggestions: [
+            brokerHint
+              ? `Export trades as CSV from ${brokerHint} (Settings → Reports → Trade History)`
+              : 'Export trades as CSV from your broker platform',
+            'Use a supported broker format (Zerodha, Groww, Angel One, etc.)',
+            'Upgrade to unlock AI parsing for PDFs, screenshots, and unsupported formats',
+          ],
         },
         { status: 422 },
       );

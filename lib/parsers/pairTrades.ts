@@ -40,6 +40,7 @@ export function pairTrades(fills: RawFill[]): ParsedTrade[] {
     const pairedQty = Math.min(buyQty, sellQty)
     if (pairedQty === 0) {
       // Open position — no pair, skip or show as open
+      console.warn(`[pairTrades] skipping open position for symbol ${symbol}: buyQty=${buyQty} sellQty=${sellQty}`)
       continue
     }
 
