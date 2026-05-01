@@ -671,8 +671,43 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   const coaching = userPlan === 'free'
     ? undefined
     : await generateAICoaching(apiKey, detection).catch(() => undefined);
+
+  // ─── Market context enrichment (non-blocking) ───
+  // Fetch index candles for the session date.
+  // Failure is silent — enrichment is additive, never blocking.
+  let marketCtx: import('@/lib/marketData/fetchCandles').MarketContext | null = null
+  try {
+    const { fetchMarketContext } = await import('@/lib/marketData/fetchCandles')
+    const primarySymbol = trades[0]?.symbol || 'NIFTY'
+    const sessionDate = extracted.trade_date || new Date().toISOString().split('T')[0]
+    const market = extracted.detected_market || 'NSE'
+    // Only fetch for non-weekend dates and when we have a real date
+    const dayOfWeek = new Date(sessionDate).getDay()
+    if (sessionDate && dayOfWeek !== 0 && dayOfWeek !== 6) {
+      marketCtx = await fetchMarketContext(primarySymbol, sessionDate, market)
+      if (marketCtx) {
+        console.log(`[MARKET] Fetched ${marketCtx.candles.length} candles for ${marketCtx.symbol} on ${sessionDate} — trend: ${marketCtx.sessionTrend}`)
+      }
+    }
+  } catch (mErr) {
+    console.warn('[MARKET] Context fetch failed (non-blocking):', mErr)
+  }
+
+  // Attach market context to metadata so the client and analysis can use it
+  if (marketCtx) {
+    extracted.market_context = {
+      sessionTrend: marketCtx.sessionTrend,
+      openPrice: marketCtx.openPrice,
+      closePrice: marketCtx.closePrice,
+      highOfDay: marketCtx.highOfDay,
+      lowOfDay: marketCtx.lowOfDay,
+      totalRangePercent: marketCtx.totalRangePercent,
+      candleCount: marketCtx.candles.length,
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- analysis JSONB shape
-  const analysis: any = buildAnalysisJSON({ trades, trade_date: extracted.trade_date }, detection, coaching);
+  const analysis: any = buildAnalysisJSON({ trades, trade_date: extracted.trade_date, market_context: extracted.market_context }, detection, coaching);
   // Stamp per-trade tags onto trades so the client-side UI can render immediately.
   for (const ta of analysis.trade_analyses || []) {
     const i = typeof ta.trade_index === 'number' ? ta.trade_index : -1;
@@ -694,6 +729,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       ...(extractionTruncated ? {
         extraction_warning: 'Some trades may be missing — the AI response hit its output-token ceiling. Try uploading fewer pages at a time.',
       } : {}),
+      ...(extracted.market_context ? { market_context: extracted.market_context } : {}),
     },
   };
 

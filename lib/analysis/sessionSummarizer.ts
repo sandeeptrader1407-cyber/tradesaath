@@ -118,12 +118,23 @@ function buildCounterfactual(trade: any, d: DetectedTrade): string {
 
 export function generateSessionSummary(session: any, r: PatternResult): string {
   const date = session.trade_date || ''
+  const mktTrend: string | undefined = session.market_context?.sessionTrend
+  const trendPhrase = mktTrend === 'strongly_up'   ? 'a strongly trending-up session'
+    : mktTrend === 'up'             ? 'a broadly rising session'
+    : mktTrend === 'strongly_down'  ? 'a strongly downtrending session'
+    : mktTrend === 'down'           ? 'a declining session'
+    : mktTrend === 'flat'           ? 'a range-bound session'
+    : null
   const n = r.meta.totalTrades
   const pnl = r.meta.netPnl
   const wr = r.meta.winRate.toFixed(1)
   const bits: string[] = []
 
   bits.push(`You traded ${n} time${n === 1 ? '' : 's'}${date ? ' on ' + date : ''}. Net P&L: ${fmtINR(pnl)}. Win rate: ${wr}%.`)
+
+  if (trendPhrase) {
+    bits.push(`Market context: ${trendPhrase} (index moved ${session.market_context?.totalRangePercent?.toFixed(1) || '?'}% range).`)
+  }
 
   if (r.meta.mistakeTotalCost > 0) {
     bits.push(`Behavioural excess cost ${fmtINR(r.meta.mistakeTotalCost)} above your baseline loss — that's the leak to plug first.`)
