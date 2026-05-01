@@ -94,7 +94,19 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
       )
     }
 
-    /* 3. Version gate */
+    /* 3. Version gate
+     *
+     * A session is "already current" iff ALL of:
+     *   (a) version >= CURRENT_ANALYSIS_VERSION
+     *   (b) analysed_at is a non-empty timestamp
+     *   (c) analysed_trade_count === current trade count
+     *
+     * Condition (c) catches: stale coaching from a previous parse that produced fewer
+     * trades, date strings in session_summary that reference the wrong trade date, and
+     * DQS/patterns computed over a different trade set.  When (c) fails, re-analysis
+     * rewrites the session_summary (and its date) from the current trades array.
+     * Old sessions without analysed_trade_count (undefined → NaN) always fail (c).
+     */
     if (!force) {
       const existing: any = (session.analysis && typeof session.analysis === 'object') ? session.analysis : null
       const existingVersion = Number(existing?.analysed_version)
@@ -105,9 +117,16 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
         && existing.analysed_at.length > 0
         && Number.isFinite(existingVersion)
         && existingVersion >= CURRENT_ANALYSIS_VERSION
-        && tradeCountMatch  // invalidate when trade count has changed since last analysis
+        && tradeCountMatch
       if (alreadyCurrent) {
         return { success: true, skipped: true, reason: 'already_analysed', tradesAnalysed: allTrades.length }
+      }
+      if (existing && !tradeCountMatch) {
+        console.log(
+          `[ANALYSER] Session ${sessionId}: re-analysing — trade count mismatch ` +
+          `(stored analysed_trade_count=${existingTradeCount}, current trades=${allTrades.length}). ` +
+          `Session summary date will be rewritten from trade data.`
+        )
       }
     }
 
