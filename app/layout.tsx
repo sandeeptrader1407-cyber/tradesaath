@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
+import { Inter, Lato, JetBrains_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import Navbar from '@/components/Navbar'
@@ -15,12 +15,11 @@ const inter = Inter({
   display: 'swap',
 })
 
-const instrumentSerif = Instrument_Serif({
+const lato = Lato({
   subsets: ['latin'],
-  weight: ['400'],
+  weight: ['300', '400', '700'],
   variable: '--font-display',
   display: 'swap',
-  style: ['normal', 'italic'],
 })
 
 const jetbrainsMono = JetBrains_Mono({
@@ -43,7 +42,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+        className={`${inter.variable} ${lato.variable} ${jetbrainsMono.variable}`}
       >
         <body>
           <AuthSync />
