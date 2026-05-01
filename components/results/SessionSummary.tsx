@@ -11,11 +11,16 @@ function parseMarkdownBold(text: string) {
   });
 }
 
+const MIN_TRADES_FOR_PATTERNS = 4;
+
 export default function SessionSummary() {
   const analysis = useAnalysisStore((s) => s.analysis);
   const kpis = useAnalysisStore((s) => s.kpis);
 
   if (!analysis?.session_summary || !kpis) return null;
+
+  const patternsEmpty = !analysis.mistake_patterns || analysis.mistake_patterns.length === 0;
+  const totalTrades = kpis.total_trades ?? 0;
 
   const isPos = (kpis.net_pnl ?? 0) >= 0;
   const wl = kpis.losses && kpis.losses > 0 ? ((kpis.wins ?? 0) / kpis.losses).toFixed(2) : '—';
@@ -50,6 +55,21 @@ export default function SessionSummary() {
         }}>
           {parseMarkdownBold(analysis.session_summary)}
         </div>
+        {patternsEmpty && totalTrades < MIN_TRADES_FOR_PATTERNS && (
+          <div style={{
+            marginTop: 12,
+            padding: '8px 12px',
+            background: '#F8FAFC',
+            border: '0.5px solid #E2E8F0',
+            borderRadius: 6,
+            fontSize: 12,
+            fontFamily: 'var(--font-sans)',
+            color: '#64748B',
+          }}>
+            Behavioural pattern detection needs at least {MIN_TRADES_FOR_PATTERNS} trades.
+            This session has {totalTrades} — patterns will appear once you trade more in a single session.
+          </div>
+        )}
       </div>
       <div style={{
         display: 'flex',
