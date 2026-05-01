@@ -259,6 +259,10 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
   const losingAbs = pnls.filter(p => p < 0).map(p => Math.abs(p))
   const sessionAvgLoss = mean(losingAbs)
 
+  // Running loss average — updated trade-by-trade so revenge S4 uses only past losses
+  let runningLossSum = 0
+  let runningLossCount = 0
+
   // Holding-time baseline for late_exit
   const holdingTimes: number[] = []
   for (let i = 0; i < n; i++) {
@@ -317,8 +321,9 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
       if (qty > lastLoss.qty * 1.15 && qty > 0) revengeScore += 0.25
       // S3: Currently on a losing streak ≥2 (w=0.20)
       if (consecutiveLosses >= 2) revengeScore += 0.20
-      // S4: Loss on this trade exceeds session avg loss (w=0.15)
-      if (Math.abs(pnl) > sessionAvgLoss * 1.2 && sessionAvgLoss > 0) revengeScore += 0.15
+      // S4: Loss on this trade exceeds running avg loss (w=0.15) — uses only losses seen so far
+      const runningAvgLoss = runningLossCount > 0 ? runningLossSum / runningLossCount : 0
+      if (Math.abs(pnl) > runningAvgLoss * 1.2 && runningAvgLoss > 0) revengeScore += 0.15
       // S5: Same symbol re-entry (already implied by lastLoss check) (w=0.10)
       revengeScore += 0.10
 
@@ -530,6 +535,8 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
     if (pnl < 0) {
       lastLossBySymbol.set(symbol, { minutes: m, pnl, qty })
       consecutiveLosses++
+      runningLossSum += Math.abs(pnl)
+      runningLossCount++
     } else {
       consecutiveLosses = 0
     }

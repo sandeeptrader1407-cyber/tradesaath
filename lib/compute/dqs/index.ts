@@ -96,14 +96,14 @@ export {
 } from './ruleFollowing'
 
 /**
- * Grade thresholds per the Step 5 spec (stricter than legacy).
- * Legacy thresholds for reference: A 80 / B 65 / C 45 / D 25 / F <25.
+ * Grade thresholds aligned with patternDetector.ts scoring ranges.
+ * A ≥80 / B ≥65 / C ≥45 / D ≥25 / F <25
  */
 export function gradeFor(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
-  if (score >= 90) return 'A'
-  if (score >= 80) return 'B'
-  if (score >= 70) return 'C'
-  if (score >= 60) return 'D'
+  if (score >= 80) return 'A'
+  if (score >= 65) return 'B'
+  if (score >= 45) return 'C'
+  if (score >= 25) return 'D'
   return 'F'
 }
 
