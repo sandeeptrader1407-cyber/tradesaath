@@ -1,5 +1,5 @@
 /**
- * Fetch OHLCV candles from Yahoo Finance (no API key needed).
+ * Fetch OHLCV candles from Twelve Data (requires TWELVE_DATA_API_KEY).
  * Used to enrich trade sessions with market context.
  * Cache-first: check Supabase before fetching.
  */
@@ -49,6 +49,23 @@ function toYahooSymbol(symbol: string, market: string): string {
   if (s.includes('ETH')) return 'ETH-USD'
   // Default: try as-is
   return s
+}
+
+// Map normalised Yahoo-style symbol → Twelve Data symbol format
+function toTwelveDataSymbol(yahooSym: string): string {
+  const map: Record<string, string> = {
+    '^NSEI':    'NIFTY',
+    '^NSEBANK': 'BANKNIFTY',
+    '^GSPC':    'SPX',
+    '^IXIC':    'IXIC',
+    '^DJI':     'DJI',
+    'BTC-USD':  'BTC/USD',
+    'ETH-USD':  'ETH/USD',
+  }
+  if (map[yahooSym]) return map[yahooSym]
+  // NSE stocks: strip .NS suffix, add :NSE exchange qualifier
+  if (yahooSym.endsWith('.NS')) return yahooSym.replace('.NS', '') + ':NSE'
+  return yahooSym
 }
 
 // Compute trend from open to close
@@ -102,50 +119,63 @@ export async function fetchMarketContext(
     console.warn('[MARKET] Cache read failed (non-blocking):', cacheErr)
   }
 
-  // ── Yahoo Finance fetch ─────────────────────────
+  // ── Twelve Data fetch ───────────────────────────────────────
   try {
-    const startTs = Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000)
-    const endTs   = Math.floor(new Date(`${date}T23:59:59Z`).getTime() / 1000)
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?period1=${startTs}&period2=${endTs}&interval=5m&includePrePost=false`
-
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) return null
-
-    const json = await res.json()
-    const result = json?.chart?.result?.[0]
-    if (!result) return null
-
-    const timestamps: number[] = result.timestamp || []
-    const closes: number[]  = result.indicators?.quote?.[0]?.close  || []
-    const opens: number[]   = result.indicators?.quote?.[0]?.open   || []
-    const highs: number[]   = result.indicators?.quote?.[0]?.high   || []
-    const lows: number[]    = result.indicators?.quote?.[0]?.low    || []
-    const volumes: number[] = result.indicators?.quote?.[0]?.volume || []
-
-    const candles: Candle[] = []
-    for (let i = 0; i < timestamps.length; i++) {
-      if (!closes[i] || !opens[i]) continue
-      // Convert UTC timestamp to IST (UTC+5:30)
-      const d = new Date(timestamps[i] * 1000)
-      const istHours   = (d.getUTCHours() + 5) % 24
-      const istMinutes = (d.getUTCMinutes() + 30) % 60
-      const carryHour  = d.getUTCMinutes() + 30 >= 60 ? 1 : 0
-      const h = (istHours + carryHour) % 24
-      const m = istMinutes
-      candles.push({
-        time: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
-        open:   Math.round(opens[i]   * 100) / 100,
-        high:   Math.round(highs[i]   * 100) / 100,
-        low:    Math.round(lows[i]    * 100) / 100,
-        close:  Math.round(closes[i]  * 100) / 100,
-        volume: volumes[i] || 0,
-      })
+    const apiKey = process.env.TWELVE_DATA_API_KEY
+    if (!apiKey) {
+      console.warn('[MARKET] TWELVE_DATA_API_KEY not set — skipping')
+      return null
     }
 
-    if (candles.length === 0) return null
+    const tdSymbol = toTwelveDataSymbol(yahooSym)
+
+    const url = new URL('https://api.twelvedata.com/time_series')
+    url.searchParams.set('symbol',     tdSymbol)
+    url.searchParams.set('interval',   '5min')
+    url.searchParams.set('date',       date)         // YYYY-MM-DD
+    url.searchParams.set('outputsize', '100')        // max candles per day
+    url.searchParams.set('timezone',   'Asia/Kolkata')
+    url.searchParams.set('apikey',     apiKey)
+    url.searchParams.set('format',     'JSON')
+
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) {
+      console.warn(`[MARKET] Twelve Data HTTP ${res.status}`)
+      return null
+    }
+
+    const json = await res.json()
+
+    // Twelve Data returns { status: 'error', message: '...' } on failure
+    if (json.status === 'error' || !json.values) {
+      console.warn('[MARKET] Twelve Data error:', json.message || json.code)
+      return null
+    }
+
+    // Values come newest-first — reverse to chronological
+    const values: Array<{
+      datetime: string   // "2025-04-02 09:15:00"
+      open: string; high: string; low: string
+      close: string; volume: string
+    }> = [...json.values].reverse()
+
+    const candles: Candle[] = values.map(v => ({
+      time:   v.datetime.split(' ')[1]?.substring(0, 5) || '',  // "HH:MM"
+      open:   parseFloat(v.open),
+      high:   parseFloat(v.high),
+      low:    parseFloat(v.low),
+      close:  parseFloat(v.close),
+      volume: parseInt(v.volume) || 0,
+    })).filter(c => c.time && !isNaN(c.open))
+
+    if (candles.length === 0) {
+      console.warn(`[MARKET] Twelve Data returned 0 candles for ${tdSymbol} on ${date}`)
+      return null
+    }
+
+    console.log(`[MARKET] Twelve Data: ${candles.length} candles for ${tdSymbol} on ${date}`)
 
     // ── Cache write (fire-and-forget) ──────────────
     getSupabaseAdmin()
@@ -169,17 +199,13 @@ export async function fetchMarketContext(
       ? ((highOfDay - lowOfDay) / openPrice) * 100 : 0
 
     return {
-      symbol: yahooSym,
-      date,
-      candles,
+      symbol: tdSymbol, date, candles,
       sessionTrend: computeTrend(openPrice, closePrice, rangePercent),
-      openPrice,
-      closePrice,
-      highOfDay,
-      lowOfDay,
+      openPrice, closePrice, highOfDay, lowOfDay,
       totalRangePercent: Math.round(rangePercent * 100) / 100,
     }
-  } catch {
+  } catch (err) {
+    console.warn('[MARKET] Twelve Data fetch failed:', err)
     return null
   }
 }
