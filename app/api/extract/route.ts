@@ -234,6 +234,32 @@ export async function POST(req: NextRequest) {
       if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
     }
 
+    // Deduplicate AI-extracted fills: group by (symbol, side, entry, exit, pnl) — same fill
+    // emitted multiple times from multi-page contract notes.
+    const beforeDedup = result.trades.length
+    const seenSigs = new Set<string>()
+    result.trades = (result.trades as Array<Record<string, unknown>>).filter(t => {
+      const sig = [
+        String(t.symbol || '').toUpperCase().replace(/\s+/g, ''),
+        String(t.side || '').toUpperCase(),
+        String(t.time || ''),
+        Number(t.entry || 0).toFixed(2),
+        Number(t.exit || 0).toFixed(2),
+        Number(t.pnl || 0).toFixed(2),
+        Number(t.qty || 0),
+      ].join('|')
+      if (seenSigs.has(sig)) return false
+      seenSigs.add(sig)
+      return true
+    })
+    const dedupRemoved = beforeDedup - result.trades.length
+    if (dedupRemoved > 0) {
+      console.log(`[Extract] Dedup: removed ${dedupRemoved} duplicate fills from ${beforeDedup} AI-extracted trades`)
+      // Recompute cumPnl after dedup
+      let cumAfter = 0
+      for (const t of result.trades) { cumAfter += (t.pnl as number || 0); t.cumPnl = cumAfter }
+    }
+
     // Reject if >80% of trades have both entry and exit price as zero/missing
     const aiZeroPriceCount = (result.trades as Array<Record<string, unknown>>).filter(
       t => (!t.entry || Number(t.entry) === 0) && (!t.exit || Number(t.exit) === 0)
