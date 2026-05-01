@@ -141,8 +141,11 @@ function toNum(v: unknown, fallback = 0): number {
 }
 
 function timeToMinutes(t: unknown): number | null {
-  if (typeof t !== 'string') return null
-  const m = t.match(/^(\d{1,2}):(\d{2})/)
+  if (!t) return null
+  const s = String(t).trim()
+  // "00:00" is a broker placeholder, not a real time
+  if (s === '00:00' || s === '00:00:00') return null
+  const m = s.match(/^(\d{1,2}):(\d{2})/)
   if (!m) return null
   const h = parseInt(m[1], 10)
   const mn = parseInt(m[2], 10)
@@ -226,6 +229,7 @@ export interface DetectorOptions {
   userTypicalQty?: number
   userAvgDailyTrades?: number
   marketOpenMinutes?: number
+  market?: string
 }
 
 interface Candidate {
@@ -378,8 +382,12 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
     /* ── FOMO — 5 signals, threshold 0.55 ── */
     {
       let fomoScore = 0
-      // S1: Entry in first 3 min of session (w=0.25)
-      if (m !== null && m >= sessionStartMinutes && m <= sessionStartMinutes + 3) fomoScore += 0.25
+      // S1: Entry in first 3 min of session — only flag for Indian markets where 9:15 open is a known FOMO zone.
+      // Global markets (US, EU, Crypto) have legitimate open-range strategies.
+      const isIndianMarket = opts.market
+        ? ['NSE', 'BSE', 'MCX'].includes(String(opts.market).toUpperCase())
+        : sessionStartMinutes >= 555 && sessionStartMinutes <= 560 // 9:15-9:20 IST
+      if (isIndianMarket && m !== null && m >= sessionStartMinutes && m <= sessionStartMinutes + 3) fomoScore += 0.25
       // S2: Oversized vs session average (w=0.25)
       if (sessionAvgQty > 0 && qty > sessionAvgQty * 1.8) fomoScore += 0.25
       // S3: Chasing after a big win (w=0.20)
@@ -597,12 +605,20 @@ export function detectPatterns(rawTrades: any[], opts: DetectorOptions = {}): Pa
   }
 
   // ── Tag rate capping: max 20% of trades tagged as mistakes ──
-  const maxMistakeTrades = Math.max(1, Math.ceil(n * 0.20))
+  // Cap is lifted for genuinely chaotic sessions (>40% losses AND >30% raw mistake rate).
+  const lossRate = pnls.filter(p => p < 0).length / Math.max(1, n)
+  const rawMistakeRate = detected.filter(d => MISTAKE_TAGS.has(d.tag)).length / Math.max(1, n)
+  const sessionIsGenuinelyChaotic = lossRate > 0.40 && rawMistakeRate > 0.30
+
+  const maxMistakeTrades = sessionIsGenuinelyChaotic
+    ? detected.filter(d => MISTAKE_TAGS.has(d.tag)).length // no cap
+    : Math.max(1, Math.ceil(n * 0.20))
+
   const mistakeTrades = detected
     .filter(d => MISTAKE_TAGS.has(d.tag))
     .sort((a, b) => b.score - a.score)  // keep highest-scored
 
-  if (mistakeTrades.length > maxMistakeTrades) {
+  if (!sessionIsGenuinelyChaotic && mistakeTrades.length > maxMistakeTrades) {
     const toUntag = new Set(mistakeTrades.slice(maxMistakeTrades).map(d => d.index))
     for (let i = 0; i < n; i++) {
       if (toUntag.has(i)) {

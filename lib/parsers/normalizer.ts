@@ -104,7 +104,7 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
         pnl,
         cum_pnl: 0,
         session: classifySession(closingTime || ''),
-        time_gap_minutes: null,
+        time_gap_minutes: holdingMinutes(entryTime, exitTime) || null,
         tag: pnl >= 0 ? 'win' : 'loss',
         label: pnl >= 0 ? 'Winner' : 'Loser',
         entry_time: entryTime,
