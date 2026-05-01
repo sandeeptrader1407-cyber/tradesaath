@@ -4,6 +4,8 @@
  * Cache-first: check Supabase before fetching.
  */
 
+import { getSupabaseAdmin } from '@/lib/supabase'
+
 export interface Candle {
   time: string   // "HH:MM" in IST
   open: number
@@ -65,10 +67,43 @@ export async function fetchMarketContext(
   date: string,   // YYYY-MM-DD
   market: string, // 'NSE' | 'NYSE' etc
 ): Promise<MarketContext | null> {
-  try {
-    const yahooSym = toYahooSymbol(symbol, market)
+  const yahooSym = toYahooSymbol(symbol, market)
 
-    // Yahoo Finance v8 chart API — 5m interval, single day
+  // ── Cache read ──────────────────────────────────
+  try {
+    const sb = getSupabaseAdmin()
+    const { data: cached } = await sb
+      .from('market_candles')
+      .select('candles_json')
+      .eq('symbol', yahooSym)
+      .eq('trade_date', date)
+      .eq('interval_min', 5)
+      .maybeSingle()
+
+    if (cached?.candles_json) {
+      const candles = cached.candles_json as Candle[]
+      if (candles.length > 0) {
+        const openPrice  = candles[0].open
+        const closePrice = candles[candles.length - 1].close
+        const highOfDay  = Math.max(...candles.map(c => c.high))
+        const lowOfDay   = Math.min(...candles.map(c => c.low))
+        const rangePercent = openPrice > 0
+          ? ((highOfDay - lowOfDay) / openPrice) * 100 : 0
+        console.log(`[MARKET] Cache hit: ${yahooSym} ${date} (${candles.length} candles)`)
+        return {
+          symbol: yahooSym, date, candles,
+          sessionTrend: computeTrend(openPrice, closePrice, rangePercent),
+          openPrice, closePrice, highOfDay, lowOfDay,
+          totalRangePercent: Math.round(rangePercent * 100) / 100,
+        }
+      }
+    }
+  } catch (cacheErr) {
+    console.warn('[MARKET] Cache read failed (non-blocking):', cacheErr)
+  }
+
+  // ── Yahoo Finance fetch ─────────────────────────
+  try {
     const startTs = Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000)
     const endTs   = Math.floor(new Date(`${date}T23:59:59Z`).getTime() / 1000)
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?period1=${startTs}&period2=${endTs}&interval=5m&includePrePost=false`
@@ -111,6 +146,20 @@ export async function fetchMarketContext(
     }
 
     if (candles.length === 0) return null
+
+    // ── Cache write (fire-and-forget) ──────────────
+    getSupabaseAdmin()
+      .from('market_candles')
+      .upsert({
+        symbol: yahooSym,
+        trade_date: date,
+        interval_min: 5,
+        candles_json: candles,
+      }, { onConflict: 'symbol,trade_date,interval_min' })
+      .then(
+        () => console.log(`[MARKET] Cached ${candles.length} candles for ${yahooSym} ${date}`),
+        (e: unknown) => console.warn('[MARKET] Cache write failed:', e),
+      )
 
     const openPrice  = candles[0].open
     const closePrice = candles[candles.length - 1].close
@@ -181,5 +230,90 @@ export function getPostExitMove(
   return {
     direction: continued ? 'continued' : reversed ? 'reversed' : 'flat',
     magnitude: absMagnitude,
+  }
+}
+
+export interface TradeEnrichment {
+  entryCandle:  Candle | null
+  exitCandle:   Candle | null
+  postExitMove: { direction: 'continued' | 'reversed' | 'flat'; magnitude: number } | null
+  trendAtEntry: 'with_trend' | 'counter_trend' | 'flat' | 'unknown'
+  entryContext: string   // human-readable sentence
+  exitContext:  string   // human-readable sentence
+}
+
+export function enrichTrade(
+  trade: Record<string, unknown>,
+  ctx: MarketContext,
+): TradeEnrichment {
+  const entryTime = String(trade.entry_time ?? trade.time ?? '')
+  const exitTime  = String(trade.exit_time  ?? '')
+  const side      = String(trade.side ?? 'BUY').toUpperCase() as 'BUY' | 'SELL'
+
+  const entryCandle = getCandleAtTime(ctx.candles, entryTime)
+  const exitCandle  = exitTime ? getCandleAtTime(ctx.candles, exitTime) : null
+  const postExitMove = exitTime
+    ? getPostExitMove(ctx.candles, exitTime, side, 15)
+    : null
+
+  // Was entry with or against the session trend?
+  let trendAtEntry: TradeEnrichment['trendAtEntry'] = 'unknown'
+  if (entryCandle && ctx.candles.length >= 6) {
+    const [eh, em] = entryCandle.time.split(':').map(Number)
+    const entryMins = eh * 60 + em
+    const priorCandles = ctx.candles.filter(c => {
+      const [ch, cm] = c.time.split(':').map(Number)
+      const mins = ch * 60 + cm
+      return mins >= entryMins - 20 && mins < entryMins
+    })
+    if (priorCandles.length >= 2) {
+      const priorMove = priorCandles[priorCandles.length - 1].close
+        - priorCandles[0].open
+      const risingMarket = priorMove > 0
+      if (side === 'BUY')  trendAtEntry = risingMarket ? 'with_trend' : 'counter_trend'
+      if (side === 'SELL') trendAtEntry = risingMarket ? 'counter_trend' : 'with_trend'
+      if (Math.abs(priorMove / Math.max(1, priorCandles[0].open)) < 0.001)
+        trendAtEntry = 'flat'
+    }
+  }
+
+  const trendLabel = ctx.sessionTrend === 'strongly_up'   ? 'strongly rising'
+    : ctx.sessionTrend === 'up'           ? 'rising'
+    : ctx.sessionTrend === 'strongly_down' ? 'strongly falling'
+    : ctx.sessionTrend === 'down'         ? 'falling'
+    : 'range-bound'
+
+  const entryCtxParts: string[] = []
+  if (entryCandle) {
+    entryCtxParts.push(`Market was ${trendLabel} at entry (${entryCandle.time}).`)
+  }
+  if (trendAtEntry === 'counter_trend') {
+    entryCtxParts.push(`Your ${side === 'BUY' ? 'long' : 'short'} was against the prior 20-min move.`)
+  } else if (trendAtEntry === 'with_trend') {
+    entryCtxParts.push(`Entry was aligned with the short-term trend.`)
+  }
+
+  const exitCtxParts: string[] = []
+  if (postExitMove) {
+    if (postExitMove.direction === 'reversed') {
+      exitCtxParts.push(
+        `Price moved ${postExitMove.magnitude.toFixed(1)}% in your favour within 15 min of your exit — you exited before the move.`
+      )
+    } else if (postExitMove.direction === 'continued') {
+      exitCtxParts.push(
+        `Price continued ${postExitMove.magnitude.toFixed(1)}% against you after exit — your direction was wrong, not just your timing.`
+      )
+    } else {
+      exitCtxParts.push(`Market moved sideways after your exit.`)
+    }
+  }
+
+  return {
+    entryCandle,
+    exitCandle,
+    postExitMove,
+    trendAtEntry,
+    entryContext: entryCtxParts.join(' '),
+    exitContext:  exitCtxParts.join(' '),
   }
 }

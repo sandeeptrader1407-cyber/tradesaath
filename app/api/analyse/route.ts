@@ -704,6 +704,21 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       totalRangePercent: marketCtx.totalRangePercent,
       candleCount: marketCtx.candles.length,
     }
+
+    // Enrich each trade with per-candle context
+    const { enrichTrade } = await import('@/lib/marketData/fetchCandles')
+    for (let i = 0; i < trades.length; i++) {
+      try {
+        const enrichment = enrichTrade(trades[i], marketCtx)
+        trades[i]._marketEnrichment = {
+          trendAtEntry: enrichment.trendAtEntry,
+          entryContext: enrichment.entryContext,
+          exitContext:  enrichment.exitContext,
+          postExitMove: enrichment.postExitMove,
+        }
+      } catch { /* non-blocking per-trade */ }
+    }
+    console.log(`[MARKET] Enriched ${trades.length} trades with per-candle context`)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- analysis JSONB shape
