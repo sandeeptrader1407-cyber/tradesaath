@@ -196,6 +196,23 @@ export default function SessionDetail({ session }: Props) {
         </div>
       )}
 
+      {/* Empty patterns notice for short sessions */}
+      {(() => {
+        const mp = (analysis?.mistake_patterns as unknown[])
+        const patternsEmpty = !mp || !Array.isArray(mp) || mp.length === 0
+        const minTrades = 4
+        return patternsEmpty && trades.length > 0 && trades.length < minTrades ? (
+          <div style={{
+            fontSize: 12, fontFamily: 'var(--font-sans)', color: '#64748B',
+            background: '#F8FAFC', border: '0.5px solid #E2E8F0',
+            borderRadius: 6, padding: '8px 12px', marginBottom: 16,
+          }}>
+            Behavioural pattern detection needs at least {minTrades} trades.
+            This session has {trades.length} — patterns will appear in longer sessions.
+          </div>
+        ) : null
+      })()}
+
       {/* Trade Timeline */}
       {trades.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
