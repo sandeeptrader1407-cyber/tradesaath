@@ -109,6 +109,18 @@ export async function POST(req: NextRequest) {
         t.cum_pnl = cum
         if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
       }
+
+      // Reject if >80% of trades have both entry and exit price as zero/missing
+      const zeroPriceCount = legacyTrades.filter(
+        t => (!t.entry || Number(t.entry) === 0) && (!t.exit || Number(t.exit) === 0)
+      ).length
+      if (legacyTrades.length > 0 && zeroPriceCount / legacyTrades.length > 0.8) {
+        console.warn(`[Extract] Price failure: ${zeroPriceCount}/${legacyTrades.length} trades have zero prices`)
+        return NextResponse.json({
+          error: 'We could not read prices from this file. Please verify the broker format or export a file that includes entry and exit prices. Contact support if this persists.',
+        }, { status: 422 })
+      }
+
       console.log(`[Intake] Local extract OK: ${legacyTrades.length} trades from ${intakeResult.rawFile.broker}`)
       return NextResponse.json({
         trades: legacyTrades,
@@ -220,6 +232,17 @@ export async function POST(req: NextRequest) {
       cum += (t.pnl || 0)
       t.cumPnl = cum
       if (!t.fills) t.fills = [{ qty: t.qty, price: t.entry || 0 }]
+    }
+
+    // Reject if >80% of trades have both entry and exit price as zero/missing
+    const aiZeroPriceCount = (result.trades as Array<Record<string, unknown>>).filter(
+      t => (!t.entry || Number(t.entry) === 0) && (!t.exit || Number(t.exit) === 0)
+    ).length
+    if (result.trades.length > 0 && aiZeroPriceCount / result.trades.length > 0.8) {
+      console.warn(`[Extract] Price failure (AI path): ${aiZeroPriceCount}/${result.trades.length} trades have zero prices`)
+      return NextResponse.json({
+        error: 'We could not read prices from this file. Please verify the broker format or export a file that includes entry and exit prices. Contact support if this persists.',
+      }, { status: 422 })
     }
 
     console.log(`[Extract] Extracted ${result.trades.length} trades from ${result.broker || 'unknown broker'}`)
