@@ -19,7 +19,6 @@ import DecisionQualityScore from "@/components/dashboard/DecisionQualityScore"
 import Toaster from "@/components/ui/Toast"
 import ErrorBoundary from "@/components/ui/ErrorBoundary"
 import BatchAnalysisRunner from "@/components/BatchAnalysisRunner"
-import FirstSessionGuide from "@/components/FirstSessionGuide"
 
 interface DashStats {
   hasData: boolean
