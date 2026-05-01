@@ -98,11 +98,14 @@ export async function analyseSession(opts: AnalyseSessionOpts): Promise<AnalyseS
     if (!force) {
       const existing: any = (session.analysis && typeof session.analysis === 'object') ? session.analysis : null
       const existingVersion = Number(existing?.analysed_version)
+      const existingTradeCount = Number(existing?.analysed_trade_count)
+      const tradeCountMatch = Number.isFinite(existingTradeCount) && existingTradeCount === allTrades.length
       const alreadyCurrent = existing
         && typeof existing.analysed_at === 'string'
         && existing.analysed_at.length > 0
         && Number.isFinite(existingVersion)
         && existingVersion >= CURRENT_ANALYSIS_VERSION
+        && tradeCountMatch  // invalidate when trade count has changed since last analysis
       if (alreadyCurrent) {
         return { success: true, skipped: true, reason: 'already_analysed', tradesAnalysed: allTrades.length }
       }
