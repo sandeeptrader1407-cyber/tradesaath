@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { auth } from '@clerk/nextjs/server'
 import { syncUser } from '@/lib/supabase'
 import { migrateAnonToUser } from '@/lib/supabase/migrateAnonData'
+
+const InputSchema = z.object({
+  email:     z.string().email(),
+  name:      z.string().optional(),
+  createdAt: z.string().optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,14 +17,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const { email, name, createdAt } = await req.json()
-
-    if (!email) {
-      return NextResponse.json(
-        { error: 'email is required' },
-        { status: 400 }
-      )
+    const parsed = InputSchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'email is required' }, { status: 400 })
     }
+    const { email, name, createdAt } = parsed.data
 
     // Always use the server-verified userId, never trust client-provided clerkId
     const user = await syncUser(userId, email, name || '')

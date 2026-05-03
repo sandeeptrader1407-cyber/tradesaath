@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
 import { logAiUsage } from '@/lib/admin/logAiUsage'
+
+const InputSchema = z.object({
+  tab: z.enum(['tomorrow', 'thisweek', 'learning_path', 'patterns', 'monthly_goals']),
+})
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -165,12 +170,11 @@ export async function POST(req: NextRequest) {
     const rl = await rateLimit(`coach:${clerkId}`, 10, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
-    const body = await req.json()
-    const { tab } = body as { tab: string }
-
-    if (!tab || !PLAN_TEMPLATES[tab]) {
+    const parsed = InputSchema.safeParse(await req.json())
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid tab' }, { status: 400 })
     }
+    const { tab } = parsed.data
 
     const { data: rawSessions } = await supabaseAdmin
       .from('trade_sessions')

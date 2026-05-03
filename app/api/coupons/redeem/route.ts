@@ -1,9 +1,14 @@
 export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
+
+const InputSchema = z.object({
+  code: z.string().min(3).max(20),
+})
 
 interface CouponRow {
   id: string
@@ -35,13 +40,11 @@ export async function POST(req: NextRequest) {
     const rl = await rateLimit(`coupon:${userId}`, 5, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
-    const body = await req.json().catch(() => ({}))
-    const rawCode = typeof body?.code === 'string' ? body.code : ''
-    const code = rawCode.trim().toUpperCase()
-
-    if (!code) {
+    const parsed = InputSchema.safeParse(await req.json().catch(() => ({})))
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid code' }, { status: 400 })
     }
+    const code = parsed.data.code.trim().toUpperCase()
 
     // 1. Look up coupon (case-insensitive — codes are stored uppercase)
     const { data: coupon, error: lookupErr } = await supabaseAdmin
