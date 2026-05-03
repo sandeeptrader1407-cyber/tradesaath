@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TradeSaath — Landing v2 Preview (global, 3-tier, interactive)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c1322; --bg2:#10182a; --s1:#f7f7f3; --s2:#ffffff;
+    --text:#0c1322; --text-on-dark:#ecedef; --text2:#7a8093; --text2-on-dark:#8a93a8;
+    --border:#e7e8ea; --border-on-dark:#1f2a44;
+    --mint:#36d399; --amber:#f59e0b; --crimson:#f05d6c; --orange:#ff7a00;
+    --blue:#4c6ef5;
+    --font-sans:'DM Sans',ui-sans-serif,system-ui,sans-serif;
+    --font-serif:'DM Serif Display',ui-serif,Georgia,serif;
+    --font-mono:'DM Mono',ui-monospace,SFMono-Regular,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--s1);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3{font-family:var(--font-serif);font-weight:400;letter-spacing:-.01em;margin:0}
+  .container{max-width:1180px;margin:0 auto;padding:0 24px}
+  .mono{font-family:var(--font-mono);letter-spacing:.04em}
+  .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 14px;border-radius:999px;border:1px solid var(--border-on-dark);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text2-on-dark)}
+  .pill .dot{width:6px;height:6px;border-radius:99px;background:var(--mint);box-shadow:0 0 0 4px rgba(54,211,153,.15)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;font-weight:500;font-size:14px;cursor:pointer;border:1px solid transparent;transition:transform .15s ease,opacity .15s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--orange);color:#fff}
+  .btn-ghost{border-color:rgba(255,255,255,.18);color:var(--text-on-dark);background:transparent}
+  .btn-dark{background:var(--bg);color:#fff}
+  .preview-banner{background:#fffaeb;color:#7a4a00;border-bottom:1px solid #f3e3b3;padding:8px 16px;font-size:12px;text-align:center;font-family:var(--font-mono);letter-spacing:.04em}
+  .preview-banner b{font-weight:700}
+
+  /* NAV */
+  nav.top{position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:saturate(150%) blur(10px);border-bottom:1px solid var(--border);z-index:50}
+  nav.top .row{display:flex;align-items:center;justify-content:space-between;height:64px}
+  nav.top .brand{font-family:var(--font-serif);font-size:22px}
+  nav.top ul{display:flex;gap:32px;list-style:none;margin:0;padding:0;font-size:14px;color:var(--text2)}
+  nav.top ul li{cursor:pointer}
+  nav.top ul li:hover{color:var(--text)}
+  nav.top .right{display:flex;gap:10px}
+  nav.top .signin{padding:9px 16px;border:1px solid var(--border);border-radius:10px;font-size:14px;color:var(--text)}
+
+  /* HERO */
+  section.hero{position:relative;background:var(--bg);color:var(--text-on-dark);overflow:hidden;padding:96px 0 120px}
+  .hero .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;align-items:center}
+  .hero h1{font-size:72px;line-height:.98;color:#fff}
+  .hero h1 .accent{color:var(--crimson);display:block}
+  .hero p.lede{margin-top:22px;color:var(--text2-on-dark);font-size:17px;line-height:1.6;max-width:520px}
+  .hero .ctas{margin-top:32px;display:flex;gap:12px;align-items:center}
+  .hero .ctas .meta{margin-left:8px;font-size:12px;color:var(--text2-on-dark);font-family:var(--font-mono);letter-spacing:.06em}
+  .hero .pill{margin-bottom:28px}
+
+  /* Hero candlestick canvas */
+  .candle-stage{position:relative;border:1px solid var(--border-on-dark);background:linear-gradient(180deg,#0e1830,#0a1126);border-radius:18px;padding:18px;height:380px;overflow:hidden}
+  .candle-stage svg{width:100%;height:100%}
+  .candle-mock-card{position:absolute;right:24px;top:24px;background:rgba(12,19,34,.85);backdrop-filter:blur(8px);border:1px solid var(--border-on-dark);border-radius:14px;padding:14px 16px;width:230px}
+  .candle-mock-card .lab{font-size:10px;letter-spacing:.18em;color:var(--text2-on-dark);text-transform:uppercase;margin-bottom:8px}
+  .candle-mock-card .row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#cdd2dd;margin:6px 0}
+  .candle-mock-card .row .v{font-family:var(--font-mono);font-size:13px}
+  .candle-mock-card .row .v.up{color:var(--mint)}
+  .candle-mock-card .row .v.dn{color:var(--crimson)}
+
+  /* Background sparks */
+  .spark{position:absolute;width:3px;height:3px;border-radius:99px;opacity:.55}
+
+  /* STATS */
+  section.stats{background:var(--bg);color:var(--text-on-dark);padding:0 0 60px}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--border-on-dark);padding-top:36px}
+  .stat{padding:0 20px;border-right:1px solid var(--border-on-dark)}
+  .stat:last-child{border-right:none}
+  .stat .n{font-family:var(--font-mono);font-size:32px;letter-spacing:.02em}
+  .stat.amber .n{color:var(--amber)}
+  .stat.crimson .n{color:var(--crimson)}
+  .stat.mint .n{color:var(--mint)}
+  .stat.white .n{color:#fff}
+  .stat .l{margin-top:6px;font-size:11px;color:var(--text2-on-dark);letter-spacing:.18em;text-transform:uppercase}
+
+  /* MARQUEE BROKERS */
+  .marquee{background:var(--bg);padding:24px 0;border-top:1px solid var(--border-on-dark);border-bottom:1px solid var(--border-on-dark);overflow:hidden;color:var(--text2-on-dark);font-size:14px}
+  .marquee-track{display:flex;gap:48px;width:max-content;animation:marq 38s linear infinite}
+  @keyframes marq{from{transform:translateX(0)} to{transform:translateX(-50%)}}
+
+  /* HOW IT WORKS */
+  section.how{padding:120px 0 90px;background:var(--s1)}
+  section.how .head{text-align:center;margin-bottom:60px}
+  section.how .head .pill{color:var(--text2);border-color:var(--border)}
+  section.how h2{font-size:56px;margin-top:18px}
+  section.how p.sub{color:var(--text2);margin-top:14px;font-size:16px}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:50px}
+  .step{background:#fff;border:1px solid var(--border);border-radius:18px;padding:32px}
+  .step .num{font-family:var(--font-mono);color:var(--text2);font-size:13px;background:#f0f1f3;display:inline-block;width:34px;height:34px;border-radius:99px;line-height:34px;text-align:center;margin-bottom:18px}
+  .step h3{font-size:22px;margin-bottom:10px}
+  .step p{color:var(--text2);font-size:14.5px;line-height:1.6;margin:0}
+
+  /* PRODUCT INTERACTIVE */
+  section.product{background:var(--bg);color:var(--text-on-dark);padding:120px 0}
+  section.product .head{text-align:center}
+  section.product h2{font-size:56px;color:#fff;margin-top:14px}
+  section.product p.sub{margin-top:14px;color:var(--text2-on-dark)}
+  .demo-nudge{margin:32px auto 24px;display:inline-flex;gap:10px;align-items:center;padding:8px 16px;border-radius:999px;background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.4);color:var(--orange);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:500}
+  .demo-nudge .dot{width:6px;height:6px;border-radius:99px;background:var(--orange);box-shadow:0 0 0 4px rgba(255,122,0,.18);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(255,122,0,.18)} 50%{box-shadow:0 0 0 10px rgba(255,122,0,.05)}}
+  .demo{margin-top:30px;background:#0e1830;border:1px solid var(--border-on-dark);border-radius:20px;overflow:hidden;position:relative}
+  .demo .titlebar{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border-on-dark);position:relative}
+  .demo .titlebar .lights{display:flex;gap:7px}
+  .demo .titlebar .light{width:11px;height:11px;border-radius:99px}
+  .demo .titlebar .light.r{background:#ff605c}
+  .demo .titlebar .light.y{background:#ffbd44}
+  .demo .titlebar .light.g{background:#00ca4e}
+  .demo .titlebar .label{position:absolute;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:12px;color:var(--orange);letter-spacing:.06em}
+  .demo .tabs{background:#fff;color:var(--text);display:flex;align-items:center;border-bottom:1px solid var(--border);padding:0 28px;position:relative}
+  .demo .tabs .brand{font-family:var(--font-serif);font-size:18px;padding:14px 0}
+  .demo .tabs ol{list-style:none;padding:0;margin:0 auto;display:flex;gap:32px;font-size:14px;color:var(--text2)}
+  .demo .tabs ol li{position:relative;padding:18px 0;cursor:pointer}
+  .demo .tabs ol li.active{color:var(--text)}
+  .demo .tabs ol li.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--orange)}
+  .demo .tabs .avatar{width:32px;height:32px;border-radius:99px;background:var(--bg);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-family:var(--font-mono)}
+  .demo .panel{background:#fff;color:var(--text);min-height:480px;padding:36px}
+  .demo .panel.hidden{display:none}
+
+  /* Demo cursor */
+  .cursor{position:absolute;left:-100px;top:-100px;pointer-events:none;font-size:28px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45));transition:transform 1.4s cubic-bezier(.6,-.05,.4,1.05),left 1.4s cubic-bezier(.6,-.05,.4,1.05),top 1.4s cubic-bezier(.6,-.05,.4,1.05);z-index:5}
+  .cursor.tap{transform:scale(.9)}
+  .cursor::after{content:"";position:absolute;left:8px;top:8px;width:14px;height:14px;border-radius:99px;background:rgba(255,122,0,.0);box-shadow:0 0 0 0 rgba(255,122,0,.6);transition:none}
+  .cursor.tap::after{animation:tapring .55s ease-out forwards}
+  @keyframes tapring{0%{box-shadow:0 0 0 0 rgba(255,122,0,.65)} 100%{box-shadow:0 0 0 28px rgba(255,122,0,0)}}
+
+  /* DASHBOARD MOCK */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+  .kpi{background:#fafafa;border:1px solid var(--border);border-radius:14px;padding:18px}
+  .kpi .lab{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text2)}
+  .kpi .val{font-family:var(--font-mono);font-size:26px;margin-top:8px}
+  .kpi .delta{font-size:12px;margin-top:6px;color:var(--mint)}
+  .kpi .delta.bad{color:var(--crimson)}
+  .equity{margin-top:22px;padding:22px;border:1px solid var(--border);border-radius:14px;background:#fafafa}
+  .equity h4{margin:0 0 12px;font-family:var(--font-sans);font-size:13px;color:var(--text2);font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+  .equity .bars{display:flex;align-items:flex-end;gap:4px;height:130px}
+  .equity .bar{flex:1;border-radius:3px}
+  .equity .bar.up{background:linear-gradient(180deg,var(--mint),#1eaa78)}
+  .equity .bar.dn{background:linear-gradient(180deg,var(--crimson),#c84252)}
+
+  /* JOURNAL MOCK */
+  .journal-row{display:grid;grid-template-columns:120px 1fr 100px 110px 90px;gap:14px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:#fafafa;margin-top:10px;font-size:13px;align-items:center}
+  .journal-row .sym{font-family:var(--font-mono)}
+  .journal-row .pnl.up{color:var(--mint);font-family:var(--font-mono)}
+  .journal-row .pnl.dn{color:var(--crimson);font-family:var(--font-mono)}
+  .journal-row .tag{font-size:11px;padding:4px 8px;border-radius:99px;background:#fff;border:1px solid var(--border);width:max-content;color:var(--text2)}
+  .journal-row .tag.warn{color:#a85a00;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+
+  /* JOURNEY MOCK */
+  .timeline{position:relative;padding-left:32px;margin-top:8px}
+  .timeline::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:2px;background:var(--border)}
+  .tl-row{position:relative;padding:18px 0;border-bottom:1px dashed var(--border)}
+  .tl-row::before{content:"";position:absolute;left:-31px;top:24px;width:14px;height:14px;border-radius:99px;background:#fff;border:2px solid var(--mint)}
+  .tl-row .t{font-family:var(--font-mono);font-size:11px;color:var(--text2);letter-spacing:.06em}
+  .tl-row .h{font-family:var(--font-serif);font-size:20px;margin-top:4px}
+  .tl-row .b{color:var(--text2);font-size:13.5px;margin-top:6px;line-height:1.6}
+
+  /* SAATHI MOCK */
+  .saathi{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .bubble{padding:14px 16px;border-radius:14px;font-size:13px;line-height:1.55}
+  .bubble.user{background:#f0f1f3;color:var(--text);border-radius:14px 14px 4px 14px;align-self:flex-end}
+  .bubble.ai{background:linear-gradient(180deg,#0e1830,#1a2848);color:#fff;border-radius:14px 14px 14px 4px}
+  .saathi .col{display:flex;flex-direction:column;gap:10px}
+
+  /* PRICING */
+  section.pricing{padding:120px 0;background:var(--s1)}
+  section.pricing .head{text-align:center;margin-bottom:46px}
+  section.pricing h2{font-size:56px}
+  section.pricing p.sub{color:var(--text2);margin-top:12px}
+  .currency-toggle{display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:99px;padding:4px;margin-top:24px;font-size:12px}
+  .currency-toggle button{border:0;background:transparent;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:var(--font-mono);letter-spacing:.04em;color:var(--text2)}
+  .currency-toggle button.on{background:var(--bg);color:#fff}
+  .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:46px}
+  .price-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:34px}
+  .price-card.featured{background:#fff8eb;border-color:rgba(245,158,11,.4);box-shadow:0 30px 80px -30px rgba(245,158,11,.35);position:relative}
+  .price-card.featured::before{content:"Most loved";position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--orange);color:#fff;padding:5px 14px;border-radius:99px;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  .price-card .badge{display:inline-block;font-size:11px;padding:4px 12px;border-radius:99px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:18px}
+  .price-card .badge.free{background:#e8f7ee;color:#177a44}
+  .price-card .badge.single{background:#eef2ff;color:#3a4ec1}
+  .price-card .badge.pro{background:#fff0d4;color:#9a6a00}
+  .price-card .amt{font-family:var(--font-serif);font-size:54px;line-height:1;letter-spacing:-.02em}
+  .price-card .amt sub{font-family:var(--font-mono);font-size:14px;color:var(--text2);margin-left:6px;letter-spacing:.04em}
+  .price-card .billed{font-size:11.5px;color:var(--text2);margin-top:10px;font-family:var(--font-mono);letter-spacing:.04em}
+  .price-card hr{border:0;border-top:1px solid var(--border);margin:22px 0}
+  .price-card ul{list-style:none;padding:0;margin:0 0 26px}
+  .price-card li{font-size:14px;padding:7px 0;color:var(--text);display:flex;gap:10px;align-items:flex-start}
+  .price-card li::before{content:"✓";color:var(--mint);font-weight:700}
+  .price-card.featured li::before{color:var(--amber)}
+  .price-card .cta{display:block;text-align:center;padding:14px;border-radius:12px;border:1px solid var(--border);font-weight:500;font-size:14px;background:#fff;cursor:pointer}
+  .price-card.featured .cta{background:var(--orange);color:#fff;border-color:transparent}
+  .pricing-foot{margin-top:30px;text-align:center;color:var(--text2);font-size:12.5px;font-family:var(--font-mono);letter-spacing:.04em}
+
+  /* FINAL CTA */
+  section.final{background:var(--bg);color:var(--text-on-dark);text-align:center;padding:120px 0}
+  section.final h2{font-size:60px;color:#fff}
+  section.final p{margin-top:18px;color:var(--text2-on-dark);font-size:17px}
+  section.final .ctas{margin-top:34px;display:flex;justify-content:center;gap:12px}
+  .disclaimer{margin-top:60px;color:var(--text2-on-dark);font-size:11.5px;max-width:680px;margin-left:auto;margin-right:auto;line-height:1.6}
+
+  /* mobile */
+  @media (max-width:880px){
+    .hero .grid,.steps,.kpi-grid,.price-grid,.saathi,.stats-row,.journal-row{grid-template-columns:1fr}
+    .hero h1{font-size:46px}
+    section.how h2,section.product h2,section.pricing h2,section.final h2{font-size:36px}
+    nav.top ul{display:none}
+    .candle-mock-card{position:static;width:auto;margin-top:14px}
+  }
+</style>
+</head>
+<body>
+
+<div class="preview-banner">
+  <b>PREVIEW v2 · landing-v2.html</b> &nbsp; · &nbsp; redesigned for global traders · 3-tier pricing · animated demo cursor &nbsp; · &nbsp; not yet wired into the live app
+</div>
+
+<!-- NAV -->
+<nav class="top">
+  <div class="container row">
+    <div class="brand">TradeSaath</div>
+    <ul>
+      <li>How it works</li><li>Features</li><li>Pricing</li><li>FAQ</li>
+    </ul>
+    <div class="right">
+      <a class="signin">Sign in</a>
+      <a class="btn btn-primary">Get started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <!-- background sparks -->
+  <div id="sparks"></div>
+
+  <div class="container">
+    <div class="grid">
+      <div>
+        <span class="pill"><span class="dot"></span>FOR EVERY TRADER · STOCKS · OPTIONS · FUTURES · FOREX · CRYPTO</span>
+        <h1>You knew it was<br/>the wrong trade.<span class="accent">You took it anyway.</span></h1>
+        <p class="lede">TradeSaath reads your trade history from any broker, any market, anywhere. It finds the patterns you already feel — revenge trades, FOMO entries, panic exits — and shows you exactly what they cost.</p>
+        <div class="ctas">
+          <a class="btn btn-primary">Drop your file →</a>
+          <a class="btn btn-ghost">See sample report</a>
+          <span class="meta">first analysis free · no signup</span>
+        </div>
+      </div>
+
+      <div class="candle-stage" id="candleStage">
+        <svg id="candles" viewBox="0 0 600 360" preserveAspectRatio="none"></svg>
+        <div class="candle-mock-card">
+          <div class="lab">Patterns found</div>
+          <div class="row"><span>Revenge trading</span><span class="v dn">×666</span></div>
+          <div class="row"><span>Oversized lots</span><span class="v dn">×111</span></div>
+          <div class="row"><span>Late exits</span><span class="v dn">×178</span></div>
+          <div class="row" style="border-top:1px solid var(--border-on-dark);padding-top:8px;margin-top:8px"><span>DQS</span><span class="v up">67/100</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats">
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat amber">
+        <div class="n">4,200+</div>
+        <div class="l">Sessions analysed</div>
+      </div>
+      <div class="stat crimson">
+        <div class="n">$340K+</div>
+        <div class="l">Mistake cost found</div>
+      </div>
+      <div class="stat mint">
+        <div class="n">21+</div>
+        <div class="l">Brokers supported</div>
+      </div>
+      <div class="stat white">
+        <div class="n">3.2×</div>
+        <div class="l">Avg patterns per trader</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BROKERS MARQUEE -->
+<div class="marquee">
+  <div class="marquee-track">
+    <span>Robinhood</span><span>eToro</span><span>Saxo Bank</span><span>XTB</span><span>IG Markets</span><span>Webull</span><span>Tastytrade</span><span>Alpaca</span><span>Oanda</span><span>Plus500</span><span>Capital.com</span><span>Binance</span><span>Coinbase</span><span>Interactive Brokers</span><span>Charles Schwab</span><span>Fidelity</span><span>E*TRADE</span><span>Zerodha</span><span>Upstox</span><span>Angel One</span><span>Groww</span><span>MetaTrader 4/5</span>
+    <!-- duplicate for seamless loop -->
+    <span>Robinhood</span><span>eToro</span><span>Saxo Bank</span><span>XTB</span><span>IG Markets</span><span>Webull</span><span>Tastytrade</span><span>Alpaca</span><span>Oanda</span><span>Plus500</span><span>Capital.com</span><span>Binance</span><span>Coinbase</span><span>Interactive Brokers</span><span>Charles Schwab</span><span>Fidelity</span><span>E*TRADE</span><span>Zerodha</span><span>Upstox</span><span>Angel One</span><span>Groww</span><span>MetaTrader 4/5</span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="container">
+    <div class="head">
+      <span class="pill" style="color:var(--text2);border-color:var(--border)"><span class="dot" style="background:var(--orange);box-shadow:0 0 0 4px rgba(255,122,0,.15)"></span>HOW IT WORKS</span>
+      <h2>Upload once. Know everything.</h2>
+      <p class="sub">Works with statements from any global broker — stocks, options, futures, forex, or crypto.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <h3>Drop your statement</h3>
+        <p>PDF, CSV, or Excel from any broker — Interactive Brokers, Robinhood, Binance, Zerodha, MetaTrader, anything. Auto-detected. Takes under 10 seconds.</p>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <h3>We find the psychology</h3>
+        <p>Revenge entries after stops. Averaging into losers. Oversized positions on news days. Every behavioural pattern is tagged, counted, and costed.</p>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <h3>You get the plan</h3>
+        <p>Your Decision Quality Score out of 100. Your top 3 leaks ranked by money lost. A specific fix for each one — based on your actual trades, not generic advice.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCT INTERACTIVE -->
+<section class="product">
+  <div class="container">
+    <div class="head">
+      <span class="pill"><span class="dot"></span>THE PRODUCT</span>
+      <h2>Everything you get<br/>after your first upload.</h2>
+      <p class="sub">Click any tab — the cursor will show you around if you wait.</p>
+      <div class="demo-nudge"><span class="dot"></span>Interactive — try the tabs</div>
+    </div>
+
+    <div class="demo" id="demo">
+      <div class="titlebar">
+        <div class="lights"><span class="light r"></span><span class="light y"></span><span class="light g"></span></div>
+        <div class="label">Now exploring · <span id="curTab">Dashboard</span></div>
+      </div>
+      <div class="tabs" id="tabs">
+        <div class="brand">TradeSaath</div>
+        <ol>
+          <li class="active" data-tab="dashboard">Dashboard</li>
+          <li data-tab="journal">Journal</li>
+          <li data-tab="journey">Journey</li>
+          <li data-tab="saathi">Saathi</li>
+        </ol>
+        <div class="avatar">SA</div>
+        <div class="cursor" id="cursor">👆</div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="panel" id="panel-dashboard">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end">
+          <div>
+            <div style="font-family:var(--font-serif);font-size:30px">Your dashboard</div>
+            <div style="color:var(--text2);margin-top:6px;font-size:14px">Score, top issue, and pre-session focus — at a glance.</div>
+          </div>
+          <a class="btn btn-dark" style="padding:10px 16px">+ New analysis</a>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="lab">This month P&amp;L</div><div class="val" style="color:var(--mint)">+$148</div><div class="delta">Improving vs last month</div></div>
+          <div class="kpi"><div class="lab">Win rate</div><div class="val">52.8%</div><div class="delta">+2.6% vs last month</div></div>
+          <div class="kpi"><div class="lab">Best day P&amp;L</div><div class="val" style="color:var(--mint)">+$1,720</div><div class="delta">on 21 Feb · 7 trades</div></div>
+          <div class="kpi"><div class="lab">Discipline</div><div class="val">67</div><div class="delta">Above avg profitable</div></div>
+        </div>
+        <div class="equity">
+          <h4>Equity curve · last 24 sessions</h4>
+          <div class="bars" id="eqBars"></div>
+        </div>
+      </div>
+
+      <!-- JOURNAL -->
+      <div class="panel hidden" id="panel-journal">
+        <div style="font-family:var(--font-serif);font-size:30px">Trade journal</div>
+        <div style="color:var(--text2);margin-top:6px;font-size:14px">Every fill, paired automatically. Tagged by behaviour.</div>
+        <div style="margin-top:24px">
+          <div class="journal-row" style="background:#fff;border:none;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.12em">
+            <div>Time</div><div>Symbol</div><div>Side</div><div>P&amp;L</div><div>Tag</div>
+          </div>
+          <div class="journal-row"><div class="sym">09:18</div><div class="sym">AAPL</div><div>BUY</div><div class="pnl up">+$42.10</div><div class="tag">Win</div></div>
+          <div class="journal-row"><div class="sym">10:04</div><div class="sym">BTCUSDT</div><div>SHORT</div><div class="pnl dn">−$118.50</div><div class="tag warn">Revenge</div></div>
+          <div class="journal-row"><div class="sym">11:27</div><div class="sym">EURUSD</div><div>BUY</div><div class="pnl up">+$28.30</div><div class="tag">Disciplined</div></div>
+          <div class="journal-row"><div class="sym">13:45</div><div class="sym">TSLA</div><div>BUY</div><div class="pnl dn">−$96.00</div><div class="tag warn">FOMO</div></div>
+          <div class="journal-row"><div class="sym">14:52</div><div class="sym">ES</div><div>SHORT</div><div class="pnl up">+$210.00</div><div class="tag">Plan-followed</div></div>
+        </div>
+      </div>
+
+      <!-- JOURNEY -->
+      <div class="panel hidden" id="panel-journey">
+        <div style="font-family:var(--font-serif);font-size:30px">Your journey</div>
+        <div style="color:var(--text2);margin-top:6px;font-size:14px">Pattern timeline. Where you've been. What's improving.</div>
+        <div class="timeline" style="margin-top:24px">
+          <div class="tl-row">
+            <div class="t">WEEK 01 · STOCKS · NEW YORK</div>
+            <div class="h">The number nobody wants to see.</div>
+            <div class="b">"I thought I was revenge trading once in a while. The data said 106 times — in a single month. That number changed everything."</div>
+          </div>
+          <div class="tl-row">
+            <div class="t">WEEK 03 · CRYPTO · SINGAPORE</div>
+            <div class="h">Profitable, but not for the right reasons.</div>
+            <div class="b">"My win rate looked fine. Then I saw 31% of my profitable trades were lucky exits — I had held past my target by accident."</div>
+          </div>
+          <div class="tl-row">
+            <div class="t">WEEK 06 · FOREX · LONDON</div>
+            <div class="h">The pattern had a name. And a price tag.</div>
+            <div class="b">"The DQS for risk management was 38. The cost in real money was $1,840 a month. Both numbers dropped together once I sized down."</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SAATHI -->
+      <div class="panel hidden" id="panel-saathi">
+        <div style="font-family:var(--font-serif);font-size:30px">Saathi — your AI coach</div>
+        <div style="color:var(--text2);margin-top:6px;font-size:14px">Asks the question your data is already screaming.</div>
+        <div class="saathi" style="margin-top:22px">
+          <div class="col">
+            <div class="bubble user">Why am I underperforming this month?</div>
+            <div class="bubble ai">Your win rate is fine (54%). The leak is sizing — your losses on TSLA &amp; BTC are 2.3× your average loss. Look at trades 14, 22, 31 from this month — same setup, you doubled lot size after a winner. Cost: $642.</div>
+            <div class="bubble user">What should I change tomorrow?</div>
+            <div class="bubble ai">One rule: max 1 contract on TSLA, max 0.05 BTC, regardless of how the previous trade went. We'll re-check after 10 sessions.</div>
+          </div>
+          <div class="col">
+            <div class="bubble ai">Pre-market check — yesterday you broke the 3-trade max twice. Want to set a hard stop at 3 today?</div>
+            <div class="bubble user">Yes. Lock me out after 3.</div>
+            <div class="bubble ai">Done. Saathi will warn you at trade 2 and block at trade 3. Good luck. Stay with the plan.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing">
+  <div class="container">
+    <div class="head">
+      <span class="pill" style="color:var(--text2);border-color:var(--border)"><span class="dot" style="background:var(--orange);box-shadow:0 0 0 4px rgba(255,122,0,.15)"></span>SIMPLE PRICING</span>
+      <h2>Start free. Pay when you grow.</h2>
+      <p class="sub">No card for the first analysis. Cancel anytime.</p>
+      <div class="currency-toggle" id="currency">
+        <button data-c="USD" class="on">USD</button>
+        <button data-c="EUR">EUR</button>
+        <button data-c="GBP">GBP</button>
+        <button data-c="INR">INR</button>
+      </div>
+    </div>
+
+    <div class="price-grid">
+      <div class="price-card">
+        <span class="badge free">Free</span>
+        <div class="amt"><span class="amt-num" data-usd="0" data-eur="0" data-gbp="0" data-inr="0">$0</span></div>
+        <div class="billed">Free forever · no card required</div>
+        <hr/>
+        <ul>
+          <li>One full analysis, fully unlocked</li>
+          <li>Universal broker file parser</li>
+          <li>Local KPIs · P&amp;L · win rate</li>
+          <li>Vicious-cycle detection</li>
+          <li>3 deep trade insights</li>
+        </ul>
+        <a class="cta">Start free →</a>
+      </div>
+
+      <div class="price-card">
+        <span class="badge single">Starter</span>
+        <div class="amt"><span class="amt-num" data-usd="1.20" data-eur="1.10" data-gbp="0.95" data-inr="99">$1.20</span><sub>once</sub></div>
+        <div class="billed">One-time · unlocks past sessions + 50 future analyses</div>
+        <hr/>
+        <ul>
+          <li>Everything in Free</li>
+          <li>50 deep AI analyses</li>
+          <li>Past session backfill</li>
+          <li>DQS sub-scores breakdown</li>
+          <li>Email support</li>
+        </ul>
+        <a class="cta">Get Starter →</a>
+      </div>
+
+      <div class="price-card featured">
+        <span class="badge pro">Pro</span>
+        <div class="amt"><span class="amt-num" data-usd="9.99" data-eur="8.99" data-gbp="7.99" data-inr="799">$9.99</span><sub>/month</sub></div>
+        <div class="billed">or <span data-usd-yr="74" data-eur-yr="68" data-gbp-yr="59" data-inr-yr="5,988">$74</span>/year — save 38%</div>
+        <hr/>
+        <ul>
+          <li>Everything in Starter</li>
+          <li>Unlimited deep AI analyses</li>
+          <li>Saathi AI coach (chat &amp; sessions)</li>
+          <li>Journey timeline + narrative</li>
+          <li>Behavioural insights cards</li>
+          <li>Priority support</li>
+        </ul>
+        <a class="cta">Go Pro →</a>
+      </div>
+    </div>
+    <div class="pricing-foot">All plans billed in INR via Razorpay · prices shown in your currency for reference</div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="container">
+    <h2>Your next trade<br/>is already decided.</h2>
+    <p>Find out what's deciding it. Drop your file. Take 60 seconds.</p>
+    <div class="ctas">
+      <a class="btn btn-primary">Drop your file →</a>
+      <a class="btn btn-ghost">See sample report</a>
+    </div>
+    <div class="disclaimer">TradeSaath is not a SEBI-registered investment advisor, research analyst, or financial advisor. All analysis is for educational purposes only — based on your past trades, not market predictions. Past performance does not guarantee future returns.</div>
+  </div>
+</section>
+
+<script>
+/* ───── Hero candlesticks ───────────────────────────────────────── */
+(function(){
+  const svg = document.getElementById('candles');
+  const W = 600, H = 360;
+  const N = 22, gap = 4, w = (W - gap*(N+1))/N;
+  let frag = '';
+  // soft baseline
+  frag += `<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />`;
+  // candles
+  let price = H/2;
+  for (let i=0;i<N;i++){
+    const open = price;
+    const change = (Math.random()-0.45)*60;
+    const close = Math.max(40, Math.min(H-40, open + change));
+    const hi = Math.min(open, close) - Math.random()*20 - 4;
+    const lo = Math.max(open, close) + Math.random()*20 + 4;
+    const x = gap + i*(w+gap);
+    const cx = x + w/2;
+    const up = close < open;        // SVG y inverted: smaller y = higher price
+    const color = up ? '#36d399' : '#f05d6c';
+    frag += `<line x1="${cx}" y1="${hi}" x2="${cx}" y2="${lo}" stroke="${color}" stroke-opacity="0.55" stroke-width="1.2" />`;
+    const top = Math.min(open, close), bot = Math.max(open, close);
+    frag += `<rect x="${x}" y="${top}" width="${w}" height="${Math.max(2,bot-top)}" fill="${color}" fill-opacity="${up?0.85:0.7}" rx="1.5">`;
+    frag += `<animate attributeName="opacity" values="0;1" dur="0.4s" begin="${i*0.07}s" fill="freeze" />`;
+    frag += `</rect>`;
+    price = close;
+  }
+  svg.innerHTML = frag;
+})();
+
+/* ───── Hero sparks ─────────────────────────────────────────────── */
+(function(){
+  const wrap = document.getElementById('sparks');
+  const colors = ['#36d399','#f59e0b','#f05d6c','#4c6ef5','#ff7a00'];
+  for (let i=0;i<28;i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    s.style.left = Math.random()*100+'%';
+    s.style.top = Math.random()*100+'%';
+    s.style.background = colors[i%colors.length];
+    s.style.opacity = (0.3 + Math.random()*0.4);
+    s.style.transform = `scale(${0.6 + Math.random()*1.4})`;
+    wrap.appendChild(s);
+  }
+})();
+
+/* ───── Equity bars ─────────────────────────────────────────────── */
+(function(){
+  const eq = document.getElementById('eqBars');
+  if (!eq) return;
+  const data = [12,18,9,-6,22,14,-3,28,16,21,-8,30,18,24,12,-5,26,22,30,18,14,28,21,32];
+  const max = Math.max(...data.map(Math.abs));
+  data.forEach(v => {
+    const b = document.createElement('div');
+    b.className = 'bar ' + (v>=0 ? 'up' : 'dn');
+    b.style.height = (10 + Math.abs(v)/max * 100) + '%';
+    eq.appendChild(b);
+  });
+})();
+
+/* ───── Demo tabs + finger cursor ───────────────────────────────── */
+(function(){
+  const tabs = document.querySelectorAll('#tabs ol li');
+  const panels = ['dashboard','journal','journey','saathi'];
+  const cursor = document.getElementById('cursor');
+  const cur = document.getElementById('curTab');
+  let userInteracted = false, tour = 0, tourTimer;
+
+  function showTab(name){
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    panels.forEach(p => document.getElementById('panel-'+p).classList.toggle('hidden', p !== name));
+    cur.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  function moveCursorToTab(idx){
+    const tab = tabs[idx];
+    const r = tab.getBoundingClientRect();
+    const wrap = document.getElementById('demo').getBoundingClientRect();
+    const x = r.left - wrap.left + r.width/2 - 8;
+    const y = r.top - wrap.top + r.height/2 + 4;
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+  }
+
+  function tap(idx){
+    moveCursorToTab(idx);
+    setTimeout(() => {
+      cursor.classList.add('tap');
+      setTimeout(() => {
+        showTab(panels[idx]);
+        cursor.classList.remove('tap');
+      }, 300);
+    }, 1100);
+  }
+
+  function startTour(){
+    if (userInteracted) return;
+    cursor.style.opacity = '1';
+    tap(tour % panels.length);
+    tour++;
+    tourTimer = setTimeout(startTour, 3200);
+  }
+
+  tabs.forEach((t,i) => t.addEventListener('click', () => {
+    userInteracted = true;
+    cursor.style.opacity = '0';
+    clearTimeout(tourTimer);
+    showTab(t.dataset.tab);
+  }));
+
+  // Start the tour after the demo is on screen
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !userInteracted){ startTour(); io.disconnect(); }
+    });
+  }, {threshold: 0.4});
+  io.observe(document.getElementById('demo'));
+})();
+
+/* ───── Currency toggle ─────────────────────────────────────────── */
+(function(){
+  const buttons = document.querySelectorAll('#currency button');
+  const fmt = { USD:v=>'$'+v, EUR:v=>'€'+v, GBP:v=>'£'+v, INR:v=>'₹'+v };
+  function setCur(c){
+    buttons.forEach(b => b.classList.toggle('on', b.dataset.c === c));
+    document.querySelectorAll('.amt-num').forEach(el => {
+      const v = el.dataset[c.toLowerCase()];
+      el.textContent = (v === '0' || v === 0) ? fmt[c]('0') : fmt[c](v);
+    });
+    document.querySelectorAll('[data-usd-yr]').forEach(el => {
+      const v = el.dataset[c.toLowerCase()+'Yr'];
+      if (v) el.textContent = fmt[c](v);
+    });
+  }
+  buttons.forEach(b => b.addEventListener('click', () => setCur(b.dataset.c)));
+})();
+</script>
+</body>
+</html>
