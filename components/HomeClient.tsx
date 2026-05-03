@@ -75,9 +75,9 @@ function CheckRow({ children, amber = false }: { children: React.ReactNode; ambe
 }
 
 // ─── Section wrapper ─────────────────────────────────────────────────────────
-function Section({ children, bg, style }: { children: React.ReactNode; bg?: string; style?: React.CSSProperties }) {
+function Section({ children, bg, style, id }: { children: React.ReactNode; bg?: string; style?: React.CSSProperties; id?: string }) {
   return (
-    <section style={{ background: bg ?? '#F8FAFC', ...style }}>
+    <section id={id} style={{ background: bg ?? '#F8FAFC', ...style }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '96px 24px' }}>
         {children}
       </div>
@@ -590,7 +590,7 @@ function ProductDemo() {
   }
 
   return (
-    <section style={{ background: '#080C14', padding: '96px 24px', overflow: 'hidden' }}>
+    <section id="features" style={{ background: '#080C14', padding: '96px 24px', overflow: 'hidden' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Header */}
@@ -927,7 +927,7 @@ function HowItWorks() {
     },
   ]
   return (
-    <Section bg="#F8FAFC">
+    <Section bg="#F8FAFC" id="how">
       <motion.div variants={container} initial="hidden" whileInView="visible" viewport={VP} style={{ textAlign: 'center', marginBottom: 56 }}>
         <motion.div variants={item}><SectionLabel>How it works</SectionLabel></motion.div>
         <motion.div variants={item}><SectionTitle>Upload once. Know everything.</SectionTitle></motion.div>
