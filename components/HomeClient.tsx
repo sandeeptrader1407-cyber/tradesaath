@@ -589,6 +589,20 @@ function ProductDemo() {
     return { r, circ, fill, color }
   }
 
+  const TAB_HINTS: Record<typeof activeTab, string> = {
+    dashboard: 'Now exploring · Dashboard',
+    journal:   'Now exploring · Journal',
+    journey:   'Now exploring · Journey',
+    saathi:    'Now exploring · Saathi',
+  }
+
+  const TAB_CAPTIONS: Record<typeof activeTab, { title: string; sub: string }> = {
+    dashboard: { title: 'Your dashboard', sub: 'Score, top issue, and pre-session focus — at a glance.' },
+    journal:   { title: 'Your journal',   sub: 'Every session captured. Patterns, costs, and DQS, written from your data.' },
+    journey:   { title: 'Your journey',   sub: 'Watch discipline build week over week. Eight weeks shown here.' },
+    saathi:    { title: 'Your Saathi',    sub: 'AI coaching that knows your patterns by their rupee cost.' },
+  }
+
   return (
     <section id="features" style={{ background: '#080C14', padding: '96px 24px', overflow: 'hidden' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -606,6 +620,35 @@ function ProductDemo() {
           </p>
         </div>
 
+        {/* Interactive badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 14px',
+            background: 'rgba(245,158,11,0.10)',
+            border: '0.5px solid rgba(245,158,11,0.35)',
+            borderRadius: 20,
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            fontWeight: 500,
+            color: '#FCD34D',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}>
+            <span style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#F59E0B',
+              boxShadow: '0 0 0 0 rgba(245,158,11,0.7)',
+              animation: 'demo-pulse 1.8s cubic-bezier(0.4,0,0.6,1) infinite',
+            }} />
+            Interactive — click to explore
+          </div>
+        </div>
+
         {/* Browser frame */}
         <div style={{ borderRadius: 14, overflow: 'hidden', border: '0.5px solid rgba(255,255,255,0.1)', boxShadow: '0 40px 120px rgba(0,0,0,0.5)' }}>
 
@@ -616,8 +659,8 @@ function ProductDemo() {
                 <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />
               ))}
             </div>
-            <div style={{ flex: 1, maxWidth: 300, margin: '0 auto', background: '#1E2936', borderRadius: 5, padding: '4px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(241,245,249,0.3)' }}>
-              tradesaath.com/{activeTab}
+            <div style={{ flex: 1, maxWidth: 360, margin: '0 auto', background: '#1E2936', borderRadius: 5, padding: '4px 14px', fontFamily: 'var(--font-sans)', fontSize: 11, color: 'rgba(245,158,11,0.7)', textAlign: 'center', letterSpacing: '0.04em' }}>
+              {TAB_HINTS[activeTab]}
             </div>
           </div>
 
@@ -634,7 +677,8 @@ function ProductDemo() {
                     padding: '14px 16px', fontFamily: 'var(--font-sans)', fontSize: 13,
                     fontWeight: activeTab === tab.id ? 500 : 400,
                     color: activeTab === tab.id ? '#0F172A' : '#94A3B8',
-                    borderBottom: activeTab === tab.id ? '2px solid #F59E0B' : '2px solid transparent',
+                    borderBottom: activeTab === tab.id ? '3px solid #F59E0B' : '2px solid transparent',
+                    boxShadow: activeTab === tab.id ? '0 4px 12px -6px rgba(245,158,11,0.6)' : 'none',
                     transition: 'all 0.15s',
                   }}
                 >
@@ -887,22 +931,40 @@ function ProductDemo() {
           </div>
         </div>
 
-        {/* Caption pills */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 28, flexWrap: 'wrap' }}>
-          {[
-            { n: 'Discipline Score', d: 'Your psychology, scored 0-100' },
-            { n: 'Pattern Cost',     d: 'Exact rupee cost per bad habit'  },
-            { n: 'Coaching Plan',    d: 'Specific fix from your own data' },
-            { n: 'Trading Story',    d: 'Your journey written from trades' },
-          ].map(({ n, d }) => (
-            <div key={n} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, color: '#F1F5F9', marginBottom: 2 }}>{n}</div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(241,245,249,0.38)' }}>{d}</div>
-            </div>
-          ))}
+        {/* Dynamic caption */}
+        <div style={{ textAlign: 'center', marginTop: 32, minHeight: 56 }}>
+          <div style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 20,
+            fontWeight: 400,
+            color: '#F1F5F9',
+            marginBottom: 6,
+            letterSpacing: '-0.01em',
+            transition: 'opacity 0.25s',
+          }}>
+            {TAB_CAPTIONS[activeTab].title}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 14,
+            color: 'rgba(241,245,249,0.5)',
+            maxWidth: 480,
+            margin: '0 auto',
+            lineHeight: 1.6,
+          }}>
+            {TAB_CAPTIONS[activeTab].sub}
+          </div>
         </div>
 
       </div>
+
+      <style>{`
+        @keyframes demo-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+          70%  { box-shadow: 0 0 0 10px rgba(245,158,11,0); }
+          100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+        }
+      `}</style>
     </section>
   )
 }
