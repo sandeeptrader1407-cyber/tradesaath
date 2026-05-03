@@ -18,6 +18,13 @@ function initials(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+const PUBLIC_NAV_LINKS = [
+  { label: 'How it works', href: '/#how' },
+  { label: 'Features',     href: '/#features' },
+  { label: 'Pricing',      href: '/pricing' },
+  { label: 'FAQ',          href: '/faq' },
+] as const
+
 /* ─── Auth buttons ────────────────────────────────────────────────── */
 
 function ClerkAuthButtons() {
@@ -173,19 +180,18 @@ function NavLinks() {
     return (
       <>
         <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>Dashboard</Link>
-        <Link href={isPaid ? '/journal' : '#'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-50 cursor-not-allowed' : ''}`}>Journal</Link>
-        <Link href={isPaid ? '/journey' : '#'} className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-50 cursor-not-allowed' : ''}`}>Journey</Link>
-        <Link href={isPro ? '/coach' : '#'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-50 cursor-not-allowed' : ''}`}>Saathi</Link>
+        <Link href={isPaid ? '/journal' : '/pricing'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-60' : ''}`}>Journal</Link>
+        <Link href={isPaid ? '/journey' : '/pricing'} className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-60' : ''}`}>Journey</Link>
+        <Link href={isPro ? '/coach' : '/pricing'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-60' : ''}`}>Saathi</Link>
       </>
     )
   }
 
   return (
     <>
-      <a href="#how"      className="nav-landing-link">How it works</a>
-      <a href="#features" className="nav-landing-link">Features</a>
-      <a href="#pricing"  className="nav-landing-link">Pricing</a>
-      <a href="#faq"      className="nav-landing-link">FAQ</a>
+      {PUBLIC_NAV_LINKS.map(({ label, href }) => (
+        <Link key={label} href={href} className="nav-landing-link">{label}</Link>
+      ))}
     </>
   )
 }
@@ -202,9 +208,9 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
     return (
       <>
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">Dashboard</Link>
-        <Link href={isPaid ? '/journal' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journal</Link>
-        <Link href={isPaid ? '/journey' : '#'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-50' : ''}`}>Journey</Link>
-        <Link href={isPro ? '/coach' : '#'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-50' : ''}`}>Saathi</Link>
+        <Link href={isPaid ? '/journal' : '/pricing'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-60' : ''}`}>Journal</Link>
+        <Link href={isPaid ? '/journey' : '/pricing'} onClick={closeMenu} className={`nav-app-link${!isPaid ? ' opacity-60' : ''}`}>Journey</Link>
+        <Link href={isPro ? '/coach' : '/pricing'} onClick={closeMenu} className={`nav-app-link${!isPro ? ' opacity-60' : ''}`}>Saathi</Link>
         <Link href="/settings" onClick={closeMenu} className="nav-app-link">Settings</Link>
         <button
           onClick={() => { closeMenu(); signOut().then(() => router.push('/')) }}
@@ -224,10 +230,9 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 
   return (
     <>
-      <a href="#how"      onClick={closeMenu} className="nav-landing-link">How it works</a>
-      <a href="#features" onClick={closeMenu} className="nav-landing-link">Features</a>
-      <a href="#pricing"  onClick={closeMenu} className="nav-landing-link">Pricing</a>
-      <a href="#faq"      onClick={closeMenu} className="nav-landing-link">FAQ</a>
+      {PUBLIC_NAV_LINKS.map(({ label, href }) => (
+        <Link key={label} href={href} onClick={closeMenu} className="nav-landing-link">{label}</Link>
+      ))}
     </>
   )
 }
@@ -248,10 +253,9 @@ export default function Navbar() {
         <div className="nav-links">
           <ClerkErrorBoundary fallback={
             <>
-              <a href="#how"      className="nav-landing-link">How it works</a>
-              <a href="#features" className="nav-landing-link">Features</a>
-              <a href="#pricing"  className="nav-landing-link">Pricing</a>
-              <a href="#faq"      className="nav-landing-link">FAQ</a>
+              {PUBLIC_NAV_LINKS.map(({ label, href }) => (
+                <Link key={label} href={href} className="nav-landing-link">{label}</Link>
+              ))}
             </>
           }>
             <NavLinks />
@@ -281,10 +285,9 @@ export default function Navbar() {
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
         <ClerkErrorBoundary fallback={
           <>
-            <a href="#how"      onClick={() => setMenuOpen(false)} className="nav-landing-link">How it works</a>
-            <a href="#features" onClick={() => setMenuOpen(false)} className="nav-landing-link">Features</a>
-            <a href="#pricing"  onClick={() => setMenuOpen(false)} className="nav-landing-link">Pricing</a>
-            <a href="#faq"      onClick={() => setMenuOpen(false)} className="nav-landing-link">FAQ</a>
+            {PUBLIC_NAV_LINKS.map(({ label, href }) => (
+              <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="nav-landing-link">{label}</Link>
+            ))}
           </>
         }>
           <MobileNavLinks closeMenu={() => setMenuOpen(false)} />
