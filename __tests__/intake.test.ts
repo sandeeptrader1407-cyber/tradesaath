@@ -8,11 +8,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   extractRawRows, matchColumns, normalizeDate, normalizeTime,
-  cleanNumeric, computeConfidence, detectHeaderRow,
+  cleanNumeric, computeConfidence,
 } from '@/lib/intake/rawExtractor';
 import { pairRawTrades } from '@/lib/intake/tradePairer';
 import { validateTrades } from '@/lib/intake/tradeValidator';
-import { calculateIntakeKPIs, calculateIntakeTimeAnalysis } from '@/lib/intake/kpiCalculator';
+import { calculateIntakeKPIs } from '@/lib/intake/kpiCalculator';
 import { RawTradeRow } from '@/lib/intake/types';
 
 const FIXTURES = path.join(__dirname, 'fixtures');
@@ -445,7 +445,7 @@ describe('Intake: Universal Parser', () => {
     const headers = lines[0].split(',').map(h => h.trim());
     const dataRows = lines.slice(1).map(l => l.split(',').map(c => c.trim()));
 
-    const { rows, columnMapping, warnings } = extractRawRows(headers, dataRows);
+    const { rows, columnMapping } = extractRawRows(headers, dataRows);
 
     expect(rows.length).toBe(6);
     // Should detect Scrip Name as symbol
