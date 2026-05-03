@@ -82,7 +82,7 @@ export default function FAQPage() {
         </motion.div>
 
         {/* Mobile category pills */}
-        <div className="faq-mobile-pills" style={{ display: 'none', flexWrap: 'wrap', gap: 8, marginBottom: 32, justifyContent: 'center' }}>
+        <div className="faq-mobile-pills" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 32, justifyContent: 'center' }}>
           {CATEGORIES.map(c => (
             <button
               key={c.id}
@@ -109,7 +109,7 @@ export default function FAQPage() {
         <div className="faq-layout" style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 64, alignItems: 'flex-start' }}>
 
           {/* Sticky sidebar */}
-          <aside className="faq-sidebar" style={{ position: 'sticky', top: 96 }}>
+          <aside className="faq-sidebar" style={{ position: 'sticky', top: 120 }}>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 16, marginTop: 0 }}>
               Categories
             </p>
@@ -248,6 +248,7 @@ export default function FAQPage() {
       </div>
 
       <style>{`
+        .faq-mobile-pills { display: none; }
         @media (max-width: 768px) {
           .faq-layout { grid-template-columns: 1fr !important; gap: 0 !important; }
           .faq-sidebar { display: none !important; }
