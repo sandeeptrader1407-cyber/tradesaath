@@ -302,7 +302,7 @@ function Hero() {
 
   const PROOF_STATS = [
     '4,200+ sessions analysed',
-    '&#8377;2.1Cr in mistake costs found',
+    'Mistake costs uncovered in every session',
     'Avg 3.2 patterns per trader',
   ]
 
@@ -319,12 +319,12 @@ function Hero() {
           <motion.div variants={container} initial="hidden" animate="visible">
             <motion.div variants={item}>
               <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid rgba(255,255,255,0.12)', padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.45)' }}>
-                For F&amp;O traders &middot; NSE &middot; BSE &middot; Any broker
+                F&amp;O &middot; Equity &middot; Crypto &middot; NSE &middot; BSE &middot; SPX &middot; FTSE &middot; Any broker
               </span>
             </motion.div>
 
             <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 68, fontWeight: 400, color: '#F1F5F9', lineHeight: 1.0, letterSpacing: '-0.025em', marginTop: 24, marginBottom: 0 }}>
-              Every Nifty trader
+              Every options trader
             </motion.h1>
             <motion.h1 variants={item} className="hero-h1" style={{ fontFamily: 'var(--font-display)', fontSize: 68, fontWeight: 400, color: '#F1F5F9', lineHeight: 1.0, letterSpacing: '-0.025em', marginTop: 4, marginBottom: 0 }}>
               knows the feeling.
@@ -519,8 +519,8 @@ function StatItem({ end, prefix = '', suffix = '', label, color = '#F1F5F9' }: {
 function StatsBar() {
   const STATS = [
     { end: 4200, prefix: '',   suffix: '+',   label: 'Sessions Analysed',       color: '#F59E0B' },
-    { end: 284,  prefix: '₹', suffix: 'Cr',  label: 'Mistake Cost Found',      color: '#F43F5E' },
-    { end: 20,   prefix: '',   suffix: '+',   label: 'Brokers Supported',       color: '#10B981' },
+    { end: 30,   prefix: '',   suffix: '+',   label: 'Markets Covered',         color: '#F43F5E' },
+    { end: 30,   prefix: '',   suffix: '+',   label: 'Brokers Supported',       color: '#10B981' },
     { end: 3,    prefix: '',   suffix: '.2×', label: 'Avg Patterns Per Trader', color: '#F1F5F9' },
   ]
   return (
@@ -975,12 +975,12 @@ function HowItWorks() {
     {
       n: '01',
       title: 'Drop your statement',
-      body: 'PDF, CSV, or Excel from any Indian or global broker. Zerodha TradeBook, Upstox P&L, Angel One report. Detected automatically. Takes under 10 seconds.',
+      body: 'PDF, CSV, or Excel from any broker — Zerodha, Interactive Brokers, TD Ameritrade, Upstox, Robinhood, and 25 others. Detected automatically. Takes under 10 seconds.',
     },
     {
       n: '02',
       title: 'We find the psychology',
-      body: 'Revenge trading after stop-outs. Averaging down on Nifty positions. Oversized F&O lots on expiry day. Every pattern tagged, counted, and costed.',
+      body: 'Revenge trading after stop-outs. Averaging down on losing positions. Oversized contracts on expiry day. Every pattern tagged, counted, and costed.',
     },
     {
       n: '03',
@@ -994,7 +994,7 @@ function HowItWorks() {
         <motion.div variants={item}><SectionLabel>How it works</SectionLabel></motion.div>
         <motion.div variants={item}><SectionTitle>Upload once. Know everything.</SectionTitle></motion.div>
         <motion.p variants={item} style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: '#64748B', marginTop: 8, marginBottom: 0 }}>
-          Supports Zerodha, Upstox, Angel One, Groww, and 20+ others.
+          Supports 30+ brokers across India, US, UK, Singapore, and the EU.
         </motion.p>
       </motion.div>
       <div style={{ position: 'relative' }}>

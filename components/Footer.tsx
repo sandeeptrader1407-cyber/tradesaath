@@ -50,7 +50,7 @@ export default function Footer() {
               maxWidth: 220,
               margin: 0,
             }}>
-              AI-powered trading psychology analysis for Indian F&O traders.
+              AI-powered trading psychology analysis for options and equity traders worldwide.
             </p>
             <p style={{
               fontFamily: 'var(--font-sans)',
@@ -149,7 +149,7 @@ export default function Footer() {
             color: 'rgba(241,245,249,0.18)',
             letterSpacing: '0.04em',
           }}>
-            NSE &middot; BSE &middot; 20+ brokers &middot; Any format
+            30+ brokers &middot; 5 markets &middot; Any format
           </span>
         </div>
 
