@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { auth } from '@clerk/nextjs/server'
+
+const InputSchema = z.object({
+  razorpay_order_id:   z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature:  z.string().min(1),
+})
 
 /**
  * Payment Verification Route
@@ -28,11 +35,11 @@ import { auth } from '@clerk/nextjs/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json()
-
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    const parsed = InputSchema.safeParse(await req.json())
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Missing payment details' }, { status: 400 })
     }
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = parsed.data
 
     // Verify HMAC SHA256 signature
     const body = razorpay_order_id + '|' + razorpay_payment_id

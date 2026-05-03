@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
+import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { auth } from '@clerk/nextjs/server'
 import { PLANS, type PlanId } from '@/lib/config/pricing'
 import { rateLimit, rateLimitResponse } from '@/lib/rateLimit'
+
+const InputSchema = z.object({
+  plan: z.enum(['single', 'pro_monthly', 'pro_yearly']),
+  couponCode: z.string().max(20).optional(),
+})
 
 const keyId = process.env.RAZORPAY_KEY_ID!
 const keySecret = process.env.RAZORPAY_KEY_SECRET!
@@ -25,14 +31,14 @@ export async function POST(req: NextRequest) {
     const rl = await rateLimit(`payment:${clerkId}`, 5, 60 * 60 * 1000)
     if (!rl.success) return rateLimitResponse(rl.resetIn)
 
-    const { plan } = await req.json()
-
-    // Determine amount based on plan (from shared config)
-    const planId = (plan || 'single') as string
-    if (!(planId in PLANS) || planId === 'free') {
+    const parsed = InputSchema.safeParse(await req.json())
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
-    const selectedPlan = PLANS[planId as Exclude<PlanId, 'free'>]
+    const { plan } = parsed.data
+
+    // Determine amount based on plan (from shared config)
+    const selectedPlan = PLANS[plan as Exclude<PlanId, 'free'>]
 
     console.log(`[Razorpay] Creating order: ${plan} — ₹${selectedPlan.price / 100}`)
 
