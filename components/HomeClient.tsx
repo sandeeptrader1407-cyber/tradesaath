@@ -656,7 +656,7 @@ function ProductDemo() {
                     <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#0F172A', marginBottom: 4 }}>Your Dashboard</h1>
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>76 sessions · 5,616 trades · Last session: 2 Apr</p>
                   </div>
-                  <div style={{ background: '#1A1F2E', color: '#F8F6F1', padding: '8px 16px', borderRadius: 7, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>New Analysis</div>
+                  <div style={{ background: '#1A1F2E', color: '#F8F6F1', padding: '8px 16px', borderRadius: 7, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500 }}>New Analysis</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
                   {/* Score card */}
@@ -677,7 +677,7 @@ function ProductDemo() {
                       <div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#10B981', marginBottom: 4 }}>Above profitable avg</div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#94A3B8' }}>Weakest: <span style={{ color: '#DC2626' }}>Entry Quality 18%</span></div>
-                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#F59E0B', marginTop: 4, cursor: 'pointer' }}>Fix in Saathi →</div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#F59E0B', marginTop: 4 }}>Fix in Saathi →</div>
                       </div>
                     </div>
                   </div>
@@ -698,10 +698,10 @@ function ProductDemo() {
                     <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#64748B', marginBottom: 10 }}>Set your focus for today:</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                       {['No revenge entries', 'Stop at 10:30 AM', 'Max 8 trades', 'Fixed 20 lots'].map((chip, i) => (
-                        <span key={chip} style={{ fontFamily: 'var(--font-sans)', fontSize: 11, padding: '4px 10px', border: `1px solid ${i === 0 ? '#F59E0B' : '#E2E8F0'}`, background: i === 0 ? '#FFFBEB' : '#FFFFFF', color: i === 0 ? '#B45309' : '#64748B', borderRadius: 20, cursor: 'pointer' }}>{chip}</span>
+                        <span key={chip} style={{ fontFamily: 'var(--font-sans)', fontSize: 11, padding: '4px 10px', border: `1px solid ${i === 0 ? '#F59E0B' : '#E2E8F0'}`, background: i === 0 ? '#FFFBEB' : '#FFFFFF', color: i === 0 ? '#B45309' : '#64748B', borderRadius: 20 }}>{chip}</span>
                       ))}
                     </div>
-                    <div style={{ width: '100%', padding: '8px 12px', background: '#1A1F2E', color: '#F8F6F1', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'center' }}>Begin session →</div>
+                    <div style={{ width: '100%', padding: '8px 12px', background: '#1A1F2E', color: '#F8F6F1', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, textAlign: 'center' }}>Begin session →</div>
                   </div>
                 </div>
                 {/* KPI row */}
@@ -763,7 +763,7 @@ function ProductDemo() {
                     const isLucky = s.pnl > 0 && s.dqs < 50
                     const isBest = i === 0
                     return (
-                      <div key={i} style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div key={i} style={{ background: '#FFFFFF', border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#94A3B8', minWidth: 40 }}>{s.date}</div>
                         <div style={{ flex: 1 }}>
                           <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#374151' }}>{s.trades} trades</span>
@@ -851,7 +851,7 @@ function ProductDemo() {
                     ))}
                     <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
                       <div style={{ flex: 1, background: '#F8FAFC', border: '0.5px solid #E2E8F0', borderRadius: 6, padding: '8px 12px', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8' }}>Ask Saathi anything...</div>
-                      <div style={{ background: '#F59E0B', color: '#080C14', padding: '8px 14px', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Send</div>
+                      <div style={{ background: '#F59E0B', color: '#080C14', padding: '8px 14px', borderRadius: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500 }}>Send</div>
                     </div>
                   </div>
                   {/* Patterns + plan */}
@@ -1118,7 +1118,7 @@ function TradersJourney() {
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(241,245,249,0.35)', marginBottom: 32 }}>
             Upload once. See everything.
           </p>
-          <a href="/sign-up" style={{ display: 'inline-block', background: '#F59E0B', color: '#080C14', padding: '12px 32px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, textDecoration: 'none', letterSpacing: '0.01em' }}>
+          <a href="/upload" style={{ display: 'inline-block', background: '#F59E0B', color: '#080C14', padding: '12px 32px', borderRadius: 8, fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, textDecoration: 'none', letterSpacing: '0.01em' }}>
             Start free — upload your trades
           </a>
         </motion.div>
