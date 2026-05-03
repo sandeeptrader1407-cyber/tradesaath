@@ -26,6 +26,21 @@ const isPublicRoute = createRouteMatcher([
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 
+const EU_COUNTRIES: ReadonlySet<string> = new Set([
+  'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PT', 'IE', 'FI', 'GR', 'LU',
+])
+
+type Currency = 'USD' | 'EUR' | 'GBP' | 'INR'
+
+function mapCountryToCurrency(country: string | undefined): Currency {
+  if (!country) return 'USD'
+  const c = country.toUpperCase()
+  if (c === 'IN') return 'INR'
+  if (c === 'GB') return 'GBP'
+  if (EU_COUNTRIES.has(c)) return 'EUR'
+  return 'USD'
+}
+
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth()
   const path = req.nextUrl.pathname
@@ -50,6 +65,22 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect({
       unauthenticatedUrl: new URL('/sign-in', req.url).toString(),
     })
+  }
+
+  // Set per-visitor currency cookie on landing & pricing if not already set.
+  // Reads Vercel Edge geo data; falls back to USD if geo is unavailable (local dev).
+  if (path === '/' || path === '/pricing' || path.startsWith('/pricing/')) {
+    const existing = req.cookies.get('tradesaath-currency')?.value
+    if (!existing) {
+      const currency = mapCountryToCurrency(req.geo?.country)
+      const response = NextResponse.next()
+      response.cookies.set('tradesaath-currency', currency, {
+        maxAge: 60 * 60 * 24, // 24h
+        path: '/',
+        sameSite: 'lax',
+      })
+      return response
+    }
   }
 })
 

@@ -1,5 +1,14 @@
 import type { Metadata } from 'next'
-import HomeClient from '@/components/HomeClient'
+import { CurrencyProvider } from '@/lib/contexts/CurrencyContext'
+import HeroSection from '@/components/landing/HeroSection'
+import StatsRow from '@/components/landing/StatsRow'
+import BrokerMarquee from '@/components/landing/BrokerMarquee'
+import HowItWorks from '@/components/landing/HowItWorks'
+import ProductDemo from '@/components/landing/ProductDemo'
+import PricingSection from '@/components/landing/PricingSection'
+import FAQ from '@/components/FAQ'
+import FinalCTA from '@/components/landing/FinalCTA'
+import { OrganizationSchema, WebPageSchema, HowToSchema } from '@/lib/schema'
 
 export const metadata: Metadata = {
   title: 'TradeSaath — AI Trading Psychology Analysis for Indian Traders',
@@ -28,6 +37,34 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://tradesaath.com' },
 }
 
-export default function HomePage() {
-  return <HomeClient />
+export default function Home() {
+  return (
+    <div id="page-home">
+      <OrganizationSchema />
+      <WebPageSchema
+        name="TradeSaath — AI Trading Psychology Analysis"
+        description="AI-powered trading psychology analysis for Indian retail traders. Detects revenge trading, FOMO, panic exits, overtrading."
+        url="https://tradesaath.com"
+      />
+      <HowToSchema
+        name="How to Analyse Your Trading Psychology with TradeSaath"
+        description="Upload your tradebook and get AI-powered psychology insights in 60 seconds."
+        steps={[
+          { name: 'Export your tradebook', text: 'Download your trade history as CSV, Excel, or PDF from your broker (Zerodha, Upstox, Angel One, etc.).' },
+          { name: 'Upload to TradeSaath', text: 'Drag and drop your file on the upload page. TradeSaath auto-detects your broker and maps columns.' },
+          { name: 'Get your Decision Quality Score', text: 'In 60 seconds, receive your DQS score, emotional pattern analysis, and personalised coaching from Saathi AI.' },
+        ]}
+      />
+      <CurrencyProvider>
+        <HeroSection />
+        <StatsRow />
+        <BrokerMarquee />
+        <HowItWorks />
+        <ProductDemo />
+        <PricingSection />
+        <FAQ />
+        <FinalCTA />
+      </CurrencyProvider>
+    </div>
+  )
 }
