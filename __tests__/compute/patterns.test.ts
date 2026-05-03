@@ -121,7 +121,7 @@ describe('signals — sizeIncrease', () => {
 
   it('4. returns zero when sessionAvgQty is zero', () => {
     const s = sizeIncrease(
-      { qty: 100 } as any,
+      { qty: 100 } as unknown as Parameters<typeof sizeIncrease>[0],
       0,
       1.8,
       0.25
@@ -469,7 +469,7 @@ describe('cost attribution', () => {
     const res = attributeCosts(fakePatterns, enriched)
     // grossLoss=10200, 85%=8670. rawCost ≈ |10000| - 5100 = 4900 * 1.0 = 4900.
     // 4900 < 8670 → wasCapped should be false. To force capping:
-    const fakePatterns2 = [
+    const _fakePatterns2 = [
       fakePatterns[0],
       {
         tradeIndex: 0,

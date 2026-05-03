@@ -24,7 +24,8 @@ function fmtPnl(v: number, currency: string): string {
 
 export function analysisCompleteHtml(data: AnalysisEmailData): string {
   const {
-    name = 'Trader',
+    // Destructured for shape-completeness; HTML body doesn't currently personalise greeting.
+    name: _name = 'Trader',
     sessionDate,
     tradeCount,
     netPnl,

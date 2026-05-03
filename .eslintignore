@@ -1,0 +1,14 @@
+# Build output
+.next/
+out/
+build/
+
+# Dependencies
+node_modules/
+
+# Skill-marketplace scaffolding & sample/template files (not part of TradeSaath product code)
+claude-skills/
+skills/
+
+# Standalone test scripts (use vitest tests under __tests__/ instead)
+test-api.js

@@ -8,7 +8,6 @@ import { parseTradeFile } from '../lib/parsers'
 import { detectPatterns } from '../lib/analysis/patternDetector'
 import { computeKPIs, type KPISession } from '../lib/kpi/computeKPIs'
 import { pairTrades } from '../lib/parsers/normalizer'
-import { parseCSVText } from '../lib/parsers/csvParser'
 import fs from 'fs'
 import path from 'path'
 
@@ -229,7 +228,7 @@ describe('Pipeline: KPI Computation', () => {
     expect(kpis.totalTrades).toBe(0)
     expect(kpis.winRate).toBe(0)
     // Nothing should be NaN
-    Object.entries(kpis).forEach(([key, v]) => {
+    Object.entries(kpis).forEach(([_key, v]) => {
       if (typeof v === 'number') {
         expect(Number.isNaN(v)).toBe(false)
       }
