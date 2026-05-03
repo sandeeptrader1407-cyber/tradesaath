@@ -1,4 +1,5 @@
 // SINGLE SOURCE OF TRUTH for every trading KPI.
+import { getTodayIST, getStartOfWeekIST, getStartOfMonthIST } from '@/lib/utils/dateIST'
 export interface KPISession {
   net_pnl?: number | string | null
   trade_count?: number | string | null
@@ -197,25 +198,18 @@ export function filterByPeriod(sessions: KPISession[], period: Period, now: Date
   if (period === 'allTime') return sessions
 
   if (period === 'today') {
-    const todayStr = now.toISOString().split('T')[0]
-    return sessions.filter(s => s.trade_date === todayStr)
+    const today = getTodayIST(now)
+    return sessions.filter(s => s.trade_date === today)
   }
 
   if (period === 'thisWeek') {
-    const start = new Date(now)
-    start.setDate(now.getDate() - now.getDay())
-    start.setHours(0, 0, 0, 0)
-    return sessions.filter(s => {
-      const d = s.trade_date
-      return !!d && new Date(d) >= start
-    })
+    const weekStart = getStartOfWeekIST(now)
+    return sessions.filter(s => !!s.trade_date && s.trade_date >= weekStart)
   }
 
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  return sessions.filter(s => {
-    const d = s.trade_date
-    return !!d && new Date(d) >= start
-  })
+  const monthStart = getStartOfMonthIST(now)
+  const monthPrefix = monthStart.substring(0, 7) // 'YYYY-MM'
+  return sessions.filter(s => !!s.trade_date && s.trade_date.substring(0, 7) === monthPrefix)
 }
 
 export interface AllPeriodKPIs {
