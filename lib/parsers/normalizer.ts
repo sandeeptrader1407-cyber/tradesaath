@@ -129,6 +129,12 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
       // Include if they have P&L data, or flag as open position
       const hasPnl = t.pnl !== undefined;
       if (hasPnl || t.remaining > 0) {
+        // FIX (audit N2 — 2026-05-04): tag honours exit-price guard. Unpaired
+        // rows have no exit, so exit=0 → 'open' regardless of any pnl value
+        // the broker may have populated (e.g. IBKR's MtmPnl=0 used to produce
+        // tag='win' / label='Winner' on unclosed positions).
+        const exit = 0;
+        const tradePnl = hasPnl ? t.pnl : 0;
         paired.push({
           index: 0,
           time: t.time || '',
@@ -137,13 +143,13 @@ export function pairTrades(rawTrades: AnyRow[]): ParsedTrade[] {
           side: t.side || 'BUY',
           qty: t.remaining || t.qty || 1,
           entry: t.price || 0,
-          exit: 0,
-          pnl: hasPnl ? t.pnl : 0,
+          exit,
+          pnl: tradePnl,
           cum_pnl: 0,
           session: classifySession(t.time || ''),
           time_gap_minutes: null,
-          tag: hasPnl ? (t.pnl >= 0 ? 'win' : 'loss') : 'open',
-          label: hasPnl ? (t.pnl >= 0 ? 'Winner' : 'Loser') : 'Open Position',
+          tag: exit === 0 ? 'open' : (tradePnl >= 0 ? 'win' : 'loss'),
+          label: exit === 0 ? 'Open Position' : (tradePnl >= 0 ? 'Winner' : 'Loser'),
           entry_time: t.time || '',
           exit_time: '',
           holding_minutes: 0,
