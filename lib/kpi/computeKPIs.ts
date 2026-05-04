@@ -154,9 +154,12 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     ? totalLossSessionPnl / losingSessions
     : 0
 
-  const profitFactor = totalLossSessionPnl > 0
-    ? Math.round((totalWinSessionPnl / totalLossSessionPnl) * 100) / 100
-    : 0
+  // FIX (audit B.3 — 2026-05-04): use per-trade sums, not session-level sums.
+  // The function already populates perTradeWinSum/perTradeLossSum at lines 71-72/132-138.
+  // Cap at 999 to match intake/parsers calculator contract.
+  const profitFactor = perTradeLossSum > 0
+    ? Math.round((perTradeWinSum / perTradeLossSum) * 100) / 100
+    : (perTradeWinSum > 0 ? 999 : 0)
 
   // Per-trade averages (authoritative for R:R).
   const avgWin = winnersCount > 0 ? Math.round(perTradeWinSum / winnersCount) : 0
