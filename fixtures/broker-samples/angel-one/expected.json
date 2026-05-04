@@ -1,0 +1,30 @@
+{
+  "broker": "angel-one",
+  "fixtureNotes": "12 fills, 5 closed paired trades, 1 open. Edge cases: B/S single-letter side codes (tests parser's side normalisation), DD/MM/YYYY date with slashes (different from Upstox's DD-MM-YYYY hyphens), multi-day session (Apr 15 + Apr 17), COALINDIA intraday cluster, JSWSTEEL open position carried.",
+  "totalFills": 12,
+  "buyCount": 7,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 1,
+  "winCount": 2,
+  "lossCount": 3,
+  "breakevenCount": 0,
+  "winRatePctExcludingBreakeven": 40,
+  "winRatePctIncludingBreakevenAsLoss": 40,
+  "grossPnl": 2825,
+  "netPnl": 2825,
+  "avgWin": 4225,
+  "avgLoss": -1875,
+  "largestWin": 5550,
+  "largestLoss": -3750,
+  "totalTurnover": 1422400,
+  "expectedSymbols": ["HDFCLIFE","POWERGRID","COALINDIA","VEDL","JSWSTEEL","RVNL"],
+  "perSymbolPnl": {
+    "HDFCLIFE": 2900,
+    "POWERGRID": -1125,
+    "COALINDIA": 5550,
+    "VEDL": -750,
+    "JSWSTEEL": null,
+    "RVNL": -3750
+  }
+}

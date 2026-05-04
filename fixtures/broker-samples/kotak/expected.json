@@ -1,0 +1,28 @@
+{
+  "broker": "kotak",
+  "fixtureNotes": "9 fills, 4 closed paired trades, 1 open (UPL). Edge cases: ISO date YYYY-MM-DD (vs other Indian brokers using DD-MM-YYYY/DD/MM/YYYY), 'B'/'S' single-letter sides, comma-formatted Trade Value with quotes ('23,600.00'), separate Settlement Date column, 1-second-apart same-symbol trades (APOLLOHOSP 10:45:00 and 10:45:01 — tests stable secondary sort). Brokerage + STT columns present.",
+  "totalFills": 9,
+  "buyCount": 5,
+  "sellCount": 4,
+  "closedTrades": 4,
+  "openPositions": 1,
+  "winCount": 2,
+  "lossCount": 2,
+  "winRatePct": 50,
+  "grossPnl": 149,
+  "netPnlClosedOnly": 20.75,
+  "totalFeesClosedOnly": 128.25,
+  "avgWin": 282,
+  "avgLoss": -207.50,
+  "largestWin": 360,
+  "largestLoss": -375,
+  "totalTurnover": 286574,
+  "expectedSymbols": ["ASIANPAINT","DABUR","GRASIM","UPL","APOLLOHOSP"],
+  "perSymbolPnl": {
+    "ASIANPAINT": 204,
+    "DABUR": -375,
+    "GRASIM": 360,
+    "UPL": null,
+    "APOLLOHOSP": -40
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "broker": "upstox",
+  "fixtureNotes": "11 fills, 4 closed paired trades, 1 open. Edge cases: TATAMOTORS 3 buys 1 sell (intraday cluster, weighted-avg test), LT zero-PnL trade (breakeven — tests parser's win/loss/breakeven classification), date in DD-MM-YYYY (Upstox convention, NOT ISO), separate Trade Date + Execution Time columns, BUY/SELL in caps.",
+  "totalFills": 11,
+  "buyCount": 7,
+  "sellCount": 4,
+  "closedTrades": 4,
+  "openPositions": 1,
+  "winCount": 2,
+  "lossCount": 1,
+  "breakevenCount": 1,
+  "winRatePctExcludingBreakeven": 66.67,
+  "winRatePctIncludingBreakevenAsLoss": 50,
+  "grossPnl": 2375,
+  "netPnl": 2375,
+  "avgWin": 1512.50,
+  "avgLoss": -650,
+  "largestWin": 2450,
+  "largestLoss": -650,
+  "totalTurnover": 484400,
+  "expectedSymbols": ["SBIN","ITC","TATAMOTORS","LT","SUNPHARMA"],
+  "perSymbolPnl": {
+    "SBIN": 575,
+    "ITC": -650,
+    "TATAMOTORS": 2450,
+    "LT": 0,
+    "SUNPHARMA": null
+  }
+}

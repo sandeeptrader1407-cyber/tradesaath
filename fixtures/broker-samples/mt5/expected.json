@@ -1,0 +1,32 @@
+{
+  "broker": "mt5",
+  "fixtureNotes": "Single sheet 'Account History' but with HEADER BAND in rows 0-4 (Account/Name/Broker/Currency/Period metadata) followed by section headers 'Closed Trades' and 'Open Trades' with DIFFERENT column schemas. CRITICAL TEST: parser must (a) skip metadata rows 0-4, (b) detect that 'Closed Trades' is a section label not data, (c) re-detect headers when 'Open Trades' section starts (different number of columns), (d) handle multi-table-in-one-sheet pattern unique to MT5. Other edges: YYYY.MM.DD date with dots (MT4-style), fractional volumes (0.05, 0.10, 0.20, 0.50, 0.75, 1.00, 2.00 lots), BTCUSD crypto on forex broker, weekend round-trip EURUSD#3 (open Sat 22:30 → close Sun 02:15).",
+  "totalClosedTrades": 7,
+  "totalOpenTrades": 1,
+  "buyCountClosed": 5,
+  "sellCountClosed": 2,
+  "winCount": 6,
+  "lossCount": 1,
+  "winRatePct": 85.71,
+  "grossPnl_USD": 56.58,
+  "netPnl_USD": 37.43,
+  "totalCommissions_USD": -17.95,
+  "totalSwap_USD": -1.20,
+  "avgWin_USD": 87.83,
+  "avgLoss_USD": -470.42,
+  "largestWin_USD": 200,
+  "largestLoss_USD": -470.42,
+  "totalTurnover_USD": null,
+  "turnoverNote": "Forex/CFD turnover not directly comparable to equity — parser may report 0 or notional, both defensible.",
+  "expectedSymbols": ["EURUSD","GBPUSD","USDJPY","XAUUSD","BTCUSD"],
+  "perSymbolPnlGross_USD": {
+    "EURUSD": 282.50,
+    "GBPUSD": 85,
+    "USDJPY": -470.42,
+    "XAUUSD": 147,
+    "BTCUSD": 12.50
+  },
+  "openPositionsList": [
+    {"symbol": "XAUUSD", "type": "buy", "volume": 0.20, "openPrice": 2410.00, "currentPrice": 2398.50, "unrealizedPnl_USD": -230}
+  ]
+}

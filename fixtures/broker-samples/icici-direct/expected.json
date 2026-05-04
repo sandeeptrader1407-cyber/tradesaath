@@ -1,0 +1,37 @@
+{
+  "broker": "icici-direct",
+  "fixtureNotes": "11 fills, 4 closed paired trades, 2 open. KEY DIAGNOSTIC: this fixture HAS brokerage + tax columns + Net Total column — tests whether parser uses gross P&L or net (after fees). Notably gross P&L is +43.50 (positive) but net P&L is -139.35 (NEGATIVE). Parser bug if it conflates the two. Edge cases: DD-Mon-YYYY date format (15-Apr-2026), case-mixed Buy/Sell, two open positions (GAIL + ZYDUSLIFE).",
+  "totalFills": 11,
+  "buyCount": 7,
+  "sellCount": 4,
+  "closedTrades": 4,
+  "openPositions": 2,
+  "winCount_gross": 2,
+  "lossCount_gross": 2,
+  "winRatePct_gross": 50,
+  "grossPnl": 43.50,
+  "netPnl": -139.35,
+  "totalFees": 182.85,
+  "avgWin_gross": 261.75,
+  "avgLoss_gross": -240,
+  "largestWin_gross": 372.50,
+  "largestLoss_gross": -300,
+  "totalTurnover": 415348.50,
+  "expectedSymbols": ["BAJFINANCE","DRREDDY","MARUTI","IOC","GAIL","ZYDUSLIFE"],
+  "perSymbolPnlGross": {
+    "BAJFINANCE": 372.50,
+    "DRREDDY": -180,
+    "MARUTI": 151,
+    "IOC": -300,
+    "GAIL": null,
+    "ZYDUSLIFE": null
+  },
+  "perSymbolPnlNet": {
+    "BAJFINANCE": 286.43,
+    "DRREDDY": -210.27,
+    "MARUTI": 91.52,
+    "IOC": -307.03,
+    "GAIL": null,
+    "ZYDUSLIFE": null
+  }
+}

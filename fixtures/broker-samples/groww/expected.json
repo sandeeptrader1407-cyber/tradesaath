@@ -1,0 +1,36 @@
+{
+  "broker": "groww",
+  "fixtureNotes": "12 fills (in single 'Trades' sheet of XLSX), 5 closed paired trades, 1 open (PAYTM). Edge cases: (a) DD-MM-YYYY date format with dashes (Indian, like Upstox), (b) BUY/SELL caps, (c) Excel cell types — Quantity/Price as numbers, Trade Time as string '09:30:00', dates may be strings or Excel date serials depending on how parser opens, (d) YESBANK intraday cluster (300+200 buy then 500 sell), (e) IDEA (1000 qty at low price), (f) PAYTM open position carried.",
+  "totalFills": 12,
+  "buyCount": 7,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 1,
+  "winCount": 3,
+  "lossCount": 2,
+  "winRatePct": 60,
+  "grossPnl": -370,
+  "netPnl": -370,
+  "avgWin": 285,
+  "avgLoss": -612.50,
+  "largestWin": 350,
+  "largestLoss": -875,
+  "totalTurnover": 274370,
+  "expectedSymbols": ["IRCTC","PNB","YESBANK","IDEA","NYKAA","PAYTM"],
+  "perSymbolPnl": {
+    "IRCTC": 350,
+    "PNB": -875,
+    "YESBANK": 330,
+    "IDEA": -350,
+    "NYKAA": 175,
+    "PAYTM": null
+  },
+  "computationCheck": {
+    "IRCTC": "(762.50 - 745.00) * 20 = +350",
+    "PNB":   "(93.75 - 95.50) * 500 = -875",
+    "YESBANK": "avg buy = (300*22.50 + 200*22.10) / 500 = 22.34. P&L = (23.00 - 22.34) * 500 = +330",
+    "IDEA":  "(12.45 - 12.80) * 1000 = -350",
+    "NYKAA": "(198.50 - 195.00) * 50 = +175",
+    "totalGross": "350 - 875 + 330 - 350 + 175 = -370"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "broker": "ibkr",
+  "fixtureNotes": "MULTI-SHEET XLSX — 4 sheets total: 'Account Information' (sheet 0, NOT trades), 'Trades' (the actual trade data), 'Open Positions' (NFLX), 'NAV' (account summary). CRITICAL TEST: parsers that read only sheet 0 will completely miss the trades. Edge cases: (a) trade table is on sheet INDEX 1 not 0 — parser must navigate by sheet name OR scan all sheets, (b) signed Quantity (positive=BUY, negative=SELL — same as IBKR CSV), (c) Date/Time format uses comma+space '2026-04-15, 09:35:22' (different from CSV's semicolon — IBKR is inconsistent across export formats), (d) 'Open Positions' sheet would CRASH a parser that tries to interpret it as more trades, (e) NFLX appears in both Trades (open) and Open Positions sheets — parser must not double-count.",
+  "sheetsInWorkbook": ["Account Information","Trades","Open Positions","NAV"],
+  "tradesSheetName": "Trades",
+  "totalFillsInTradesSheet": 9,
+  "buyCount": 5,
+  "sellCount": 4,
+  "closedTrades": 4,
+  "openPositions": 1,
+  "winCount": 4,
+  "lossCount": 0,
+  "winRatePct": 100,
+  "grossPnl_USD": 542.50,
+  "netPnl_USD": 532.50,
+  "totalCommissionsClosedOnly_USD": 10,
+  "avgWin_USD": 135.625,
+  "avgLoss_USD": null,
+  "largestWin_USD": 262.50,
+  "largestLoss_USD": null,
+  "totalTurnover_USD": 187192.50,
+  "expectedSymbols": ["AAPL","GOOG","META","EUR.USD","NFLX"],
+  "perSymbolPnlGross_USD": {
+    "AAPL": 170,
+    "GOOG": 45,
+    "META": 262.50,
+    "EUR.USD": 65,
+    "NFLX": null
+  }
+}
