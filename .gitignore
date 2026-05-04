@@ -37,3 +37,6 @@ next-env.d.ts
 
 # tesseract OCR data (downloaded at runtime)
 *.traineddata
+
+# Audit runner scratch outputs (regenerable via RUN_AUDIT=true)
+reports/parser-runs/
