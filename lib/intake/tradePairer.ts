@@ -87,10 +87,33 @@ function parseNum(val: string | undefined): number {
   return isNaN(n) ? 0 : n;
 }
 
-/** Normalize side string to BUY or SELL */
-function normSide(raw: string | undefined): 'BUY' | 'SELL' | undefined {
+/**
+ * Normalize side string to BUY or SELL.
+ *
+ * FIX (audit N3 — 2026-05-04): explicit recognition of trade codes plus
+ * null return for non-trade Robinhood/IBKR transaction codes (ACH/AFEE/INT/
+ * DIVT/DTAX/DFEE/OFEE/etc.). Null is the contract for "this isn't a trade
+ * row" — upstream prepareRows skips it silently.
+ *
+ * Returns:
+ *   undefined → no value supplied (column missing on this row)
+ *   null      → value supplied but not a trade code (drop the row)
+ *   'BUY'/'SELL' → recognised trade
+ */
+function normSide(raw: string | undefined): 'BUY' | 'SELL' | null | undefined {
   if (!raw) return undefined;
-  return /^(b|buy|long)/i.test(raw.trim()) ? 'BUY' : 'SELL';
+  const s = raw.trim().toUpperCase();
+  if (!s) return undefined;
+  // Explicit trade codes (covers BUY / SELL / B / S / LONG / SHORT plus
+  // option-style Robinhood codes BTO/STC/BTC/STO).
+  if (s === 'BUY' || s === 'B' || s === 'BTO' || s === 'BTC' || s === 'LONG') return 'BUY';
+  if (s === 'SELL' || s === 'S' || s === 'STO' || s === 'STC' || s === 'SHORT') return 'SELL';
+  // Prefix tolerance for verbose values like "Buy To Open" / "Sell 100 shares".
+  if (/^(BUY|LONG)\b/.test(s)) return 'BUY';
+  if (/^(SELL|SHORT)\b/.test(s)) return 'SELL';
+  // Anything else (ACH, DIV, INT, DTAX, AFEE, DFEE, OFEE, etc.) is a
+  // non-trade activity row — return null so prepareRows can skip it.
+  return null;
 }
 
 /** Classify time into session */
@@ -169,6 +192,12 @@ function prepareRows(rawRows: RawTradeRow[], market?: string): PreparedRow[] {
     const entryPriceRaw = parseNum(m.entryPrice);
     const exitPriceRaw = parseNum(m.exitPrice);
     const isPrePaired = entryPriceRaw > 0 && exitPriceRaw > 0;
+
+    // FIX (audit N3 — 2026-05-04): explicit non-trade rows (Robinhood ACH /
+    // DIVT / DTAX / INT / AFEE / DFEE etc.) are skipped silently. normSide
+    // returns null when the value is a recognised non-trade code; undefined
+    // means "no side column on this row" (existing fallback continues).
+    if (m.side && side === null) continue;
 
     if (!side && qty <= 0 && !pnl) continue;
 
@@ -387,14 +416,20 @@ export function pairRawTrades(rawRows: RawTradeRow[], market?: string): Standard
       if (hasPnl || t.remaining > 0) {
         const origSymbol = rawRows.find(r => r.rowIndex === t.rowIndex)?.mapped.symbol || t.symbol;
         const time = normalizeTime(t.time);
+        // FIX (audit N2 — 2026-05-04): tag honours exit-price guard. Unpaired
+        // rows have no exit, so exitPrice=0 → 'open' regardless of any pnl
+        // value the broker may have populated (e.g. IBKR's MtmPnl=0 used to
+        // produce tag='win' / label='Winner' on unclosed positions).
+        const exitPrice = 0;
+        const tradePnl = hasPnl ? (t.pnl as number) : 0;
         paired.push({
           index: 0,
           symbol: origSymbol,
           side: t.side,
           qty: t.remaining || t.qty,
           entryPrice: t.price,
-          exitPrice: 0,
-          pnl: hasPnl ? (t.pnl as number) : 0,
+          exitPrice,
+          pnl: tradePnl,
           cumPnl: 0,
           date: t.date,
           entryTime: time,
@@ -402,8 +437,8 @@ export function pairRawTrades(rawRows: RawTradeRow[], market?: string): Standard
           holdingMinutes: 0,
           session: classifySession(time),
           timeGapMinutes: null,
-          tag: hasPnl ? ((t.pnl as number) >= 0 ? 'win' : 'loss') : 'open',
-          label: hasPnl ? ((t.pnl as number) >= 0 ? 'Winner' : 'Loser') : 'Open Position',
+          tag: exitPrice === 0 ? 'open' : (tradePnl >= 0 ? 'win' : 'loss'),
+          label: exitPrice === 0 ? 'Open Position' : (tradePnl >= 0 ? 'Winner' : 'Loser'),
           exchange: t.exchange,
           tradeId: t.tradeId,
           sourceRows: [t.rowIndex],

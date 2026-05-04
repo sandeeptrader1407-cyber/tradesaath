@@ -102,7 +102,9 @@ export interface ParseResult {
 const COL = {
   time: /^(time|trade.?time|exec.?time|order.?time|timestamp|executed.?at|date.?&?.?time|date.?time|order.?execution.?time)/i,
   symbol: /^(symbol|scrip|instrument|stock|name|contract|underlying|security.?name|company|trading.?symbol)/i,
-  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction|transaction.?type)/i,
+  // FIX (audit N3 — 2026-05-04): added `trans.?code` to catch Robinhood's
+  // "Trans Code" column header (and similar broker variants).
+  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction|transaction.?type|trans.?code)/i,
   qty: /^(qty|quantity|lots|volume|traded.?qty|net.?qty|filled)/i,
   price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price|market.?rate)/i,
   amount: /^(amount|value|net.?amount|turnover|total|net.?total)/i,

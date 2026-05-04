@@ -51,6 +51,8 @@ const COLUMN_PATTERNS: Record<string, string[]> = {
     // Crypto/Forex
     'order_side', 'buy_sell_ind', 'side_indicator', 'order_action',
     'execution_side', 'type',
+    // FIX (audit N3 — 2026-05-04): Robinhood "Trans Code" column.
+    'trans_code', 'transcode',
   ],
 
   qty: [
@@ -652,6 +654,38 @@ export function extractRawRows(
     fieldToHeader[field] = header;
   }
 
+  // FIX (audit N1 — 2026-05-04): detect signed-qty convention (IBKR, MT5, etc.).
+  // Some brokers encode side via the sign of Quantity rather than (or in addition
+  // to) an explicit side column. Trigger conditions:
+  //   (a) no side column mapped & at least one negative qty row → primary case
+  //   (b) side column mapped but >=30% of rows have qty<0 → IBKR-style file has
+  //       both columns; qty still needs abs() so FIFO pairing works.
+  let useSignedQty = false;
+  const qtyHeaderForSign = fieldToHeader['qty'];
+  if (qtyHeaderForSign) {
+    const qtyColIdx = headers.indexOf(qtyHeaderForSign);
+    if (qtyColIdx >= 0) {
+      let negCount = 0;
+      let nonZeroCount = 0;
+      for (const row of dataRows) {
+        const cell = (row[qtyColIdx] || '').trim();
+        if (!cell) continue;
+        const n = parseFloat(cleanNumeric(cell));
+        if (!isFinite(n) || n === 0) continue;
+        nonZeroCount++;
+        if (n < 0) negCount++;
+      }
+      if (nonZeroCount > 0) {
+        const negFrac = negCount / nonZeroCount;
+        if (!finalFields.has('side') && negCount > 0) {
+          useSignedQty = true;
+        } else if (finalFields.has('side') && negFrac >= 0.3) {
+          useSignedQty = true;
+        }
+      }
+    }
+  }
+
   const rows: RawTradeRow[] = [];
 
   for (let i = 0; i < dataRows.length; i++) {
@@ -700,6 +734,26 @@ export function extractRawRows(
       segment: getMapped('segment'),
       orderId: getMapped('orderId'),
     };
+
+    // FIX (audit N1 — 2026-05-04): if file uses signed-qty convention, derive
+    // side from sign and rewrite qty as positive. See column-level detection
+    // above. Side is only set when not already mapped (IBKR has both columns;
+    // we keep the explicit BuySell value and just normalise qty).
+    if (useSignedQty && mapped.qty) {
+      const qtyNum = parseFloat(cleanNumeric(mapped.qty));
+      if (isFinite(qtyNum)) {
+        if (qtyNum === 0) {
+          warnings.push(`Row ${i}: qty=0, skipped (signed-qty file)`);
+          continue;
+        }
+        if (!mapped.side) {
+          mapped.side = qtyNum < 0 ? 'SELL' : 'BUY';
+        }
+        if (qtyNum < 0) {
+          mapped.qty = String(Math.abs(qtyNum));
+        }
+      }
+    }
 
     // Try to extract date from time field if date is missing
     if (!mapped.date && mapped.time) {
