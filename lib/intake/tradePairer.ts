@@ -391,8 +391,13 @@ export function pairRawTrades(rawRows: RawTradeRow[], market?: string): Standard
         holdingMinutes: holdingMinutes(entryTime, exitTime),
         session: classifySession(normalizedClosingTime),
         timeGapMinutes: null,
-        tag: pnl >= 0 ? 'win' : 'loss',
-        label: pnl >= 0 ? 'Winner' : 'Loser',
+        // FIX (audit N13 — 2026-05-04): same exitPrice guard as N2 (PR 2a). When
+        // price column doesn't map (e.g. IBKR pre-N12), exitPrice can be 0 even
+        // in the paired branch. Without the guard, paired-but-unpriced trades
+        // get tagged 'win' with $0 P&L — same N2 contradiction in a different
+        // branch.
+        tag: exitPrice === 0 ? 'open' : (pnl >= 0 ? 'win' : 'loss'),
+        label: exitPrice === 0 ? 'Open Position' : (pnl >= 0 ? 'Winner' : 'Loser'),
         exchange: open.exchange || close.exchange,
         tradeId: open.tradeId || close.tradeId,
         sourceRows: [open.rowIndex, close.rowIndex],
