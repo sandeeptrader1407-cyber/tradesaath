@@ -104,9 +104,15 @@ const COL = {
   symbol: /^(symbol|scrip|instrument|stock|name|contract|underlying|security.?name|company|trading.?symbol)/i,
   // FIX (audit N3 — 2026-05-04): added `trans.?code` to catch Robinhood's
   // "Trans Code" column header (and similar broker variants).
-  side: /^(side|trade.?type|buy.?sell|action|b.?s|direction|transaction.?type|trans.?code)/i,
+  // Word boundary on b.?s prevents matching "Basis", "Best", "Buys", etc.
+  // (audit N11 — IBKR XLSX has a "Basis" column that was poisoning side detection)
+  side: /^(side|trade.?type|buy.?sell|action|b.?s\b|direction|transaction.?type|trans.?code)/i,
   qty: /^(qty|quantity|lots|volume|traded.?qty|net.?qty|filled)/i,
-  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price|market.?rate)/i,
+  // FIX (audit N12 — 2026-05-04): match IBKR's "T. Price" / "C. Price"
+  // abbreviations. The dot-space pattern doesn't fit `trade.?price` because
+  // `.?` matches at most one char between t and p, but IBKR has "T. Price"
+  // (period-space-Price). Match optional period and whitespace explicitly.
+  price: /^(price|rate|avg.?price|trade.?price|executed.?price|avg.?rate|traded.?price|market.?rate|[tc]\.?\s*price)/i,
   amount: /^(amount|value|net.?amount|turnover|total|net.?total)/i,
   buyQty: /^(buy.?qty|buy.?quantity|buy.?vol)/i,
   sellQty: /^(sell.?qty|sell.?quantity|sell.?vol)/i,
