@@ -1,0 +1,27 @@
+{
+  "broker": "zerodha",
+  "fixtureNotes": "11 fills, 5 closed paired trades, 0 open. F&O focus: Nifty options (CE+PE), BankNifty options, Reliance futures. Edge cases: weighted-avg buy across 2 BANKNIFTY fills, large-value (Reliance FUT ₹7.1L), expiry-date column populated, instrument-type variation (OPTIDX vs FUTSTK), strike+option-type columns.",
+  "totalFills": 11,
+  "buyCount": 6,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 0,
+  "winCount": 2,
+  "lossCount": 3,
+  "winRatePct": 40,
+  "grossPnl": -3683.75,
+  "netPnl": -3683.75,
+  "avgWin": 2411.25,
+  "avgLoss": -2835.4167,
+  "largestWin": 3135,
+  "largestLoss": -3412.50,
+  "totalTurnover": 1506833.75,
+  "expectedSymbols": ["NIFTY26APR24850CE","NIFTY26APR24700PE","BANKNIFTY26APR52000CE","RELIANCE26APRFUT","NIFTY26APR24900CE"],
+  "perSymbolPnl": {
+    "NIFTY26APR24850CE": 1687.50,
+    "NIFTY26APR24700PE": -1968.75,
+    "BANKNIFTY26APR52000CE": 3135,
+    "RELIANCE26APRFUT": -3125,
+    "NIFTY26APR24900CE": -3412.50
+  }
+}

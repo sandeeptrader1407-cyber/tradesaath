@@ -1,0 +1,27 @@
+{
+  "broker": "binance-futures",
+  "fixtureNotes": "10 fills, 5 closed paired trades, 0 open. Different schema from spot (RealizedProfit column, no quote-currency suffix in Amount). Edge cases: (a) SHORT positions where Sell comes BEFORE Buy (ETHUSDT, BTCUSDT 9-10) — parser must NOT discard or assume long-only, (b) RealizedProfit column already supplies realized P&L per close — parser should match these, (c) BTCUSDT traded across 3 distinct round-trips on different days — parser must not collapse, (d) WEEKEND timestamp Apr 19 22:00 (Sunday) — crypto futures trade 24/7, must accept. Profitable short on ETHUSDT (sold high 3290, bought back lower 3265 = profit on short).",
+  "totalFills": 10,
+  "buyCount": 5,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 0,
+  "winCount": 4,
+  "lossCount": 1,
+  "winRatePct": 80,
+  "grossPnl_USDT": 90.90,
+  "netPnl_USDT": 61.27,
+  "totalFees_USDT": 29.63,
+  "avgWin_USDT": 57.23,
+  "avgLoss_USDT": -138,
+  "largestWin_USDT": 100.50,
+  "largestLoss_USDT": -138,
+  "totalTurnover_USDT": 74073.90,
+  "expectedSymbols": ["BTCUSDT","ETHUSDT","SOLUSDT"],
+  "perSymbolPnl_USDT": {
+    "BTCUSDT": 153.90,
+    "ETHUSDT": 75,
+    "SOLUSDT": -138
+  },
+  "shortTradesNote": "ETHUSDT and BTCUSDT pair #3 are SHORTS — sell came first. If parser assumes long-only or pairs by chronological BUY→SELL only, it will mis-pair these and produce wrong P&L."
+}

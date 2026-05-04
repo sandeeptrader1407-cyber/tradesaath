@@ -1,0 +1,30 @@
+{
+  "broker": "ibkr",
+  "fixtureNotes": "10 fills, 4 closed paired trades, 2 open. CRITICAL test for universal parser. IBKR-specific edge cases: (a) signed Quantity column (positive=BUY, negative=SELL — no BUY/SELL string), (b) compound DateTime field with semicolon separator '2026-04-15;09:35:22' instead of standard ISO, (c) multi-currency: SAP is EUR while rest are USD with FXRateToBase=1.07 (parser must handle currency normalisation OR keep separate), (d) futures contract ESM6 with multiplier=50 (notional = qty*price*multiplier, NOT qty*price), (e) FifoPnlRealized column already provides realized P&L — parser should match these or flag mismatch, (f) 50+ column count (tests fragility of column-count detection), (g) OpenCloseIndicator O/C tells parser which fills closed.",
+  "totalFills": 10,
+  "buyCount": 6,
+  "sellCount": 4,
+  "closedTrades": 4,
+  "openPositions": 2,
+  "winCount": 2,
+  "lossCount": 2,
+  "winRatePct": 50,
+  "grossPnl_USD": 165,
+  "netPnl_USD": 154.80,
+  "totalCommissionsClosedOnly_USD": 10.20,
+  "avgWin_USD": 545,
+  "avgLoss_USD": -462.50,
+  "largestWin_USD": 920,
+  "largestLoss_USD": -700,
+  "totalTurnover_USD": 1182670,
+  "expectedSymbols": ["AAPL","MSFT","NVDA","ESM6","TSLA","SAP"],
+  "perSymbolPnl_USD": {
+    "AAPL": 170,
+    "MSFT": -225,
+    "NVDA": 920,
+    "ESM6": -700,
+    "TSLA": null,
+    "SAP": null
+  },
+  "fxNote": "SAP fills are in EUR (qty 20 @ €158.50 = €3,170). FXRateToBase=1.07 → ~$3,391.90 USD-equivalent if converted. TSLA + SAP are open positions."
+}

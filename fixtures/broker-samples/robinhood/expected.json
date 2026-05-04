@@ -1,0 +1,29 @@
+{
+  "broker": "robinhood",
+  "fixtureNotes": "12 fills, 5 closed paired trades, 1 open. CRITICAL US-format edge cases: (a) Date format M/D/YYYY no leading zeros (4/15/2026 — could be misread as 15-Apr or 4-Apr), (b) Price column has $ prefix ('$182.50'), (c) Amount column has $ AND comma thousands ('$2,210.40'), (d) Amount NEGATIVES use accounting parentheses ('($2,190.00)' = -2190 — parser must strip parens AND prefix), (e) FRACTIONAL CRYPTO quantity (DOGE 5000.5) on same statement as integer stock quantities, (f) DOGE crypto on stock broker statement (no separate section), (g) 3 date columns (Activity/Process/Settle) — parser must pick the right one. Robinhood is commission-free → net P&L = gross.",
+  "totalFills": 12,
+  "buyCount": 7,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 1,
+  "winCount": 3,
+  "lossCount": 2,
+  "winRatePct": 60,
+  "grossPnl_USD": 286.90,
+  "netPnl_USD": 286.90,
+  "totalCommissions_USD": 0,
+  "avgWin_USD": 115.97,
+  "avgLoss_USD": -30.50,
+  "largestWin_USD": 312.50,
+  "largestLoss_USD": -52,
+  "totalTurnover_USD": 33697.08,
+  "expectedSymbols": ["AAPL","TSLA","AMD","SPY","DOGE","QQQ"],
+  "perSymbolPnl_USD": {
+    "AAPL": 20.40,
+    "TSLA": -52,
+    "AMD": 312.50,
+    "SPY": -9,
+    "DOGE": 15,
+    "QQQ": null
+  }
+}

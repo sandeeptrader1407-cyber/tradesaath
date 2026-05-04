@@ -1,0 +1,28 @@
+{
+  "broker": "binance",
+  "fixtureNotes": "11 fills, 5 closed paired trades, 1 open (SHIBUSDT). Crypto edge cases: (a) Date column header is 'Date(UTC)' — timezone EXPLICIT, parser must NOT convert to local, (b) Amount column has currency suffix '4995.90USDT' (string concat, not pure number), (c) Executed column has coin suffix '0.07320BTC' (parse out qty), (d) Fee column has currency suffix, (e) FRACTIONAL quantities (BTC 0.07320), (f) MASSIVE integer quantity (SHIBUSDT 180,000,000 — overflow test), (g) TINY price (0.000028 for SHIB — precision test), (h) WEEKEND timestamps valid (crypto trades 24/7 — Apr 19 22:55 is Sunday), (i) BTCUSDT appears twice (different round-trips on different days — parser must not collapse them), (j) Pair column is two-coin string ('BTCUSDT' not 'BTC/USDT' or 'BTC-USDT').",
+  "totalFills": 11,
+  "buyCount": 6,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 1,
+  "winCount": 3,
+  "lossCount": 2,
+  "winRatePct": 60,
+  "grossPnl_USDT": 104.25,
+  "netPnl_USDT": 63.13,
+  "totalFeesClosedOnly_USDT": 41.12,
+  "avgWin_USDT": 70.20,
+  "avgLoss_USDT": -53.18,
+  "largestWin_USDT": 157.50,
+  "largestLoss_USDT": -90,
+  "totalTurnover_USDT": 46160.59,
+  "expectedSymbols": ["BTCUSDT","ETHUSDT","SOLUSDT","DOGEUSDT","SHIBUSDT"],
+  "perSymbolPnlGross_USDT": {
+    "BTCUSDT": 53.11,
+    "ETHUSDT": -16.36,
+    "SOLUSDT": 157.50,
+    "DOGEUSDT": -90,
+    "SHIBUSDT": null
+  }
+}

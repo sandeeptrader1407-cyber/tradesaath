@@ -1,0 +1,28 @@
+{
+  "broker": "zerodha",
+  "fixtureNotes": "13 fills, 5 closed paired trades, 1 open position (WIPRO). Edge cases exercised: multi-symbol (6 syms), intraday clusters (TCS 3 buys 1 sell same day → weighted-avg test), large-value (ADANIENT ₹24L turnover), same-second timestamps (ADANIENT BUY+SELL both 12:10:00).",
+  "totalFills": 13,
+  "buyCount": 8,
+  "sellCount": 5,
+  "closedTrades": 5,
+  "openPositions": 1,
+  "winCount": 2,
+  "lossCount": 3,
+  "winRatePct": 40,
+  "grossPnl": -1613.50,
+  "netPnl": -1613.50,
+  "avgWin": 265,
+  "avgLoss": -714.50,
+  "largestWin": 315,
+  "largestLoss": -1500,
+  "totalTurnover": 5059971.50,
+  "expectedSymbols": ["RELIANCE","TCS","INFY","HDFCBANK","ADANIENT","WIPRO"],
+  "perSymbolPnl": {
+    "RELIANCE": 215,
+    "TCS": -527.50,
+    "INFY": 315,
+    "HDFCBANK": -116,
+    "ADANIENT": -1500,
+    "WIPRO": null
+  }
+}
