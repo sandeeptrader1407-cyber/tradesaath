@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit'
 import { intakeFile, toLegacyTrade } from '@/lib/intake'
+import { resolveCurrency } from '@/lib/utils/currency'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -76,6 +77,11 @@ export async function POST(req: NextRequest) {
   const rl = await rateLimit(`extract:${ip}`, 5, 15 * 60 * 1000)
   if (!rl.success) return rateLimitResponse(rl.resetIn)
 
+  // FIX (audit Finding F — 2026-05-04): currency-resolution context for
+  // both response sites in this handler.
+  const cookieCurrency = req.cookies.get('tradesaath-currency')?.value ?? null
+  const acceptLanguage = req.headers.get('accept-language')
+
   if (process.env.DISABLE_AI_ANALYSIS === 'true') {
     return NextResponse.json({ error: 'AI analysis temporarily unavailable', code: 'AI_DISABLED' }, { status: 503 })
   }
@@ -122,12 +128,20 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`[Intake] Local extract OK: ${legacyTrades.length} trades from ${intakeResult.rawFile.broker}`)
+      // FIX (audit Finding F — 2026-05-04): resolveCurrency for response.
+      const resolvedCurrencyLocal = await resolveCurrency({
+        detectedCurrency: intakeResult.rawFile.currency,
+        detectedMarket: intakeResult.rawFile.market,
+        symbols: (legacyTrades.map((t: { symbol?: string }) => t?.symbol).filter(Boolean) as string[]),
+        cookieCurrency,
+        acceptLanguage,
+      })
       return NextResponse.json({
         trades: legacyTrades,
         broker: intakeResult.rawFile.broker || 'Unknown',
         market: intakeResult.rawFile.market || 'Unknown',
         tradeDate: intakeResult.rawFile.tradeDate,
-        currency: intakeResult.rawFile.currency || 'INR',
+        currency: resolvedCurrencyLocal,
         _parsed_locally: true,
       })
     }
@@ -273,12 +287,20 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Extract] Extracted ${result.trades.length} trades from ${result.broker || 'unknown broker'}`)
 
+    // FIX (audit Finding F — 2026-05-04): resolveCurrency for response.
+    const resolvedCurrencyAi = await resolveCurrency({
+      detectedCurrency: result.currency,
+      detectedMarket: result.market,
+      symbols: (result.trades.map((t: { symbol?: string }) => t?.symbol).filter(Boolean) as string[]),
+      cookieCurrency,
+      acceptLanguage,
+    })
     return NextResponse.json({
       trades: result.trades,
       broker: result.broker || 'Unknown',
       market: result.market || 'Unknown',
       tradeDate: result.trade_date,
-      currency: result.currency || 'INR',
+      currency: resolvedCurrencyAi,
     })
 
   } catch (err: unknown) {

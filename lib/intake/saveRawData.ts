@@ -7,6 +7,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { RawFileData } from './types';
 import { createHash } from 'crypto';
+import { resolveCurrency } from '@/lib/utils/currency';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -127,6 +128,19 @@ export async function saveClaudeFallbackRawData(
     tradeDate: string;
     tradeCount: number;
     trades: unknown[];
+    /**
+     * Value of the `tradesaath-currency` cookie set by middleware from
+     * Vercel Edge geo. Used as fallback step 4 in resolveCurrency
+     * (audit Finding F — 2026-05-04). Pass `null` when no request
+     * context is available.
+     */
+    cookieCurrency?: string | null;
+    /**
+     * Raw `Accept-Language` header from the upload request. Used as
+     * fallback step 5 in resolveCurrency (audit Finding F — 2026-05-04).
+     * Pass `null` when no request context is available.
+     */
+    acceptLanguage?: string | null;
   },
   userId: string,
   sessionId?: string,
@@ -158,6 +172,18 @@ export async function saveClaudeFallbackRawData(
   // Derive file_type from filename extension
   const ext = (params.filename.split('.').pop() || 'unknown').toLowerCase();
 
+  // FIX (audit Finding F — 2026-05-04): replace `|| 'INR'` fallback with
+  // resolveCurrency chain. cookieCurrency / acceptLanguage flow in from
+  // the route handler; for internal callers without request context they
+  // default to null and the chain falls through to FALLBACK_CURRENCY.
+  const resolvedCurrency = await resolveCurrency({
+    detectedCurrency: params.currency,
+    detectedMarket: params.market,
+    symbols: (params.trades.map((t) => (t as { symbol?: string })?.symbol).filter(Boolean) as string[]),
+    cookieCurrency: params.cookieCurrency ?? null,
+    acceptLanguage: params.acceptLanguage ?? null,
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const record: Record<string, any> = {
     user_id: userId,
@@ -170,7 +196,7 @@ export async function saveClaudeFallbackRawData(
     broker_name: 'Claude AI (' + (params.broker || 'PDF fallback') + ')',
     broker_detected: params.broker || 'Unknown',
     market: params.market || 'Unknown',
-    currency: params.currency || 'INR',
+    currency: resolvedCurrency,
     headers: [],
     total_rows: params.tradeCount,
     data_rows: params.tradeCount,

@@ -1,5 +1,6 @@
 {
   "broker": "angel-one",
+  "expectedCurrency": "INR",
   "fixtureNotes": "12 fills, 5 closed paired trades, 1 open. Edge cases: B/S single-letter side codes (tests parser's side normalisation), DD/MM/YYYY date with slashes (different from Upstox's DD-MM-YYYY hyphens), multi-day session (Apr 15 + Apr 17), COALINDIA intraday cluster, JSWSTEEL open position carried.",
   "totalFills": 12,
   "buyCount": 7,

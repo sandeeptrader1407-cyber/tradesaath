@@ -1,5 +1,6 @@
 {
   "broker": "icici-direct",
+  "expectedCurrency": "INR",
   "fixtureNotes": "11 fills, 4 closed paired trades, 2 open. KEY DIAGNOSTIC: this fixture HAS brokerage + tax columns + Net Total column — tests whether parser uses gross P&L or net (after fees). Notably gross P&L is +43.50 (positive) but net P&L is -139.35 (NEGATIVE). Parser bug if it conflates the two. Edge cases: DD-Mon-YYYY date format (15-Apr-2026), case-mixed Buy/Sell, two open positions (GAIL + ZYDUSLIFE).",
   "totalFills": 11,
   "buyCount": 7,

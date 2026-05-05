@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { deduplicateTrades } from '@/lib/intake/tradePairer'
+import { resolveCurrency } from '@/lib/utils/currency'
 
 export type DedupStats = {
   tradesAdded: number
@@ -57,6 +58,8 @@ export async function saveTradeSession({
   metadata,
   plan,
   paymentId,
+  cookieCurrency,
+  acceptLanguage,
 }: {
   userId?: string
   anonId?: string
@@ -66,6 +69,19 @@ export async function saveTradeSession({
   metadata: any
   plan?: string
   paymentId?: string
+  /**
+   * Value of the `tradesaath-currency` cookie set by middleware from
+   * Vercel Edge geo. Used as fallback step 4 in resolveCurrency
+   * (audit Finding F — 2026-05-04). Pass `null` when no request
+   * context is available.
+   */
+  cookieCurrency?: string | null
+  /**
+   * Raw `Accept-Language` header from the upload request. Used as
+   * fallback step 5 in resolveCurrency (audit Finding F — 2026-05-04).
+   * Pass `null` when no request context is available.
+   */
+  acceptLanguage?: string | null
 }): Promise<(any & { _dedupStats?: DedupStats }) | null> {
   if (!userId && !anonId) {
     console.warn('saveTradeSession: no userId or anonId, skipping')
@@ -185,6 +201,19 @@ export async function saveTradeSession({
   // No existing session: INSERT new one (with deduped trades)
   const stats = computeSessionStats(uniqueTrades)
 
+  // FIX (audit Finding F — 2026-05-04): replace `|| 'INR'` fallback with
+  // the resolveCurrency chain. cookieCurrency / acceptLanguage flow in
+  // from the route handler when available; for internal callers without
+  // request context they default to null and the chain falls through to
+  // FALLBACK_CURRENCY ('USD').
+  const resolvedCurrency = await resolveCurrency({
+    detectedCurrency: metadata?.detected_currency,
+    detectedMarket: metadata?.detected_market,
+    symbols: (uniqueTrades.map((t) => t?.symbol).filter(Boolean) as string[]),
+    cookieCurrency: cookieCurrency ?? null,
+    acceptLanguage: acceptLanguage ?? null,
+  })
+
   const insertRow: Record<string, any> = {
     user_id: userId || null,
     anon_id: anonId || null,
@@ -194,7 +223,7 @@ export async function saveTradeSession({
     file_name: metadata?.file_name || 'upload',
     trade_date: tradeDate,
     detected_market: metadata?.detected_market || 'Unknown',
-    detected_currency: metadata?.detected_currency || 'INR',
+    detected_currency: resolvedCurrency,
     detected_broker: metadata?.detected_broker || 'Unknown',
     trades: uniqueTrades,
     analysis: analysis,

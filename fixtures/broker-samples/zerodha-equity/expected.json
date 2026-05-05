@@ -1,5 +1,6 @@
 {
   "broker": "zerodha",
+  "expectedCurrency": "INR",
   "fixtureNotes": "13 fills, 5 closed paired trades, 1 open position (WIPRO). Edge cases exercised: multi-symbol (6 syms), intraday clusters (TCS 3 buys 1 sell same day → weighted-avg test), large-value (ADANIENT ₹24L turnover), same-second timestamps (ADANIENT BUY+SELL both 12:10:00).",
   "totalFills": 13,
   "buyCount": 8,

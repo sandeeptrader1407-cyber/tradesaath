@@ -1,5 +1,6 @@
 {
   "broker": "robinhood",
+  "expectedCurrency": "USD",
   "fixtureNotes": "12 fills, 5 closed paired trades, 1 open. CRITICAL US-format edge cases: (a) Date format M/D/YYYY no leading zeros (4/15/2026 — could be misread as 15-Apr or 4-Apr), (b) Price column has $ prefix ('$182.50'), (c) Amount column has $ AND comma thousands ('$2,210.40'), (d) Amount NEGATIVES use accounting parentheses ('($2,190.00)' = -2190 — parser must strip parens AND prefix), (e) FRACTIONAL CRYPTO quantity (DOGE 5000.5) on same statement as integer stock quantities, (f) DOGE crypto on stock broker statement (no separate section), (g) 3 date columns (Activity/Process/Settle) — parser must pick the right one. Robinhood is commission-free → net P&L = gross.",
   "totalFills": 12,
   "buyCount": 7,

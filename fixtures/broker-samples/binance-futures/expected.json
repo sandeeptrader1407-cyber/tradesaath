@@ -1,5 +1,6 @@
 {
   "broker": "binance-futures",
+  "expectedCurrency": "USD",
   "fixtureNotes": "10 fills, 5 closed paired trades, 0 open. Different schema from spot (RealizedProfit column, no quote-currency suffix in Amount). Edge cases: (a) SHORT positions where Sell comes BEFORE Buy (ETHUSDT, BTCUSDT 9-10) — parser must NOT discard or assume long-only, (b) RealizedProfit column already supplies realized P&L per close — parser should match these, (c) BTCUSDT traded across 3 distinct round-trips on different days — parser must not collapse, (d) WEEKEND timestamp Apr 19 22:00 (Sunday) — crypto futures trade 24/7, must accept. Profitable short on ETHUSDT (sold high 3290, bought back lower 3265 = profit on short).",
   "totalFills": 10,
   "buyCount": 5,

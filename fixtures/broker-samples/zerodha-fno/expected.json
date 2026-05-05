@@ -1,5 +1,6 @@
 {
   "broker": "zerodha",
+  "expectedCurrency": "INR",
   "fixtureNotes": "11 fills, 5 closed paired trades, 0 open. F&O focus: Nifty options (CE+PE), BankNifty options, Reliance futures. Edge cases: weighted-avg buy across 2 BANKNIFTY fills, large-value (Reliance FUT ₹7.1L), expiry-date column populated, instrument-type variation (OPTIDX vs FUTSTK), strike+option-type columns.",
   "totalFills": 11,
   "buyCount": 6,
