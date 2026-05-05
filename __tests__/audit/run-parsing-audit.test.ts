@@ -27,6 +27,7 @@ import { calculateKPIs as legacyParserKpis } from '@/lib/parsers/kpiCalculator'
 import { computeKPIs as dashboardKpis } from '@/lib/kpi/computeKPIs'
 import { enrichTrades } from '@/lib/compute/enrichTrade'
 import { computeSessionMetrics } from '@/lib/compute/sessionMetrics'
+import { resolveCurrency, type CurrencyCode } from '@/lib/utils/currency'
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
 const FIXTURE_ROOT = path.join(REPO_ROOT, 'fixtures', 'broker-samples')
@@ -102,6 +103,22 @@ async function runOneFixture(fix: { name: string; dataFile: string; expectedFile
   const kpis = result.kpis
   const trades = result.trades
 
+  // Phase 5 (audit Finding F — 2026-05-04): exercise the resolveCurrency
+  // chain on the intake output so _summary.json shows what each fixture
+  // would resolve to in production. Audit runner has no request context,
+  // so cookie + Accept-Language pass null and the chain falls through.
+  const resolvedCurrency: CurrencyCode = await resolveCurrency({
+    detectedCurrency: result.rawFile?.currency,
+    detectedMarket: result.rawFile?.market,
+    symbols: (trades.map((t) => t.symbol).filter(Boolean) as string[]),
+    cookieCurrency: null,
+    acceptLanguage: null,
+  })
+  const expectedCurrency: string | null = expected.expectedCurrency ?? null
+  const currencyMatches = expectedCurrency === null
+    ? null
+    : resolvedCurrency === expectedCurrency
+
   // Symbol set
   const symbolsActual = Array.from(new Set(trades.map((t) => t.symbol))).sort()
   const symbolsExpected: string[] = expected.expectedSymbols || []
@@ -157,7 +174,11 @@ async function runOneFixture(fix: { name: string; dataFile: string; expectedFile
       netPnl: expNet,
       winRatePct: expWinRate,
       closed: expClosed,
+      currency: expectedCurrency,
     },
+    resolvedCurrency,
+    expectedCurrency,
+    currencyMatches,
     kpis,
     diffs: {
       grossPnl:
@@ -420,6 +441,10 @@ runner('parsing audit runner', () => {
         trades: out.kpis?.totalTrades,
         netPnl: out.kpis?.netPnl,
         winRate: out.kpis?.winRate,
+        // Phase 5 (audit Finding F): currency-resolution verification.
+        resolvedCurrency: out.resolvedCurrency,
+        expectedCurrency: out.expectedCurrency,
+        currencyMatches: out.currencyMatches,
         durationMs: out.durationMs,
         keyDiff:
           out.diffs?.netPnl?.delta ??
@@ -432,6 +457,9 @@ runner('parsing audit runner', () => {
         `[AUDIT] ${f.name.padEnd(20)} parsed=${String(out.parsed).padEnd(5)} ` +
           `broker=${(out.rawFile?.broker || 'n/a').padEnd(15)} ` +
           `trades=${out.kpis?.totalTrades ?? 0} netPnl=${out.kpis?.netPnl ?? 0} ` +
+          `cur=${(out.resolvedCurrency || 'n/a').padEnd(3)} ` +
+          `expCur=${(out.expectedCurrency || 'n/a').padEnd(3)} ` +
+          `match=${out.currencyMatches === null ? 'n/a' : String(out.currencyMatches)} ` +
           `${out.durationMs}ms`,
       )
     }

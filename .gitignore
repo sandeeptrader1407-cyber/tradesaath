@@ -40,3 +40,6 @@ next-env.d.ts
 
 # Audit runner scratch outputs (regenerable via RUN_AUDIT=true)
 reports/parser-runs/
+
+# Excel lockfiles
+~$*.xlsx

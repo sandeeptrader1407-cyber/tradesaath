@@ -1,5 +1,6 @@
 {
   "broker": "groww",
+  "expectedCurrency": "INR",
   "fixtureNotes": "12 fills (in single 'Trades' sheet of XLSX), 5 closed paired trades, 1 open (PAYTM). Edge cases: (a) DD-MM-YYYY date format with dashes (Indian, like Upstox), (b) BUY/SELL caps, (c) Excel cell types — Quantity/Price as numbers, Trade Time as string '09:30:00', dates may be strings or Excel date serials depending on how parser opens, (d) YESBANK intraday cluster (300+200 buy then 500 sell), (e) IDEA (1000 qty at low price), (f) PAYTM open position carried.",
   "totalFills": 12,
   "buyCount": 7,

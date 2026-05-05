@@ -1,5 +1,6 @@
 {
   "broker": "ibkr",
+  "expectedCurrency": "USD",
   "fixtureNotes": "10 fills, 4 closed paired trades, 2 open. CRITICAL test for universal parser. IBKR-specific edge cases: (a) signed Quantity column (positive=BUY, negative=SELL — no BUY/SELL string), (b) compound DateTime field with semicolon separator '2026-04-15;09:35:22' instead of standard ISO, (c) multi-currency: SAP is EUR while rest are USD with FXRateToBase=1.07 (parser must handle currency normalisation OR keep separate), (d) futures contract ESM6 with multiplier=50 (notional = qty*price*multiplier, NOT qty*price), (e) FifoPnlRealized column already provides realized P&L — parser should match these or flag mismatch, (f) 50+ column count (tests fragility of column-count detection), (g) OpenCloseIndicator O/C tells parser which fills closed.",
   "totalFills": 10,
   "buyCount": 6,

@@ -10,7 +10,7 @@ import {
   filterByPeriod,
   computeDisciplineScore,
 } from '@/lib/kpi/computeKPIs'
-import { marketToCurrency } from '@/lib/utils/currency'
+import { resolveCurrency } from '@/lib/utils/currency'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -60,7 +60,15 @@ export async function GET(req: NextRequest) {
       marketCounts[m] = (marketCounts[m] || 0) + 1
     }
     const dominantMarket = Object.entries(marketCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown'
-    const currency = marketToCurrency(dominantMarket)
+    // FIX (audit Finding F + bonus, 2026-05-04): use full resolveCurrency
+    // chain. detectedCurrency and symbols intentionally omitted — dashboard
+    // aggregates across sessions; chain falls through to step 4 (cookie)
+    // which is the right signal for a logged-in user's display preference.
+    const currency = await resolveCurrency({
+      detectedMarket: dominantMarket,
+      cookieCurrency: req.cookies.get('tradesaath-currency')?.value ?? null,
+      acceptLanguage: req.headers.get('accept-language'),
+    })
 
     // SINGLE SOURCE OF TRUTH: every period-level metric comes from computeAllPeriodKPIs.
     // No per-period math lives in this file anymore.

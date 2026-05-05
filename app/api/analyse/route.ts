@@ -19,6 +19,7 @@ import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, comp
 import type { RawFileData } from '@/lib/intake';
 import { tradesNeedPairing, pairClaudeTrades } from '@/lib/intake/claudeTradePairer';
 import { logAiUsage } from '@/lib/admin/logAiUsage';
+import { resolveCurrency } from '@/lib/utils/currency';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string; usage?: { inputTokens: number; outputTokens: number } };
 
@@ -233,9 +234,14 @@ type SaveResult = { sessionId?: string; dedupStats?: { tradesAdded: number; trad
 
 async function saveSessionsByDay({
   trades, analysis, context, metadata, plan, userId, anonId, files,
+  cookieCurrency, acceptLanguage,
 }: {
   trades: any[]; analysis: any; context: any; metadata: any; plan: string
   userId?: string; anonId?: string; files?: File[]
+  /** FIX (audit Finding F — 2026-05-04): forwarded to saveTradeSession's resolveCurrency chain. */
+  cookieCurrency?: string | null
+  /** FIX (audit Finding F — 2026-05-04): forwarded to saveTradeSession's resolveCurrency chain. */
+  acceptLanguage?: string | null
 }): Promise<SaveResult> {
   if (!userId && !anonId) return {}
 
@@ -270,6 +276,7 @@ async function saveSessionsByDay({
     // Single day — save as one session (original behavior)
     const saved = await saveTradeSession({
       userId, anonId, trades, analysis, context, metadata, plan,
+      cookieCurrency, acceptLanguage,
     })
     const sid = saved?.id
     const ds: DedupStats | undefined = saved?._dedupStats
@@ -341,6 +348,7 @@ async function saveSessionsByDay({
     const saved = await saveTradeSession({
       userId, anonId, trades: dayTrades,
       analysis: dayAnalysis, context, metadata: dayMetadata, plan,
+      cookieCurrency, acceptLanguage,
     })
     const sid = saved?.id
     const ds: DedupStats | undefined = saved?._dedupStats
@@ -427,6 +435,13 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleFormData(req: NextRequest, apiKey: string, startTime: number) {
+  // FIX (audit Finding F — 2026-05-04): currency-resolution context.
+  // Extract once at handler top so all 6 site replacements below reuse
+  // the same values. cookieCurrency = middleware-set geo cookie;
+  // acceptLanguage = browser locale fallback.
+  const cookieCurrency = req.cookies.get('tradesaath-currency')?.value ?? null;
+  const acceptLanguage = req.headers.get('accept-language');
+
   const formData = await req.formData();
   const files = formData.getAll('files') as File[];
   const contextRaw = formData.get('context') as string | null;
@@ -733,11 +748,20 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   }
   console.log(`Call 2 took ${Date.now() - c2Start}ms (code analysis)`);
 
+  // FIX (audit Finding F — 2026-05-04): resolveCurrency for response metadata.
+  const resolvedCurrencyForResponse = await resolveCurrency({
+    detectedCurrency: extracted.detected_currency,
+    detectedMarket: extracted.detected_market,
+    symbols: (trades.map((t: { symbol?: string }) => t?.symbol).filter(Boolean) as string[]),
+    cookieCurrency,
+    acceptLanguage,
+  });
+
   const response = {
     success: true, trades,
     analysis: analysis || { session_summary: 'AI analysis unavailable --- showing extracted trades.', momentum_indicators: [], vicious_cycle: [], technical_insights: [], trade_analyses: [] },
     metadata: {
-      detected_market: extracted.detected_market || 'Unknown', detected_currency: extracted.detected_currency || 'INR',
+      detected_market: extracted.detected_market || 'Unknown', detected_currency: resolvedCurrencyForResponse,
       detected_broker: extracted.detected_broker || 'Unknown', trade_date: extracted.trade_date || '',
       trade_count: trades.length, net_pnl: Math.round(netPnl * 100) / 100,
       processing_time_ms: Date.now() - startTime,
@@ -797,16 +821,21 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
           const firstFile = fileBuffers[0];
           const fileHash = computeFileHash(firstFile.buffer);
           const cappedTrades = trades.length > MAX_RAW_ROWS ? trades.slice(0, MAX_RAW_ROWS) : trades;
+          // FIX (audit Finding F — 2026-05-04): pass raw detected currency
+          // PLUS cookie/Accept-Language so saveClaudeFallbackRawData can
+          // resolve via resolveCurrency at the actual write site.
           const rawResult = await saveClaudeFallbackRawData({
             filename: firstFile.file.name,
             fileHash,
             fileSizeBytes: firstFile.file.size,
             broker: extracted.detected_broker || 'Unknown',
             market: extracted.detected_market || 'Unknown',
-            currency: extracted.detected_currency || 'INR',
+            currency: extracted.detected_currency || '',
             tradeDate: extracted.trade_date || '',
             tradeCount: trades.length,
             trades: cappedTrades,
+            cookieCurrency,
+            acceptLanguage,
           }, userId);
           if ('id' in rawResult) {
             rawFileId = rawResult.id;
@@ -828,13 +857,16 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       trades, analysis: response.analysis, context,
       metadata: {
         detected_market: extracted.detected_market || 'Unknown',
-        detected_currency: extracted.detected_currency || 'INR',
+        // FIX (audit Finding F — 2026-05-04): pass raw value (possibly '');
+        // saveSessionsByDay → saveTradeSession resolves via resolveCurrency.
+        detected_currency: extracted.detected_currency || '',
         detected_broker: extracted.detected_broker || 'Unknown',
         trade_date: extracted.trade_date || '',
         raw_file_id: rawFileId,
         file_name: fileBuffers[0]?.file.name || 'upload',
       },
       plan: userPlan, userId: userId || undefined, anonId, files,
+      cookieCurrency, acceptLanguage,
     });
     savedSessionId = saveResult.sessionId;
     dedupStats = saveResult.dedupStats;
@@ -889,6 +921,8 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         sendEmail({
           to: userEmail,
           subject: `Your ${extracted.trade_date || 'trading'} report is ready`,
+          // FIX (audit Finding F — 2026-05-04): reuse resolved currency
+          // from the response metadata block earlier in this handler.
           html: analysisCompleteHtml({
             name: user.firstName || userEmail.split('@')[0],
             sessionDate: extracted.trade_date || new Date().toISOString().split('T')[0],
@@ -897,7 +931,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
             dqsScore: Number(a?.dqs?.score) || 0,
             topIssue: topPattern?.name || topPattern?.label || undefined,
             topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
-            currency: extracted.detected_currency || 'INR',
+            currency: resolvedCurrencyForResponse,
           }),
           text: analysisCompleteText({
             name: user.firstName || userEmail.split('@')[0],
@@ -907,7 +941,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
             dqsScore: Number(a?.dqs?.score) || 0,
             topIssue: topPattern?.name || topPattern?.label || undefined,
             topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
-            currency: extracted.detected_currency || 'INR',
+            currency: resolvedCurrencyForResponse,
           }),
         }).catch(err => console.error('[ANALYSIS_EMAIL_FAILED]', err));
       }
@@ -930,6 +964,11 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
 }
 
 async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
+  // FIX (audit Finding F — 2026-05-04): currency-resolution context.
+  // Same pattern as handleFormData; extracted once for all sites in scope.
+  const cookieCurrency = req.cookies.get('tradesaath-currency')?.value ?? null;
+  const acceptLanguage = req.headers.get('accept-language');
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed JSON body
   let body: any;
   try { body = await req.json(); } catch {
@@ -985,6 +1024,16 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- full analysis JSONB
   const codeAnalysis: any = buildAnalysisJSON({ trades, trade_date }, detection, coaching);
 
+  // FIX (audit Finding F — 2026-05-04): resolve currency BEFORE buildResponse
+  // is defined, since buildResponse is a non-async arrow and can't await.
+  const resolvedCurrencyForJsonResponse = await resolveCurrency({
+    detectedCurrency: currency,
+    detectedMarket: market,
+    symbols: (trades.map((t: { symbol?: string }) => t?.symbol).filter(Boolean) as string[]),
+    cookieCurrency,
+    acceptLanguage,
+  });
+
   const buildResponse = (aiAnalysis?: Record<string, unknown>, aiError?: string) => ({
     success: true,
     trades,
@@ -1006,7 +1055,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
     },
     metadata: {
       detected_market: market || 'NSE',
-      detected_currency: currency || 'INR',
+      detected_currency: resolvedCurrencyForJsonResponse,
       detected_broker: broker || 'Unknown',
       trade_date: trade_date || '',
       trade_count: trades.length,
@@ -1052,16 +1101,20 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
 
       if (!effectiveRawFileId && userId && file_hash) {
         // Last-resort fallback — still create a raw_files row from the pre-parsed trades
+        // FIX (audit Finding F — 2026-05-04): pass raw value + cookie/Accept-Language;
+        // saveClaudeFallbackRawData resolves currency at the write site.
         const rawResult = await saveClaudeFallbackRawData({
           filename: `parsed-upload-${trade_date || 'unknown'}.csv`,
           fileHash: file_hash,
           fileSizeBytes: file_size_bytes || 0,
           broker: broker || 'Unknown',
           market: market || 'Unknown',
-          currency: currency || 'INR',
+          currency: currency || '',
           tradeDate: trade_date || '',
           tradeCount: trades.length,
           trades,
+          cookieCurrency,
+          acceptLanguage,
         }, userId);
         if ('id' in rawResult) {
           effectiveRawFileId = rawResult.id;
@@ -1079,12 +1132,15 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
         trades, analysis: responseObj.analysis, context: context || {},
         metadata: {
           detected_market: market || 'Unknown',
-          detected_currency: currency || 'INR',
+          // FIX (audit Finding F — 2026-05-04): pass raw value; inner
+          // saveTradeSession resolves via resolveCurrency.
+          detected_currency: currency || '',
           detected_broker: broker || 'Unknown',
           trade_date: trade_date || '',
           raw_file_id: effectiveRawFileId,
         },
         plan: userPlanJSON, userId: userId || undefined, anonId,
+        cookieCurrency, acceptLanguage,
       });
 
       // Increment session usage for single (starter) plan — JSON path
@@ -1146,6 +1202,8 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
         const a = codeAnalysis as any;
         const patterns = a?.mistake_patterns || a?.patterns_detected || [];
         const topPattern = patterns.length > 0 ? patterns.reduce((best: { cost?: number }, p: { cost?: number }) => ((p.cost || 0) > (best.cost || 0) ? p : best), patterns[0]) : null;
+        // FIX (audit Finding F — 2026-05-04): reuse resolved currency from
+        // the response metadata block earlier in this handler.
         sendEmail({
           to: userEmail,
           subject: `Your ${trade_date || 'trading'} report is ready`,
@@ -1157,7 +1215,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
             dqsScore: Number(a?.dqs?.score) || 0,
             topIssue: topPattern?.name || topPattern?.label || undefined,
             topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
-            currency: currency || 'INR',
+            currency: resolvedCurrencyForJsonResponse,
           }),
           text: analysisCompleteText({
             name: user.firstName || userEmail.split('@')[0],
@@ -1167,7 +1225,7 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
             dqsScore: Number(a?.dqs?.score) || 0,
             topIssue: topPattern?.name || topPattern?.label || undefined,
             topIssueCost: topPattern?.cost ? Math.abs(Number(topPattern.cost)) : undefined,
-            currency: currency || 'INR',
+            currency: resolvedCurrencyForJsonResponse,
           }),
         }).catch(err => console.error('[ANALYSIS_EMAIL_FAILED]', err));
       }

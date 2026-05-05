@@ -1,5 +1,6 @@
 {
   "broker": "mt4",
+  "expectedCurrency": "USD",
   "fixtureNotes": "10 closed trades (MT4 reports completed round-trips, not separate fills). Forex/CFD focus. Edge cases: (a) DATE FORMAT 'YYYY.MM.DD HH:MM:SS' with DOTS in date (MT4-specific, neither ISO nor any other Indian/US convention), (b) one row per round-trip with Open+Close times in same row (not separate buy/sell fills like equity brokers), (c) FRACTIONAL Size column (0.10, 0.25, 0.50, 0.75, 1.00, 2.00 lots), (d) lowercase Type 'buy'/'sell', (e) USDJPY 3-decimal price vs 5-decimal others (varying precision per symbol), (f) Profit column already realized (parser may take it as-is or recompute from Open/Close prices), (g) Commission/Swap columns separate from Profit — net P&L = Profit + Commission + Swap, (h) WEEKEND TIMESTAMP edge: ticket 80123459 is Apr 18 22:30 (Saturday) — forex closes weekend → either real (some server tzs differ) or bad data. Parser should not silently reject.",
   "totalFills": 10,
   "buyCount": 7,

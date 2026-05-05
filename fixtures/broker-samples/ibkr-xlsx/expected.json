@@ -1,5 +1,6 @@
 {
   "broker": "ibkr",
+  "expectedCurrency": "USD",
   "fixtureNotes": "MULTI-SHEET XLSX — 4 sheets total: 'Account Information' (sheet 0, NOT trades), 'Trades' (the actual trade data), 'Open Positions' (NFLX), 'NAV' (account summary). CRITICAL TEST: parsers that read only sheet 0 will completely miss the trades. Edge cases: (a) trade table is on sheet INDEX 1 not 0 — parser must navigate by sheet name OR scan all sheets, (b) signed Quantity (positive=BUY, negative=SELL — same as IBKR CSV), (c) Date/Time format uses comma+space '2026-04-15, 09:35:22' (different from CSV's semicolon — IBKR is inconsistent across export formats), (d) 'Open Positions' sheet would CRASH a parser that tries to interpret it as more trades, (e) NFLX appears in both Trades (open) and Open Positions sheets — parser must not double-count.",
   "sheetsInWorkbook": ["Account Information","Trades","Open Positions","NAV"],
   "tradesSheetName": "Trades",
