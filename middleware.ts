@@ -22,6 +22,13 @@ const isPublicRoute = createRouteMatcher([
   '/api/payments/(.*)',
   '/api/webhooks/(.*)',
   '/api/og',
+  // Crawler-facing public files (Google sitemap fetcher, robots.txt
+  // readers, etc.). These ALSO need to bypass the matcher regex below
+  // so Clerk's middleware doesn't run at all and emit a dev-browser
+  // handshake redirect to /sign-in. Belt-and-braces: listed here too.
+  '/sitemap.xml',
+  '/robots.txt',
+  '/favicon.ico',
 ])
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
@@ -86,8 +93,12 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip Next.js internals and all static files. The `xml|txt` entries
+    // were missing previously, which meant /sitemap.xml and /robots.txt
+    // were running through Clerk middleware and getting redirected to
+    // /sign-in for unauthenticated requests — Google's sitemap fetcher
+    // saw "HTML" instead of XML.
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',
   ],
