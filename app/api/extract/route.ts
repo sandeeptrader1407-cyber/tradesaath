@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { auth } from '@clerk/nextjs/server'
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit'
-import { intakeFile, toLegacyTrade } from '@/lib/intake'
+import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, computeFileHash } from '@/lib/intake'
 import { resolveCurrency } from '@/lib/utils/currency'
+import { MAX_UPLOAD_BYTES, UPLOAD_TOO_LARGE_MESSAGE } from '@/lib/config/uploadLimits'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -94,14 +96,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large: maximum 10MB per file.' }, { status: 400 })
+    // PR 2d (audit Finding E): central MAX_UPLOAD_BYTES + 413 status.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: `${UPLOAD_TOO_LARGE_MESSAGE} (${file.name})` }, { status: 413 })
     }
 
     console.log(`Extract request: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(1)} KB)`)
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // PR 2d (audit Finding E): resolve userId once for both archive sites
+    // below. /extract supports anonymous uploads — when userId is null we
+    // SKIP the archive (anon_id flow not plumbed through saveRawData yet,
+    // known limitation tracked for a future PR).
+    const { userId } = await auth()
 
     // --- Try Module 1 intake pipeline first (free, instant) ---
     const intakeResult = await intakeFile(buffer, file.name)
@@ -128,6 +137,24 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`[Intake] Local extract OK: ${legacyTrades.length} trades from ${intakeResult.rawFile.broker}`)
+
+      // PR 2d (audit Finding E): archive raw bytes alongside metadata for
+      // authenticated users. Anonymous /extract uploads stay un-archived
+      // (no anon_id flow plumbed through saveRawData yet — known gap).
+      if (userId) {
+        const archiveResult = await saveRawData(
+          intakeResult.rawFile,
+          userId,
+          undefined, // no sessionId — /extract is preview-only
+          buffer,
+        )
+        if ('error' in archiveResult) {
+          console.warn(`[Extract] Raw archive failed: ${archiveResult.error}`)
+        } else {
+          console.log(`[Extract] Archived raw file: ${archiveResult.id} (storagePath=${archiveResult.storagePath ?? 'null'})`)
+        }
+      }
+
       // FIX (audit Finding F — 2026-05-04): resolveCurrency for response.
       const resolvedCurrencyLocal = await resolveCurrency({
         detectedCurrency: intakeResult.rawFile.currency,
@@ -286,6 +313,32 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[Extract] Extracted ${result.trades.length} trades from ${result.broker || 'unknown broker'}`)
+
+    // PR 2d (audit Finding E): archive Claude-extracted raw bytes for
+    // authenticated users. Anonymous /extract uploads stay un-archived
+    // (same anon_id-flow gap as the local-parse branch above).
+    if (userId) {
+      const fileHash = computeFileHash(buffer)
+      const archiveResult = await saveClaudeFallbackRawData({
+        filename: file.name,
+        fileHash,
+        fileSizeBytes: file.size,
+        broker: result.broker || 'Unknown',
+        market: result.market || 'Unknown',
+        currency: result.currency || '',
+        tradeDate: result.trade_date || '',
+        tradeCount: result.trades.length,
+        trades: result.trades,
+        cookieCurrency,
+        acceptLanguage,
+        fileBuffer: buffer,
+      }, userId)
+      if ('error' in archiveResult) {
+        console.warn(`[Extract] Claude raw archive failed: ${archiveResult.error}`)
+      } else {
+        console.log(`[Extract] Archived Claude raw file: ${archiveResult.id} (storagePath=${archiveResult.storagePath ?? 'null'})`)
+      }
+    }
 
     // FIX (audit Finding F — 2026-05-04): resolveCurrency for response.
     const resolvedCurrencyAi = await resolveCurrency({

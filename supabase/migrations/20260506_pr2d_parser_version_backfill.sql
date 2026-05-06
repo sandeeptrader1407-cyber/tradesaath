@@ -1,0 +1,95 @@
+-- ─────────────────────────────────────────────────────────────────────
+-- PR 2d — parser_version backfill + Storage policies documentation
+-- Audit reference: docs/audits/2026-05-04-parsing.md, Finding E
+-- Created: 2026-05-06
+-- ─────────────────────────────────────────────────────────────────────
+--
+-- This migration does two things:
+--
+--   (1) Backfills `raw_files.parser_version` for legacy rows that pre-date
+--       PR 2d. Idempotent — safe to re-run. New rows from PR 2d onwards
+--       write `intake-1.1` or `claude-2.1` directly via lib/intake/
+--       parserVersion.ts; this UPDATE only touches the legacy NULL /
+--       'unknown' rows that came from the (now-deprecated) saveRawFile
+--       path which never wrote the column.
+--
+--   (2) Documents the Storage RLS policies that MUST be applied via the
+--       Supabase Dashboard before launch. Storage policies cannot be
+--       defined in a SQL migration (they live on the storage.objects
+--       system table which only the Supabase Dashboard / CLI can write
+--       to safely). Listing them here so they live under version control
+--       and are visible to reviewers.
+--
+-- Policies are SAFE TO APPLY at any time — they don't change behaviour
+-- for the service-role uploader (lib/storage/rawFileArchive.ts uses
+-- getSupabaseAdmin which bypasses RLS).
+-- ─────────────────────────────────────────────────────────────────────
+
+
+-- ─── (1) Backfill parser_version on legacy rows ──────────────────────
+
+UPDATE raw_files
+SET parser_version = 'intake-1.0'
+WHERE parser_version IS NULL OR parser_version = 'unknown';
+
+-- Sanity-check query (commented out — uncomment to verify after applying):
+-- SELECT parser_version, COUNT(*) FROM raw_files GROUP BY parser_version ORDER BY 1;
+-- Expected after PR 2d ships:
+--   intake-1.0  → all legacy rows backfilled by this migration
+--   intake-1.1  → new rows from Module 1 (PR 2d onwards)
+--   claude-2.0  → existing Claude-extracted rows (untouched)
+--   claude-2.1  → new rows from Claude fallback (PR 2d onwards)
+
+
+-- ─── (2) Storage RLS policies — APPLY MANUALLY VIA SUPABASE DASHBOARD ─
+--
+-- Bucket: trade-files
+-- Path scheme (from lib/storage/rawFileArchive.ts):
+--   raw_uploads/users/<clerkId>/<sha256>.<ext>[.gz]
+--   raw_uploads/anon/<anonId>/<sha256>.<ext>[.gz]
+--
+-- Required policies (apply in Dashboard → Storage → trade-files → Policies):
+--
+--   Policy 1 — "Authenticated users read own files"
+--     Operation: SELECT
+--     Target roles: authenticated
+--     USING expression:
+--       bucket_id = 'trade-files'
+--       AND (
+--         name LIKE 'raw_uploads/users/' || (auth.jwt() ->> 'sub') || '/%'
+--       )
+--     Rationale: Clerk JWT 'sub' claim holds the user_id; this restricts
+--     authenticated reads to that user's own raw_uploads/ subdirectory.
+--     Files in the legacy <userId>/<timestamp>_<file> path scheme remain
+--     accessible only to the service role (Policy 2) — they predate
+--     consistent ACLs and the dedup pipeline doesn't rely on them.
+--
+--     -- VERIFY before applying: SELECT auth.jwt() ->> 'sub' should
+--     --   return the same value as users.clerk_id for the logged-in user.
+--     --   If Clerk uses a custom JWT template, adjust this claim path.
+--
+--   Policy 2 — "Service role full access"
+--     Operation: ALL
+--     Target roles: service_role
+--     USING / WITH CHECK expression:
+--       bucket_id = 'trade-files'
+--     Rationale: Server-side code (rawFileArchive.ts, future re-process
+--     pipeline) needs unrestricted read/write. Service role bypasses RLS
+--     in practice, but explicit policy documents intent.
+--
+--   Policy 3 — NO PUBLIC ACCESS
+--     Do NOT add an "anon" SELECT/UPDATE/INSERT/DELETE policy. Anonymous
+--     reads of archived raw files MUST go through signed URLs generated
+--     server-side (PR 2e, "Looks right?" preview UI). The bucket itself
+--     stays private; signed URLs grant short-lived access.
+--
+-- Verification after applying:
+--   1. As an authenticated user, attempt to read another user's file via
+--      the storage SDK with their anon key. Expect 403.
+--   2. As the service role (in a server action), read the same file.
+--      Expect success.
+--   3. Confirm bucket 'trade-files' is NOT listed under "Public buckets"
+--      in Dashboard → Storage.
+--
+-- ─────────────────────────────────────────────────────────────────────
+-- END OF MIGRATION
