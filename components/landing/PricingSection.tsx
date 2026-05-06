@@ -140,7 +140,7 @@ export default function PricingSection() {
         .ts-pricing {
           padding: 120px 0;
           background: #f7f7f3;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-container {
           max-width: 1180px;
@@ -179,7 +179,7 @@ export default function PricingSection() {
           box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.15);
         }
         .ts-pricing-h2 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           letter-spacing: -0.01em;
           margin: 0;
@@ -206,7 +206,7 @@ export default function PricingSection() {
           padding: 8px 18px;
           border-radius: 99px;
           cursor: pointer;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           letter-spacing: 0.04em;
           color: #7a8093;
           transition: color 0.15s, background 0.15s;
@@ -223,7 +223,7 @@ export default function PricingSection() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 11px;
           color: #7a8093;
           letter-spacing: 0.04em;
@@ -298,14 +298,14 @@ export default function PricingSection() {
           color: #9a6a00;
         }
         .ts-amt {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-size: 54px;
           line-height: 1;
           letter-spacing: -0.02em;
           color: #0c1322;
         }
         .ts-amt sub {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 14px;
           color: #7a8093;
           margin-left: 6px;
@@ -316,7 +316,7 @@ export default function PricingSection() {
           font-size: 11.5px;
           color: #7a8093;
           margin-top: 10px;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           letter-spacing: 0.04em;
         }
         .ts-save {
@@ -383,7 +383,7 @@ export default function PricingSection() {
           text-align: center;
           color: #7a8093;
           font-size: 12.5px;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           letter-spacing: 0.04em;
         }
         @media (max-width: 880px) {

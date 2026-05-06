@@ -424,7 +424,7 @@ export default function ProductDemo() {
           padding: 120px 0;
           position: relative;
           overflow: hidden;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-product::before {
           content: '';
@@ -463,7 +463,7 @@ export default function ProductDemo() {
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-product-h2 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           letter-spacing: -0.01em;
           margin: 0;
@@ -502,6 +502,9 @@ export default function ProductDemo() {
           0%, 100% { box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.18); }
           50% { box-shadow: 0 0 0 10px rgba(255, 122, 0, 0.05); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-demo-nudge-dot { animation: none; }
+        }
         .ts-demo {
           margin-top: 30px;
           background: #0e1830;
@@ -534,7 +537,7 @@ export default function ProductDemo() {
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 12px;
           color: #ff7a00;
           letter-spacing: 0.06em;
@@ -549,7 +552,7 @@ export default function ProductDemo() {
           position: relative;
         }
         .ts-brand {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-size: 18px;
           padding: 14px 0;
           display: flex;
@@ -599,7 +602,7 @@ export default function ProductDemo() {
           align-items: center;
           justify-content: center;
           font-size: 12px;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
         }
         .ts-cursor {
           position: absolute;
@@ -658,7 +661,7 @@ export default function ProductDemo() {
           align-items: flex-end;
         }
         .ts-panel-h {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-size: 30px;
         }
         .ts-panel-sub {
@@ -693,7 +696,7 @@ export default function ProductDemo() {
           color: #7a8093;
         }
         .ts-kpi-val {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 26px;
           margin-top: 8px;
         }
@@ -728,7 +731,7 @@ export default function ProductDemo() {
         }
         .ts-equity h4 {
           margin: 0;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
           font-size: 13px;
           color: #7a8093;
           font-weight: 500;
@@ -736,7 +739,7 @@ export default function ProductDemo() {
           text-transform: uppercase;
         }
         .ts-equity-total {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 14px;
           color: #36d399;
         }
@@ -777,10 +780,10 @@ export default function ProductDemo() {
           letter-spacing: 0.12em;
         }
         .ts-sym {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
         }
         .ts-pnl {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
         }
         .ts-pnl-up {
           color: #36d399;
@@ -839,13 +842,13 @@ export default function ProductDemo() {
           border: 2px solid #36d399;
         }
         .ts-tl-t {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 11px;
           color: #7a8093;
           letter-spacing: 0.06em;
         }
         .ts-tl-h {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-size: 20px;
           margin-top: 4px;
         }

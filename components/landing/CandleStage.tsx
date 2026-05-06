@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import PatternsTicker from './PatternsTicker'
 
 const W = 600
@@ -24,8 +24,11 @@ interface CandlePoint {
 /**
  * Builds the SVG fragment string deterministically (no per-mount randomness for layout) but
  * applies a small randomized wick noise for organic feel. Computed once per mount.
+ *
+ * `animate=false` (passed when prefers-reduced-motion is on) drops the inline
+ * <animate> children so candles render in their final state immediately.
  */
-function buildCandlesSVG(): { svg: string; closes: CandlePoint[] } {
+function buildCandlesSVG(animate: boolean): { svg: string; closes: CandlePoint[] } {
   let frag = ''
   // Faint baseline grid line
   frag += `<line x1="0" y1="${H / 2 - 30}" x2="${W}" y2="${H / 2 - 30}" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3 4" />`
@@ -53,7 +56,9 @@ function buildCandlesSVG(): { svg: string; closes: CandlePoint[] } {
     const top = Math.min(open, close)
     const bot = Math.max(open, close)
     frag += `<rect x="${x}" y="${top}" width="${CANDLE_WIDTH}" height="${Math.max(2, bot - top)}" fill="${color}" fill-opacity="${bodyOpacity}" rx="1.5">`
-    frag += `<animate attributeName="opacity" values="0;1" dur="0.4s" begin="${i * 0.07}s" fill="freeze" />`
+    if (animate) {
+      frag += `<animate attributeName="opacity" values="0;1" dur="0.4s" begin="${i * 0.07}s" fill="freeze" />`
+    }
     frag += `</rect>`
 
     closes.push({ x: cx, y: close })
@@ -62,31 +67,45 @@ function buildCandlesSVG(): { svg: string; closes: CandlePoint[] } {
 
   // Drawdown trace line
   const linePath = closes.map((p, i) => (i === 0 ? `M ${p.x},${p.y}` : `L ${p.x},${p.y}`)).join(' ')
-  frag += `<path d="${linePath}" fill="none" stroke="#f05d6c" stroke-width="1.6" stroke-opacity="0.85" stroke-dasharray="800" stroke-dashoffset="800">`
-  frag += `<animate attributeName="stroke-dashoffset" from="800" to="0" dur="2.4s" begin="1.4s" fill="freeze" />`
-  frag += `</path>`
+  // When animating, start with full dash offset (line hidden) and let <animate> reveal it.
+  // When reduced-motion is on, draw the full line immediately (no dasharray trickery).
+  if (animate) {
+    frag += `<path d="${linePath}" fill="none" stroke="#f05d6c" stroke-width="1.6" stroke-opacity="0.85" stroke-dasharray="800" stroke-dashoffset="800">`
+    frag += `<animate attributeName="stroke-dashoffset" from="800" to="0" dur="2.4s" begin="1.4s" fill="freeze" />`
+    frag += `</path>`
+  } else {
+    frag += `<path d="${linePath}" fill="none" stroke="#f05d6c" stroke-width="1.6" stroke-opacity="0.85" />`
+  }
 
   // Drawdown shaded area below the trace
   const last = closes[closes.length - 1]
   const first = closes[0]
   const areaPath = `${linePath} L ${last.x},${H} L ${first.x},${H} Z`
   frag += `<defs><linearGradient id="ts-ddGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f05d6c" stop-opacity="0.18"/><stop offset="100%" stop-color="#f05d6c" stop-opacity="0"/></linearGradient></defs>`
-  frag += `<path d="${areaPath}" fill="url(#ts-ddGrad)" opacity="0">`
-  frag += `<animate attributeName="opacity" values="0;1" dur="0.8s" begin="3s" fill="freeze" />`
-  frag += `</path>`
+  if (animate) {
+    frag += `<path d="${areaPath}" fill="url(#ts-ddGrad)" opacity="0">`
+    frag += `<animate attributeName="opacity" values="0;1" dur="0.8s" begin="3s" fill="freeze" />`
+    frag += `</path>`
+  } else {
+    frag += `<path d="${areaPath}" fill="url(#ts-ddGrad)" />`
+  }
 
   return { svg: frag, closes }
 }
 
 export default function CandleStage() {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  // Compute the SVG fragment once per mount. useMemo so it doesn't recompute on re-renders.
-  const built = useMemo(buildCandlesSVG, [])
 
   useEffect(() => {
     const el = svgRef.current
-    if (el) el.innerHTML = built.svg
-  }, [built])
+    if (!el) return
+    // Honour OS-level reduced-motion preference (CWV / a11y) — drop the
+    // inline <animate> children so candles paint in final state immediately.
+    const animate =
+      typeof window === 'undefined' ||
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.innerHTML = buildCandlesSVG(animate).svg
+  }, [])
 
   return (
     <div className="ts-candle-stage">
@@ -119,7 +138,7 @@ export default function CandleStage() {
           height: 430px;
           overflow: hidden;
           box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.6);
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-candle-stage::after {
           content: '';
@@ -145,7 +164,7 @@ export default function CandleStage() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 9px;
           color: #8a93a8;
           text-align: right;
@@ -159,7 +178,7 @@ export default function CandleStage() {
           bottom: 6px;
           display: flex;
           justify-content: space-between;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 9px;
           color: #8a93a8;
           letter-spacing: 0.04em;

@@ -89,12 +89,36 @@ export default function PatternsTicker() {
     const track = trackRef.current
     if (!track) return
 
+    // Honour OS-level reduced-motion preference (CWV / a11y).
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
     // Initial population: 5 visible + 1 staged offscreen
     track.innerHTML = ''
     for (let i = 0; i < VISIBLE + 1; i++) {
       track.appendChild(buildRow(POOL[i]))
     }
     activeIdxRef.current = VISIBLE + 1
+
+    // Reduced-motion path: paint final state immediately, no rAF, no setInterval.
+    if (prefersReducedMotion) {
+      const rows = track.querySelectorAll<HTMLDivElement>('.ts-pattern-row')
+      rows.forEach((row, i) => {
+        if (i >= VISIBLE) return
+        const fill = row.querySelector<HTMLDivElement>('.ts-pattern-bar-fill')
+        const countEl = row.querySelector<HTMLElement>('.ts-pattern-count')
+        if (fill) {
+          const sev = parseFloat(fill.dataset.fill ?? '0')
+          fill.style.transform = `scaleX(${sev / 100})`
+        }
+        if (countEl) {
+          const target = parseInt(countEl.dataset.target ?? '0', 10)
+          countEl.textContent = '×' + target
+        }
+      })
+      return // skip cycle setup entirely
+    }
 
     // Initial reveal: bar fills + count animations on visible rows
     const initialRevealTimeout = window.setTimeout(() => {
@@ -225,7 +249,7 @@ export default function PatternsTicker() {
           width: 294px;
           box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(240, 93, 108, 0.06) inset;
           overflow: hidden;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-patterns-card::before {
           content: '';
@@ -277,7 +301,7 @@ export default function PatternsTicker() {
           letter-spacing: 0.18em;
           color: #f05d6c;
           text-transform: uppercase;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
         }
         .ts-patterns-live::before {
           content: '';
@@ -294,7 +318,7 @@ export default function PatternsTicker() {
         }
         .ts-patterns-meta {
           padding: 8px 16px;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 10px;
           color: #8a93a8;
           letter-spacing: 0.04em;
@@ -372,7 +396,7 @@ export default function PatternsTicker() {
           gap: 8px;
         }
         .ts-dqs-num {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 22px;
           color: #36d399;
           font-weight: 500;
@@ -385,11 +409,17 @@ export default function PatternsTicker() {
         .ts-dqs-trend {
           font-size: 10px;
           color: #f05d6c;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
         }
         .ts-dqs-spark {
           margin-top: 6px;
           height: 18px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-scan-line { animation: none; }
+          .ts-patterns-live::before { animation: none; }
+          .ts-pulse-dot { animation: none; }
+          .ts-refresh-progress-fill { animation: none; }
         }
       `}</style>
       <style jsx global>{`
@@ -415,13 +445,17 @@ export default function PatternsTicker() {
           0% { opacity: 1; }
           100% { opacity: 0; }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-pattern-row.ts-flash::before { animation: none; }
+          .ts-patterns-track { transition: none !important; }
+        }
         .ts-pattern-line {
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 12.5px;
           color: #dde1ea;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-pattern-dot {
           width: 7px;
@@ -441,7 +475,7 @@ export default function PatternsTicker() {
           text-overflow: ellipsis;
         }
         .ts-pattern-count {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 12px;
           letter-spacing: 0.02em;
           flex-shrink: 0;
@@ -451,7 +485,7 @@ export default function PatternsTicker() {
         .ts-pattern-count.ts-sev-high { color: #fb7c5c; }
         .ts-pattern-count.ts-sev-sev { color: #f05d6c; }
         .ts-pattern-trend {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 11px;
           flex-shrink: 0;
           width: 14px;

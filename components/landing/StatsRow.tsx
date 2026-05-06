@@ -65,7 +65,7 @@ export default function StatsRow() {
           color: #ecedef;
           padding: 0 0 60px;
           position: relative;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-container {
           max-width: 1180px;
@@ -87,7 +87,7 @@ export default function StatsRow() {
           border-right: none;
         }
         .ts-stat-n {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           font-size: 32px;
           letter-spacing: 0.02em;
         }
