@@ -13,6 +13,9 @@ interface Props {
   hasRealTimeData?: boolean
 }
 
+// Day axis is data-driven (not market-hardcoded). TradeSaath supports
+// crypto (24/7), forex, and US-equity traders alongside Indian F&O —
+// so the heatmap shows whichever days have trades, no more.
 const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
 function getSlotKey(time: string): string | null {
@@ -34,7 +37,18 @@ function getDayName(time: string): string | null {
     if (!dateMatch) return null
     const [, y, mo, d] = dateMatch
     const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12, 0, 0))
-    const day = dt.getUTCDay() // 0=Sun
+    const day = dt.getUTCDay() // 0=Sun, 1=Mon, ..., 6=Sat
+    // Diagnostic: surface weekend day-of-week computations so we can
+    // trace where unexpected Sat/Sun cells originate (broker file with
+    // bad date column, timezone misparse, etc.). Vercel logs will show
+    // the raw input alongside the parsed UTC string.
+    if (day === 0 || day === 6) {
+      console.warn('[Heatmap] Weekend day-of-week computed', {
+        rawTime: time,
+        parsedUTC: dt.toISOString(),
+        day,
+      })
+    }
     return ALL_DAYS[day === 0 ? 6 : day - 1] // remap: 0=Sun->6, 1=Mon->0, etc.
   } catch {
     return null
@@ -61,11 +75,13 @@ export default function PerformanceHeatmap({ trades = [], hasRealTimeData = true
       if (slot) slotSet.add(slot)
     }
 
-    // Sort days in Mon-Sun order, only include days with data
+    // Sort days in Mon-Sun order, only include days with data.
+    // No fallback — if no trades have parseable timestamps, days is
+    // empty and the grid renders no day rows. Hardcoding a default
+    // (Mon-Fri or otherwise) bakes in a market assumption that
+    // doesn't hold for crypto/forex/US-equity users.
     const dayOrder = ALL_DAYS as readonly string[]
-    const activeDays = dayOrder.filter(d => daySet.has(d))
-    // If no days found, default to Mon-Fri
-    const days = activeDays.length > 0 ? activeDays : ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    const days = dayOrder.filter(d => daySet.has(d))
 
     // Sort slots chronologically, only include slots with data
     const activeSlots = Array.from(slotSet).sort()

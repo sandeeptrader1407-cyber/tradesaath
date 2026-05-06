@@ -260,6 +260,58 @@ export default function DashboardPage() {
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
               PDF, CSV, or Excel &middot; Any broker &middot; Free
             </p>
+
+            {/* B3: Direct-to-Razorpay Pro CTA for users who already know they
+                want full power before they've uploaded. Mirrors the Top-Issue
+                card's openCheckout pattern. */}
+            {!isPro && (
+              <div style={{
+                marginTop: 32,
+                padding: '20px 22px',
+                borderRadius: 10,
+                border: '0.5px solid #E2E8F0',
+                background: '#FFFFFF',
+                textAlign: 'left',
+              }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', margin: '0 0 6px' }}>
+                  Already analysed elsewhere?
+                </p>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: '#0F172A', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
+                  Unlock full power with Pro
+                </p>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#64748B', lineHeight: 1.6, margin: '0 0 14px' }}>
+                  Per-trade psychology coaching, counterfactual scenarios, Saathi AI coaching, and unlimited analyses.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => openCheckout('pro_monthly')}
+                    disabled={payLoading}
+                    style={{
+                      background: '#0F172A',
+                      color: '#F8FAFC',
+                      border: 'none',
+                      borderRadius: 8,
+                      height: 38,
+                      padding: '0 18px',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: payLoading ? 'wait' : 'pointer',
+                      opacity: payLoading ? 0.6 : 1,
+                    }}
+                  >
+                    {payLoading ? 'Opening…' : 'Upgrade to Pro · ₹799/mo'}
+                  </button>
+                  <Link href="/pricing" style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#64748B', textDecoration: 'none' }}>
+                    View all plans &rarr;
+                  </Link>
+                </div>
+                {payError && (
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#DC2626', margin: '8px 0 0' }}>{payError}</p>
+                )}
+              </div>
+            )}
           </div>
         </main>
       </>

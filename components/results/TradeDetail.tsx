@@ -2,6 +2,10 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useAnalysisStore } from "@/lib/analysisStore";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { usePlanStore } from "@/lib/planStore";
+import { useUser } from "@clerk/nextjs";
+import { showToast } from "@/components/ui/Toast";
 
 interface TradeDetailProps {
   activeTrade?: number;
@@ -51,10 +55,30 @@ const CYCLE_STAGES = [
 
 export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }: TradeDetailProps) {
   const { trades, sessionId } = useAnalysisStore();
+  const { pay, loading: payLoading } = useRazorpay();
+  const setPlan = usePlanStore((s) => s.setPlan);
+  const { user } = useUser();
   const [expandedTradeIndex, setExpandedTradeIndex] = useState<number>(0);
   const [deepDiveOpen, setDeepDiveOpen] = useState<Record<number, boolean>>({});
   const [tradeNotes, setTradeNotes] = useState<Record<number, string>>({});
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  // Direct-to-Razorpay upgrade for the locked-trade overlay (matches the
+  // Top-Issue card pattern in app/dashboard/page.tsx).
+  const openCheckout = useCallback(() => {
+    if (payLoading) return;
+    pay({
+      plan: "pro_monthly",
+      email: user?.primaryEmailAddress?.emailAddress,
+      onSuccess: () => {
+        setPlan("pro_monthly");
+        showToast.success("Payment successful. All trades unlocked.");
+      },
+      onError: (err) => {
+        showToast.error(err || "Payment failed. Please try again.");
+      },
+    });
+  }, [pay, payLoading, setPlan, user]);
 
   const saveNote = useCallback((tradeIndex: number, notes: string) => {
     if (!sessionId) return;
@@ -396,27 +420,37 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
                     />
                   </div>
 
-                  {/* Locked overlay */}
+                  {/* Locked overlay — clickable, opens Razorpay for pro_monthly directly. */}
                   {locked && (
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: '0 0 10px 10px',
-                      background: 'rgba(248,246,241,.88)',
-                      backdropFilter: 'blur(3px)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openCheckout(); }}
+                      disabled={payLoading}
+                      aria-label="Upgrade to unlock full trade analysis"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '0 0 10px 10px',
+                        background: 'rgba(248,246,241,.88)',
+                        backdropFilter: 'blur(3px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: 'none',
+                        padding: 0,
+                        cursor: payLoading ? 'wait' : 'pointer',
+                        opacity: payLoading ? 0.7 : 1,
+                      }}
+                    >
                       <div style={{ textAlign: 'center' }}>
                         <p style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--color-ink)', marginBottom: 6 }}>
-                          Upgrade to unlock.
+                          {payLoading ? 'Opening payment…' : 'Upgrade to unlock'}
                         </p>
-                        <p style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
+                        <p style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', margin: 0 }}>
                           Full trade analysis is available on paid plans.
                         </p>
                       </div>
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
