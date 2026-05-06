@@ -1,45 +1,42 @@
 import type { MetadataRoute } from 'next'
 
-const PRIVATE_PATHS = [
-  '/api/',
-  '/dashboard/',
-  '/journal/',
-  '/coach/',
-  '/journey/',
-  '/upload/',
-  '/results/',
-  '/sign-in/',
-  '/sign-up/',
-]
-
+/**
+ * Next.js 15 file-based robots.
+ * Default-allow for `/` with explicit disallow for auth-gated app
+ * routes, the API surface, and Clerk catch-all sign-in/sign-up. AI
+ * crawlers are explicitly allow-listed for answer-engine citation.
+ */
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      // Default rule for all crawlers
       {
         userAgent: '*',
         allow: '/',
-        disallow: PRIVATE_PATHS,
+        disallow: [
+          '/api/',
+          '/admin/',
+          '/dashboard/',
+          '/coach/',
+          '/journal/',
+          '/journey/',
+          '/upload/',
+          '/settings/',
+          '/results/',
+          '/sign-in/',
+          '/sign-up/',
+        ],
       },
-      // Explicitly allow AI crawlers for AEO
-      ...[
-        'GPTBot',
-        'ChatGPT-User',
-        'Google-Extended',
-        'PerplexityBot',
-        'ClaudeBot',
-        'anthropic-ai',
-        'Applebot-Extended',
-        'cohere-ai',
-        'Meta-ExternalAgent',
-        'CCBot',
-        'Bytespider',
-      ].map((bot) => ({
-        userAgent: bot,
-        allow: '/',
-        disallow: PRIVATE_PATHS,
-      })),
+      // Explicit AI crawler permissions for citation in answer engines
+      { userAgent: 'GPTBot',            allow: '/' },
+      { userAgent: 'ChatGPT-User',      allow: '/' },
+      { userAgent: 'ClaudeBot',         allow: '/' },
+      { userAgent: 'Claude-Web',        allow: '/' },
+      { userAgent: 'PerplexityBot',     allow: '/' },
+      { userAgent: 'Google-Extended',   allow: '/' },
+      { userAgent: 'Applebot-Extended', allow: '/' },
+      { userAgent: 'CCBot',             allow: '/' },
     ],
     sitemap: 'https://tradesaath.com/sitemap.xml',
+    host: 'https://tradesaath.com',
   }
 }
