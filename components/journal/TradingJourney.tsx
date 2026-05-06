@@ -1,6 +1,13 @@
 "use client"
 
-import { Fragment, useState, useEffect } from "react"
+import { Fragment, useState, useEffect, useRef } from "react"
+import { showToast } from "@/components/ui/Toast"
+
+interface TradingJourneyProps {
+  /** From parent /api/dashboard/stats. null = still loading; 0 = no
+   *  sessions yet; >0 = auto-generate story on mount. */
+  sessionCount?: number | null
+}
 
 interface JourneyData {
   experience: string
@@ -141,7 +148,7 @@ const sectionHeaderStyle: React.CSSProperties = {
   fontSize: 16, fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--color-ink)',
 }
 
-export default function TradingJourney() {
+export default function TradingJourney({ sessionCount = null }: TradingJourneyProps) {
   const [data, setData] = useState<JourneyData>(EMPTY_DATA)
   const [saving, setSaving] = useState(false)
   const [activeStep, setActiveStep] = useState(0)
@@ -152,6 +159,10 @@ export default function TradingJourney() {
   const [storyError, setStoryError] = useState("")
   const [storyEmpty, setStoryEmpty] = useState(false)
   const [copied, setCopied] = useState(false)
+  // J1: track whether the journey GET has resolved + whether we've
+  // already auto-generated, so the auto-gen effect fires exactly once.
+  const [journeyLoaded, setJourneyLoaded] = useState(false)
+  const didAutoGen = useRef(false)
 
   useEffect(() => {
     fetch("/api/user/journey")
@@ -173,8 +184,9 @@ export default function TradingJourney() {
           })
           if (d.journey.generated_story) setGeneratedStory(d.journey.generated_story)
         }
+        setJourneyLoaded(true)
       })
-      .catch(() => {})
+      .catch(() => setJourneyLoaded(true))
   }, [])
 
   const generateStory = async (currentData: JourneyData) => {
@@ -191,19 +203,54 @@ export default function TradingJourney() {
         }),
       })
       const result = await res.json()
-      if (result.story)      setGeneratedStory(result.story)
-      else if (result.empty) { setStoryEmpty(true); setStoryError(result.error || "Upload your first session to generate your story") }
-      else                   setStoryError(result.error || "Story generation failed")
+      if (result.story) {
+        setGeneratedStory(result.story)
+        showToast.success("Story updated.")
+      } else if (result.empty) {
+        setStoryEmpty(true)
+        setStoryError(result.error || "Upload your first session to generate your story")
+        // No toast for empty — the inline empty-state UI is the message.
+      } else {
+        const msg = result.error || "Story generation failed"
+        setStoryError(msg)
+        showToast.error(msg)
+      }
     } catch {
-      setStoryError("Could not generate story. Try again.")
+      const msg = "Could not generate story. Try again."
+      setStoryError(msg)
+      showToast.error(msg)
     }
     setStoryLoading(false)
   }
 
+  // J1: auto-generate the story on mount when the user has trade data
+  // and no existing story yet. Fires exactly once per mount via ref.
+  // Skipped when sessionCount === 0 (would just hit the empty-state
+  // path with a wasted API call) or when sessionCount is still null
+  // (parent /api/dashboard/stats hasn't resolved yet).
+  useEffect(() => {
+    if (didAutoGen.current) return
+    if (!journeyLoaded) return
+    if (sessionCount == null) return
+    if (generatedStory) return
+    if (sessionCount === 0) return
+    didAutoGen.current = true
+    generateStory(data)
+    // generateStory is a stable reference and `data` is the closure
+    // value at the moment journeyLoaded flips true — exactly what we
+    // want. Intentionally omitting from deps to fire once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journeyLoaded, sessionCount, generatedStory])
+
   const saveProfile = async () => {
     setSaving(true)
-    try { await fetch("/api/user/journey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }) }
-    catch { /* silent */ }
+    try {
+      const res = await fetch("/api/user/journey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+      if (res.ok) showToast.success("Profile saved.")
+      else        showToast.error("Could not save profile. Try again.")
+    } catch {
+      showToast.error("Could not save profile. Try again.")
+    }
     setSaving(false)
   }
 
@@ -366,8 +413,37 @@ export default function TradingJourney() {
         )}
       </div>
 
+      {/* J2: Personalisation sections only render once a story exists, so
+          they don't compete with the primary "Generate" CTA on first load.
+          Once the story is rendered above, these become "improve this" tools. */}
+      {hasStory && (
+      <>
       {/* Divider */}
       <hr style={{ border: 'none', borderTop: '0.5px solid var(--color-border)', margin: '0 0 24px' }} />
+
+      {/* ── J2: Section header explaining what's below ── */}
+      <div style={{ marginBottom: 20 }}>
+        <h3 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 20,
+          fontWeight: 400,
+          color: 'var(--color-ink)',
+          margin: '0 0 6px',
+          letterSpacing: '-0.01em',
+        }}>
+          Want to make this more personal?
+        </h3>
+        <p style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: 13,
+          fontWeight: 400,
+          color: 'var(--color-muted)',
+          lineHeight: 1.6,
+          margin: 0,
+        }}>
+          Add your voice and trading profile, then regenerate to weave them into your story.
+        </p>
+      </div>
 
       {/* ── SECTION 2: Add Your Voice ── */}
       <div style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', background: '#FFFFFF', overflow: 'hidden', marginBottom: 16 }}>
@@ -555,13 +631,21 @@ export default function TradingJourney() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 
   async function handleSaveNarrative() {
     setSaving(true)
-    try { await fetch("/api/user/journey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }) }
-    catch { /* silent */ }
+    try {
+      const res = await fetch("/api/user/journey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+      if (!res.ok) showToast.error("Could not save chapters. Try again.")
+      // Success toast is suppressed here — the caller chains generateStory()
+      // immediately, and that fires its own "Story updated." toast.
+    } catch {
+      showToast.error("Could not save chapters. Try again.")
+    }
     setSaving(false)
   }
 }
