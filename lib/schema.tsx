@@ -21,7 +21,8 @@ export function OrganizationSchema() {
         '@type': 'Organization',
         name: 'TradeSaath',
         url: 'https://tradesaath.com',
-        logo: 'https://tradesaath.com/logo.png',
+        // TODO: replace with dedicated logo when designed (currently using og-image.svg as placeholder).
+        logo: 'https://tradesaath.com/og-image.svg',
         description:
           'AI-powered trading psychology analysis platform that helps retail traders identify emotional patterns like revenge trading, FOMO entries, and panic exits in their trade history.',
         foundingDate: '2025',
@@ -113,7 +114,7 @@ export function SoftwareApplicationSchema() {
           'Vicious Cycle stage mapping',
           'Support for 21+ Indian and global brokers',
         ],
-        screenshot: 'https://tradesaath.com/og-image.png',
+        screenshot: 'https://tradesaath.com/og-image.svg',
       }}
     />
   )
@@ -167,7 +168,7 @@ export function ArticleSchema({
         url,
         datePublished,
         dateModified: dateModified ?? datePublished,
-        image: image ?? 'https://tradesaath.com/og-image.png',
+        image: image ?? 'https://tradesaath.com/og-image.svg',
         author: {
           '@type': 'Organization',
           name: 'TradeSaath',
@@ -176,7 +177,8 @@ export function ArticleSchema({
         publisher: {
           '@type': 'Organization',
           name: 'TradeSaath',
-          logo: { '@type': 'ImageObject', url: 'https://tradesaath.com/logo.png' },
+          // TODO: replace with dedicated logo when designed (currently using og-image.svg as placeholder).
+          logo: { '@type': 'ImageObject', url: 'https://tradesaath.com/og-image.svg' },
         },
       }}
     />

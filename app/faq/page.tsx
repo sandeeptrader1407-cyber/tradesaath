@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { FAQPageSchema } from '@/lib/schema'
 
-// Note: 'use client' means we can't export metadata from this file.
-// If SEO metadata is needed, move it to app/faq/layout.tsx in a follow-up.
+// SEO metadata for /faq lives in app/faq/layout.tsx — this file is a
+// client component so it cannot export metadata directly. The
+// FAQPageSchema below emits JSON-LD and works fine from a client
+// component (it's just a <script> JSX node).
 
 type FAQ = {
   q: string
@@ -61,6 +64,7 @@ export default function FAQPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#F8FAFC' }}>
+      <FAQPageSchema faqs={FAQS.map(f => ({ q: f.q, a: f.a }))} />
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '96px 24px 120px' }}>
 
         {/* Header */}
