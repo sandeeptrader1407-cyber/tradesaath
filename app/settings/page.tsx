@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useRazorpay } from '@/hooks/useRazorpay'
+import { usePlanStore } from '@/lib/planStore'
+import { showToast } from '@/components/ui/Toast'
 
 interface SettingsData {
   plan: string
@@ -145,6 +148,8 @@ function ReadValue({ value }: { value: string }) {
 export default function SettingsPage() {
   const router = useRouter()
   const { user, isLoaded } = useUser()
+  const { pay, loading: payLoading } = useRazorpay()
+  const setPlan = usePlanStore((s) => s.setPlan)
   const { signOut } = useClerk()
   const [settings, setSettings] = useState<SettingsData | null>(null)
   const [loadingSettings, setLoadingSettings] = useState(true)
@@ -195,6 +200,22 @@ export default function SettingsPage() {
   const plan = settings?.plan ?? 'free'
   const isPro = plan === 'pro_monthly' || plan === 'pro_yearly'
   const _isPaid = plan !== 'free'
+
+  // H2: direct-to-Razorpay from settings — replaces the previous detour
+  // through /#pricing (homepage anchor). Same pattern as /dashboard,
+  // /coach, and TradeDetail's locked overlay.
+  const openCheckout = useCallback(() => {
+    if (payLoading) return
+    pay({
+      plan: 'pro_monthly',
+      email: user?.primaryEmailAddress?.emailAddress,
+      onSuccess: () => {
+        setPlan('pro_monthly')
+        showToast.success('Welcome to Pro! Your account is upgraded.')
+      },
+      onError: (err) => showToast.error(err || 'Payment failed.'),
+    })
+  }, [pay, payLoading, setPlan, user])
 
   const sessionsText = settings
     ? settings.session_quota !== null
@@ -282,24 +303,41 @@ export default function SettingsPage() {
 
           {!isPro && (
             <Row label="Upgrade">
-              <Link
-                href="/#pricing"
-                style={{
-                  display: 'inline-block',
-                  height: 36,
-                  lineHeight: '36px',
-                  padding: '0 16px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: 400,
-                  background: 'var(--accent)',
-                  color: 'var(--color-canvas)',
-                  textDecoration: 'none',
-                }}
-              >
-                View plans &rarr;
-              </Link>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={openCheckout}
+                  disabled={payLoading}
+                  style={{
+                    display: 'inline-block',
+                    height: 36,
+                    lineHeight: '36px',
+                    padding: '0 16px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 500,
+                    background: 'var(--accent)',
+                    color: 'var(--color-canvas)',
+                    border: 'none',
+                    cursor: payLoading ? 'wait' : 'pointer',
+                    opacity: payLoading ? 0.7 : 1,
+                  }}
+                >
+                  {payLoading ? 'Opening payment…' : 'Upgrade to Pro · ₹799/mo'}
+                </button>
+                <Link
+                  href="/pricing"
+                  style={{
+                    fontSize: 12,
+                    fontFamily: 'var(--font-sans)',
+                    color: 'var(--color-muted)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Compare all plans &rarr;
+                </Link>
+              </div>
             </Row>
           )}
         </Section>

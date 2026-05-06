@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePlan } from '@/lib/planStore'
+import { useUser } from '@clerk/nextjs'
+import { usePlan, usePlanStore } from '@/lib/planStore'
+import { useRazorpay } from '@/hooks/useRazorpay'
+import { showToast } from '@/components/ui/Toast'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 interface Session {
@@ -36,6 +39,9 @@ interface AiPlan { title: string; subtitle: string; sections: any[] }
 
 export default function CoachPage() {
   const { isPro, loading: planLoading, plan } = usePlan()
+  const { pay, loading: payLoading } = useRazorpay()
+  const setPlan = usePlanStore((s) => s.setPlan)
+  const { user } = useUser()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<CoachTab>('tomorrow')
@@ -43,6 +49,22 @@ export default function CoachPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiCache, setAiCache] = useState<Record<string, AiPlan>>({})
   const [rulesChecked, setRulesChecked] = useState<Record<string, boolean>>({})
+
+  // H1: direct-to-Razorpay upgrade for the !isPro coaching gate. Same
+  // pattern used in app/dashboard/page.tsx + components/results/TradeDetail.tsx.
+  // Skips the /pricing detour that previously cost ~30-50% conversion.
+  const openCheckout = useCallback(() => {
+    if (payLoading) return
+    pay({
+      plan: 'pro_monthly',
+      email: user?.primaryEmailAddress?.emailAddress,
+      onSuccess: () => {
+        setPlan('pro_monthly')
+        showToast.success('Welcome to Pro! Your coaching is unlocked.')
+      },
+      onError: (err) => showToast.error(err || 'Payment failed.'),
+    })
+  }, [pay, payLoading, setPlan, user])
 
   useEffect(() => {
     try {
@@ -104,9 +126,34 @@ export default function CoachPage() {
             <div style={{ padding: '10px 16px', marginBottom: 20, borderRadius: 8, display: 'inline-block', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 12, color: '#F59E0B', fontFamily: 'var(--font-sans)' }}>
               Current plan: <strong>{plan === 'single' ? 'Single Report' : 'Free'}</strong>
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/pricing" style={{ background: '#F59E0B', color: '#0F172A', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontFamily: 'var(--font-sans)', fontWeight: 500, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Upgrade to Pro: ₹799/mo</Link>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={openCheckout}
+                disabled={payLoading}
+                style={{
+                  background: '#F59E0B',
+                  color: '#0F172A',
+                  borderRadius: 8,
+                  padding: '10px 24px',
+                  fontSize: 14,
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 500,
+                  border: 'none',
+                  cursor: payLoading ? 'wait' : 'pointer',
+                  opacity: payLoading ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                {payLoading ? 'Opening payment…' : 'Upgrade to Pro: ₹799/mo'}
+              </button>
               <Link href="/upload" className="btn btn-ghost">Upload Trades</Link>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Link href="/pricing" style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: '#94A3B8', textDecoration: 'none' }}>
+                View all plans &rarr;
+              </Link>
             </div>
           </div>
         </div>
