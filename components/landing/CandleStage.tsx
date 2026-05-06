@@ -189,6 +189,9 @@ export default function CandleStage() {
             height: auto;
             padding-bottom: 18px;
           }
+          /* The 294px absolute PatternsTicker overlay would cover the
+             whole candle SVG at narrow widths — drop it on mobile. */
+          :global(.ts-patterns-card) { display: none; }
         }
       `}</style>
     </div>

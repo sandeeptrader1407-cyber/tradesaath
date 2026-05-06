@@ -192,6 +192,7 @@ export default function HowItWorks() {
           z-index: 2;
         }
         @media (max-width: 880px) {
+          .ts-how { padding: 60px 0 50px; }
           .ts-steps {
             grid-template-columns: 1fr;
           }
