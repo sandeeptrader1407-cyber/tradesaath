@@ -4,7 +4,6 @@ export const maxDuration = 90;
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { saveTradeSession, DedupStats } from '@/lib/supabase/saveTrades';
-import { saveRawFile } from '@/lib/supabase/saveFile';
 import { saveTradeAnalysis } from '@/lib/supabase/saveTradeAnalysis';
 import { bustDashboardCache } from '@/lib/dashboardCache';
 import { getOrCreateAnonId } from '@/lib/anonId';
@@ -20,6 +19,7 @@ import type { RawFileData } from '@/lib/intake';
 import { tradesNeedPairing, pairClaudeTrades } from '@/lib/intake/claudeTradePairer';
 import { logAiUsage } from '@/lib/admin/logAiUsage';
 import { resolveCurrency } from '@/lib/utils/currency';
+import { MAX_UPLOAD_BYTES, UPLOAD_TOO_LARGE_MESSAGE } from '@/lib/config/uploadLimits';
 
 type AIResult = { ok: boolean; data?: unknown; error?: string; code?: string; usage?: { inputTokens: number; outputTokens: number } };
 
@@ -233,15 +233,19 @@ ${ctxLines}
 type SaveResult = { sessionId?: string; dedupStats?: { tradesAdded: number; tradesSkipped: number; sessionsMerged: number } }
 
 async function saveSessionsByDay({
-  trades, analysis, context, metadata, plan, userId, anonId, files,
+  trades, analysis, context, metadata, plan, userId, anonId,
   cookieCurrency, acceptLanguage,
 }: {
   trades: any[]; analysis: any; context: any; metadata: any; plan: string
-  userId?: string; anonId?: string; files?: File[]
+  userId?: string; anonId?: string
   /** FIX (audit Finding F — 2026-05-04): forwarded to saveTradeSession's resolveCurrency chain. */
   cookieCurrency?: string | null
   /** FIX (audit Finding F — 2026-05-04): forwarded to saveTradeSession's resolveCurrency chain. */
   acceptLanguage?: string | null
+  // PR 2d (audit Finding E): the legacy `files?: File[]` param is gone —
+  // raw_files row + Storage upload now happen in handleFormData via
+  // saveRawData / saveClaudeFallbackRawData. saveSessionsByDay no longer
+  // needs the file bytes; it only persists trade rows + analysis.
 }): Promise<SaveResult> {
   if (!userId && !anonId) return {}
 
@@ -289,17 +293,13 @@ async function saveSessionsByDay({
         console.error('Background trade analysis save error:', err)
       )
     }
-    if (sid && files) {
-      for (const file of files) {
-        saveRawFile({
-          userId, anonId,
-          fileName: file.name, fileType: file.type || getMediaType(file.name),
-          fileSize: file.size, fileBuffer: Buffer.from(await file.arrayBuffer()),
-          sessionId: sid, brokerDetected: metadata?.detected_broker || 'Unknown',
-          tradesCount: trades.length,
-        }).catch(err => console.error('Background file save error:', err))
-      }
-    }
+    // PR 2d (audit Finding E): the legacy `saveRawFile(...)` block here
+    // created a duplicate raw_files row purely to upload bytes to
+    // Storage. Removed — the row + Storage upload now happen together
+    // in the earlier saveRawData / saveClaudeFallbackRawData call
+    // (handler scope, line ~793 / ~825 area), which received the buffer
+    // via PR 2d Step 7. Single row per upload now carries both
+    // parser_version AND storage_path.
     if (userId) bustDashboardCache(userId)
     return {
       sessionId: sid,
@@ -373,18 +373,12 @@ async function saveSessionsByDay({
     console.log(`Saved session for ${dateKey}: ${dayTrades.length} trades, ID=${sid}, added=${ds?.tradesAdded ?? dayTrades.length}, skipped=${ds?.tradesSkipped ?? 0}`)
   }
 
-  // Save raw files attached to the first session
-  if (firstSessionId && files) {
-    for (const file of files) {
-      saveRawFile({
-        userId, anonId,
-        fileName: file.name, fileType: file.type || getMediaType(file.name),
-        fileSize: file.size, fileBuffer: Buffer.from(await file.arrayBuffer()),
-        sessionId: firstSessionId, brokerDetected: metadata?.detected_broker || 'Unknown',
-        tradesCount: trades.length,
-      }).catch(err => console.error('Background file save error:', err))
-    }
-  }
+  // PR 2d (audit Finding E): the legacy `saveRawFile(...)` block here
+  // (multi-day branch) created a duplicate raw_files row purely to upload
+  // bytes to Storage. Removed — the row + Storage upload now happen
+  // together in the earlier saveRawData / saveClaudeFallbackRawData call
+  // in handleFormData (passing the file buffer through). Each upload now
+  // produces exactly one raw_files row with both metadata and storage_path.
 
   // Auto-trigger batch re-analysis for multi-day uploads (fire-and-forget).
   if (userId && savedSessionIds.length > 1) {
@@ -453,9 +447,11 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
     return NextResponse.json({ error: 'No files uploaded. Please upload at least one broker statement.' }, { status: 400 });
   }
 
+  // PR 2d (audit Finding E): central MAX_UPLOAD_BYTES + 413 status
+  // (was inline `10 * 1024 * 1024` literal returning 400).
   for (const file of files) {
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: `File too large: ${file.name}. Maximum 10MB per file.` }, { status: 400 });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: `${UPLOAD_TOO_LARGE_MESSAGE} (${file.name})` }, { status: 413 });
     }
   }
 
@@ -537,6 +533,11 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic extracted metadata
   let extracted: any = {};
   let rawFileData: RawFileData | undefined;
+  // PR 2d (audit Finding E): track which buffer corresponds to the
+  // current rawFileData so saveRawData can archive the bytes alongside
+  // the metadata row. Multi-file local parse overwrites rawFileData
+  // with the latest successful file, so we must keep its buffer paired.
+  let rawFileBuffer: Buffer | undefined;
   let usedLocalParse = false;
   // Phase 4 sanity gate: surfaced to the client when Claude's JSON output was
   // truncated by the model's max_tokens ceiling so the UI can warn the user.
@@ -550,6 +551,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       const legacyTrades = intakeResult.trades.map(toLegacyTrade);
       trades.push(...legacyTrades);
       rawFileData = intakeResult.rawFile;
+      rawFileBuffer = buffer;
       extracted = {
         detected_market: intakeResult.rawFile.market,
         detected_currency: intakeResult.rawFile.currency,
@@ -802,10 +804,13 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
                 ],
               }
             : rawFileData;
-          const rawResult = await saveRawData(trimmed, userId);
+          // PR 2d (audit Finding E): pass rawFileBuffer (paired with
+          // rawFileData in the local-parse loop above) so saveRawData
+          // archives bytes to Storage on the same row that gets metadata.
+          const rawResult = await saveRawData(trimmed, userId, undefined, rawFileBuffer ?? null);
           if ('id' in rawResult) {
             rawFileId = rawResult.id;
-            console.log(`[UPLOAD] Raw file saved (local parse): ${rawFileId}`);
+            console.log(`[UPLOAD] Raw file saved (local parse): ${rawFileId} (storagePath=${rawResult.storagePath ?? 'null'})`);
           } else {
             console.error(`[UPLOAD] Raw save FAILED (local): ${rawResult.error} | file=${rawFileData.filename} rows=${rawFileData.rows.length}`);
           }
@@ -836,10 +841,13 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
             trades: cappedTrades,
             cookieCurrency,
             acceptLanguage,
+            // PR 2d (audit Finding E): pass file bytes so the same row
+            // gets storage_path populated alongside the metadata.
+            fileBuffer: firstFile.buffer,
           }, userId);
           if ('id' in rawResult) {
             rawFileId = rawResult.id;
-            console.log(`[UPLOAD] Raw file saved (${usedLocalParse ? 'local-parse fallback' : 'Claude fallback'}): ${rawFileId}`);
+            console.log(`[UPLOAD] Raw file saved (${usedLocalParse ? 'local-parse fallback' : 'Claude fallback'}): ${rawFileId} (storagePath=${rawResult.storagePath ?? 'null'})`);
           } else {
             console.error(`[UPLOAD] Raw save FAILED (fallback): ${rawResult.error} | file=${firstFile.file.name} trades=${trades.length}`);
           }
@@ -865,7 +873,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         raw_file_id: rawFileId,
         file_name: fileBuffers[0]?.file.name || 'upload',
       },
-      plan: userPlan, userId: userId || undefined, anonId, files,
+      plan: userPlan, userId: userId || undefined, anonId,
       cookieCurrency, acceptLanguage,
     });
     savedSessionId = saveResult.sessionId;
@@ -1115,10 +1123,16 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
           trades,
           cookieCurrency,
           acceptLanguage,
+          // PR 2d (audit Finding E): handleJSON receives pre-parsed
+          // trades from /api/parse — the original file bytes are not in
+          // scope here. Pass null so the archive step is skipped; the
+          // bytes were already archived earlier in /api/parse's
+          // saveRawData call (which writes the row this hash dedups to).
+          fileBuffer: null,
         }, userId);
         if ('id' in rawResult) {
           effectiveRawFileId = rawResult.id;
-          console.log('[Analyse/JSON] Created fallback raw_files record:', rawResult.id);
+          console.log(`[Analyse/JSON] Created fallback raw_files record: ${rawResult.id} (storagePath=${rawResult.storagePath ?? 'null'})`);
         } else {
           console.error(`[Analyse/JSON] raw_files FALLBACK save FAILED: ${rawResult.error} | user=${userId} hash=${file_hash}`);
         }

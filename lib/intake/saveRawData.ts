@@ -8,6 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 import { RawFileData } from './types';
 import { createHash } from 'crypto';
 import { resolveCurrency } from '@/lib/utils/currency';
+import { LOCAL_PARSER_VERSION, CLAUDE_PARSER_VERSION } from './parserVersion';
+import { archiveRawFile } from '@/lib/storage/rawFileArchive';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -31,13 +33,23 @@ function toBrokerId(brokerName: string): string {
 
 /**
  * Save raw file data from Module 1 local parse.
- * Returns { id } on success or { error } on failure.
+ *
+ * @param fileBuffer Optional. Raw file bytes — required for Storage
+ *   archive (passed to archiveRawFile so the file ends up in the
+ *   trade-files bucket alongside the metadata row). When null/undefined
+ *   the archive step is skipped and `storage_path` stays null in the
+ *   inserted row. PR 2d (audit Finding E).
+ *
+ * Returns { id, storagePath } on success or { error } on failure.
+ * `storagePath` is null when the archive was skipped or failed silently
+ * (best-effort; failures log `[STORAGE_ARCHIVE_FAILED]` but never throw).
  */
 export async function saveRawData(
   rawFile: RawFileData,
   userId: string,
   sessionId?: string,
-): Promise<{ id: string } | { error: string }> {
+  fileBuffer?: Buffer | null,
+): Promise<{ id: string; storagePath: string | null } | { error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { error: 'Missing Supabase credentials' };
 
@@ -45,7 +57,7 @@ export async function saveRawData(
   if (rawFile.fileHash) {
     const { data: existing } = await supabase
       .from('raw_files')
-      .select('id')
+      .select('id, storage_path')
       .eq('user_id', userId)
       .eq('file_hash', rawFile.fileHash)
       .maybeSingle();
@@ -55,7 +67,26 @@ export async function saveRawData(
       if (sessionId) {
         await supabase.from('raw_files').update({ session_id: sessionId }).eq('id', existing.id);
       }
-      return { id: existing.id };
+      return { id: existing.id, storagePath: existing.storage_path ?? null };
+    }
+  }
+
+  // PR 2d (audit Finding E): archive the raw bytes to Supabase Storage
+  // BEFORE the DB insert so storage_path is populated on the same row.
+  // Best-effort: archive failure logs and returns null; the trade row
+  // still inserts with storage_path: null.
+  let storagePath: string | null = null;
+  if (fileBuffer && fileBuffer.length > 0 && rawFile.fileHash) {
+    const archiveResult = await archiveRawFile({
+      buffer: fileBuffer,
+      filename: rawFile.filename,
+      fileHash: rawFile.fileHash,
+      userId,
+    });
+    if (archiveResult) {
+      storagePath = archiveResult.storagePath;
+    } else {
+      console.log('[Intake] Storage archive returned null for ' + rawFile.filename + ' — proceeding with storage_path: null');
     }
   }
 
@@ -78,6 +109,7 @@ export async function saveRawData(
     file_type: (rawFile.extension || 'unknown').toLowerCase(), // NOT NULL in schema
     file_size_bytes: rawFile.sizeBytes,
     file_hash: rawFile.fileHash,
+    storage_path: storagePath,
     broker_id: toBrokerId(rawFile.broker),
     broker_name: rawFile.broker,
     broker_detected: rawFile.broker,
@@ -93,7 +125,7 @@ export async function saveRawData(
     date_range_end: dateRangeEnd || null,
     raw_data: rawFile,
     column_mapping: rawFile.columnMapping,
-    parser_version: 'intake-1.0',
+    parser_version: LOCAL_PARSER_VERSION,
     parsed_at: rawFile.extractedAt || new Date().toISOString(),
     warnings: rawFile.warnings,
   };
@@ -109,13 +141,20 @@ export async function saveRawData(
     return { error: error.message };
   }
 
-  console.log('[Intake] Saved raw file ' + rawFile.filename + ' (' + rawFile.rows.length + ' rows) as ' + data.id);
-  return { id: data.id };
+  console.log('[Intake] Saved raw file ' + rawFile.filename + ' (' + rawFile.rows.length + ' rows) as ' + data.id + (storagePath ? ' [archived]' : ' [no-archive]'));
+  return { id: data.id, storagePath };
 }
 
 /**
  * Save a raw_files row for Claude AI PDF fallback.
  * Even when Module 1 cannot parse a PDF, we still want a raw_files record.
+ *
+ * `params.fileBuffer` is required for Storage archive (PR 2d, audit
+ * Finding E). Null/undefined means archive is skipped — `storage_path`
+ * stays null in the inserted row. Routes that have the bytes in scope
+ * (analyse, extract) MUST pass them through.
+ *
+ * Returns { id, storagePath } on success or { error } on failure.
  */
 export async function saveClaudeFallbackRawData(
   params: {
@@ -141,10 +180,16 @@ export async function saveClaudeFallbackRawData(
      * Pass `null` when no request context is available.
      */
     acceptLanguage?: string | null;
+    /**
+     * Raw file bytes — required for Storage archive (PR 2d, audit
+     * Finding E). Null/undefined means archive is skipped (storage_path
+     * stays null in the inserted row).
+     */
+    fileBuffer?: Buffer | null;
   },
   userId: string,
   sessionId?: string,
-): Promise<{ id: string } | { error: string }> {
+): Promise<{ id: string; storagePath: string | null } | { error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { error: 'Missing Supabase credentials' };
 
@@ -152,7 +197,7 @@ export async function saveClaudeFallbackRawData(
   if (params.fileHash) {
     const { data: existing } = await supabase
       .from('raw_files')
-      .select('id')
+      .select('id, storage_path')
       .eq('user_id', userId)
       .eq('file_hash', params.fileHash)
       .maybeSingle();
@@ -162,7 +207,7 @@ export async function saveClaudeFallbackRawData(
       if (sessionId) {
         await supabase.from('raw_files').update({ session_id: sessionId }).eq('id', existing.id);
       }
-      return { id: existing.id };
+      return { id: existing.id, storagePath: existing.storage_path ?? null };
     }
   }
 
@@ -184,6 +229,23 @@ export async function saveClaudeFallbackRawData(
     acceptLanguage: params.acceptLanguage ?? null,
   });
 
+  // PR 2d (audit Finding E): archive raw bytes BEFORE the DB insert so
+  // storage_path lands on the same row. Best-effort.
+  let storagePath: string | null = null;
+  if (params.fileBuffer && params.fileBuffer.length > 0 && params.fileHash) {
+    const archiveResult = await archiveRawFile({
+      buffer: params.fileBuffer,
+      filename: params.filename,
+      fileHash: params.fileHash,
+      userId,
+    });
+    if (archiveResult) {
+      storagePath = archiveResult.storagePath;
+    } else {
+      console.log('[Intake] Storage archive returned null for ' + params.filename + ' — proceeding with storage_path: null');
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const record: Record<string, any> = {
     user_id: userId,
@@ -192,6 +254,7 @@ export async function saveClaudeFallbackRawData(
     file_type: ext, // NOT NULL in schema
     file_size_bytes: params.fileSizeBytes,
     file_hash: params.fileHash,
+    storage_path: storagePath,
     broker_id: 'claude-extracted',
     broker_name: 'Claude AI (' + (params.broker || 'PDF fallback') + ')',
     broker_detected: params.broker || 'Unknown',
@@ -207,7 +270,7 @@ export async function saveClaudeFallbackRawData(
     date_range_end: params.tradeDate || null,
     raw_data: { source: 'claude-ai', trades: params.trades, extractedAt: new Date().toISOString() },
     column_mapping: {},
-    parser_version: 'claude-2.0',
+    parser_version: CLAUDE_PARSER_VERSION,
     parsed_at: new Date().toISOString(),
     warnings: ['Extracted via Claude AI - local parser could not handle this file format'],
   };
@@ -223,6 +286,6 @@ export async function saveClaudeFallbackRawData(
     return { error: error.message };
   }
 
-  console.log('[Intake] Saved Claude-extracted file ' + params.filename + ' (' + params.tradeCount + ' trades) as ' + data.id);
-  return { id: data.id };
+  console.log('[Intake] Saved Claude-extracted file ' + params.filename + ' (' + params.tradeCount + ' trades) as ' + data.id + (storagePath ? ' [archived]' : ' [no-archive]'));
+  return { id: data.id, storagePath };
 }

@@ -64,8 +64,10 @@ export async function intakeFile(
     console.log(`[Intake] Extracted ${rawFile.rows.length} raw rows, broker: ${rawFile.broker}, confidence: ${rawFile.confidence} (${rawFile.confidenceScore}/100)`);
 
     // Step 2: Optionally save raw data to Supabase
+    // PR 2d (audit Finding E): pass the file buffer through so saveRawData
+    // can archive to Storage on the same row that gets the metadata.
     if (options.saveRaw && options.userId) {
-      const saveResult = await saveRawData(rawFile, options.userId, options.sessionId);
+      const saveResult = await saveRawData(rawFile, options.userId, options.sessionId, buffer);
       if ('error' in saveResult) {
         rawFile.warnings.push(`Failed to save raw data: ${saveResult.error}`);
       }

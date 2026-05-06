@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { intakeFile, toLegacyTrade, toLegacyKPIs, toLegacyTimeAnalysis, computeFileHash, saveRawData } from '@/lib/intake';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rateLimit';
+import { MAX_UPLOAD_BYTES, UPLOAD_TOO_LARGE_MESSAGE } from '@/lib/config/uploadLimits';
 
 /* ═══════════════════════════════════════════
    STEP 1: Local Parse Only — NO AI, instant response
@@ -24,8 +25,10 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
 
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large: maximum 10MB per file.' }, { status: 400 });
+    // PR 2d (audit Finding E): central MAX_UPLOAD_BYTES + 413 status
+    // (was inline `10 * 1024 * 1024` literal returning 400).
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: UPLOAD_TOO_LARGE_MESSAGE }, { status: 413 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -78,10 +81,14 @@ export async function POST(req: NextRequest) {
               ],
             }
           : result.rawFile;
-        const saved = await saveRawData(trimmed, userId);
+        // PR 2d (audit Finding E): pass buffer as 4th arg so saveRawData
+        // archives to Supabase Storage and writes storage_path on the
+        // same row. sessionId stays undefined — /parse is the preview
+        // step; session linking happens later in /analyse.
+        const saved = await saveRawData(trimmed, userId, undefined, buffer);
         if ('id' in saved) {
           rawFileId = saved.id;
-          console.log(`[Parse] raw_files row saved: ${rawFileId} (${trimmed.rows.length} rows, user=${userId})`);
+          console.log(`[Parse] raw_files row saved: ${rawFileId} (${trimmed.rows.length} rows, user=${userId}, storagePath=${saved.storagePath ?? 'null'})`);
         } else {
           console.error(`[Parse] raw_files save FAILED: ${saved.error} | file=${file.name} rows=${result.rawFile.rows.length} user=${userId}`);
         }

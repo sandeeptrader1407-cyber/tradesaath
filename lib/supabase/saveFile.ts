@@ -1,5 +1,20 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
 
+/**
+ * Persist a raw upload to Storage + insert a `raw_files` metadata row.
+ *
+ * @deprecated PR 2d (audit Finding E, 2026-05-04) — use `saveRawData()`
+ *   from `lib/intake/saveRawData.ts` instead. saveRawData is now the
+ *   single owner of `raw_files` row creation AND Storage archive (via
+ *   `lib/storage/rawFileArchive.ts`). saveRawFile creates a duplicate
+ *   row that lacks `parser_version` + the rich Module 1 metadata
+ *   (broker_id, market, currency, headers, raw_data, column_mapping,
+ *   etc.), and uses a legacy storage path scheme without hash dedup.
+ *   Removal targeted for PR 4 cleanup pass once all callers have been
+ *   migrated to saveRawData. Until then this function still works as
+ *   before — the console.warn below logs each call site so we can
+ *   identify any remaining users.
+ */
 export async function saveRawFile({
   userId,
   anonId,
@@ -21,6 +36,14 @@ export async function saveRawFile({
   brokerDetected?: string
   tradesCount?: number
 }) {
+  // PR 2d deprecation breadcrumb (audit Finding E). Stack frames help
+  // pinpoint which caller still triggers the legacy path during/after
+  // route rewires. Safe to leave in place until removal in PR 4.
+  console.warn(
+    '[DEPRECATED] saveRawFile() called — should use saveRawData (PR 2d). Source location:',
+    new Error().stack?.split('\n').slice(1, 4).join('\n'),
+  )
+
   const supabase = getSupabaseAdmin()
 
   // Generate storage path: owner/timestamp_filename
