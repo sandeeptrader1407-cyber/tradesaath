@@ -157,6 +157,24 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // H2: direct-to-Razorpay from settings — replaces the previous detour
+  // through /#pricing (homepage anchor). Same pattern as /dashboard,
+  // /coach, and TradeDetail's locked overlay. Hoisted above the
+  // `!isLoaded` early return so the hook is called unconditionally
+  // (rules-of-hooks).
+  const openCheckout = useCallback(() => {
+    if (payLoading) return
+    pay({
+      plan: 'pro_monthly',
+      email: user?.primaryEmailAddress?.emailAddress,
+      onSuccess: () => {
+        setPlan('pro_monthly')
+        showToast.success('Welcome to Pro! Your account is upgraded.')
+      },
+      onError: (err) => showToast.error(err || 'Payment failed.'),
+    })
+  }, [pay, payLoading, setPlan, user])
+
   useEffect(() => {
     fetch('/api/user/settings')
       .then(r => r.json())
@@ -200,22 +218,6 @@ export default function SettingsPage() {
   const plan = settings?.plan ?? 'free'
   const isPro = plan === 'pro_monthly' || plan === 'pro_yearly'
   const _isPaid = plan !== 'free'
-
-  // H2: direct-to-Razorpay from settings — replaces the previous detour
-  // through /#pricing (homepage anchor). Same pattern as /dashboard,
-  // /coach, and TradeDetail's locked overlay.
-  const openCheckout = useCallback(() => {
-    if (payLoading) return
-    pay({
-      plan: 'pro_monthly',
-      email: user?.primaryEmailAddress?.emailAddress,
-      onSuccess: () => {
-        setPlan('pro_monthly')
-        showToast.success('Welcome to Pro! Your account is upgraded.')
-      },
-      onError: (err) => showToast.error(err || 'Payment failed.'),
-    })
-  }, [pay, payLoading, setPlan, user])
 
   const sessionsText = settings
     ? settings.session_quota !== null
