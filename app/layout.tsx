@@ -7,6 +7,8 @@ import Footer from '@/components/Footer'
 import Onboarding from '@/components/Onboarding'
 import AuthSync from '@/components/AuthSync'
 import AiChat from '@/components/AiChat'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -50,6 +52,8 @@ export default function RootLayout({
           {children}
           <Footer />
           <AiChat />
+          <Analytics />
+          <SpeedInsights />
           <Onboarding />
         </body>
       </html>
