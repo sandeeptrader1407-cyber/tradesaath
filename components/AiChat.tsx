@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { computeKPIs } from '@/lib/kpi/computeKPIs'
 
 interface Message {
@@ -9,7 +10,8 @@ interface Message {
   timestamp: Date
 }
 
-/* Quick suggestion chips per C9 chat response library */
+/* Quick suggestion chips per C9 chat response library \u2014 shown to users
+   who have at least one analysed session. */
 const QUICK_PROMPTS: { label: string; prompt: string; tag: string; color: string }[] = [
   { label: 'Why do I keep revenge trading?', prompt: 'Why do I keep revenge trading? What triggers it and how do I break the cycle?', tag: 'PSYCH', color: 'var(--red)' },
   { label: 'How to fix my stop loss discipline?', prompt: 'How can I fix my stop loss discipline? What specific rules should I follow?', tag: 'RULES', color: 'var(--accent)' },
@@ -20,6 +22,17 @@ const QUICK_PROMPTS: { label: string; prompt: string; tag: string; color: string
   { label: 'Analyse my last 5 sessions for patterns', prompt: 'Analyse my last 5 sessions and identify the top 3 recurring patterns. For each, give me frequency, cost, and a concrete fix.', tag: 'PATTERN', color: 'var(--purple)' },
   { label: 'What\u2019s my trader personality?', prompt: 'Based on my trade history, what trader personality type am I (revenge trader, FOMO chaser, disciplined scalper, hope-holder, etc.)? Explain why and what I should optimize for.', tag: 'PROFILE', color: 'var(--gold)' },
   { label: 'I\u2019m trading LIVE right now \u2014 guide me', prompt: 'I am trading LIVE right now. Based on my history, what are the top 3 things I must watch out for in the next hour? Give me rapid-fire rules.', tag: 'LIVE', color: 'var(--blue)' },
+]
+
+/* B4: Generic, non-personalised questions for anonymous visitors and
+   for logged-in users who haven't uploaded a session yet. Asking
+   "why am I losing?" before there's any data to analyse is misleading
+   bait \u2014 these questions are about TradeSaath itself. */
+const GENERIC_PROMPTS: { label: string; prompt: string; tag: string; color: string }[] = [
+  { label: 'What does TradeSaath analyse?', prompt: 'What does TradeSaath analyse? Walk me through what insights I will get after I upload my first broker statement.', tag: 'ABOUT', color: 'var(--accent)' },
+  { label: 'How is this different from a P&L tracker?', prompt: 'How is TradeSaath different from a regular P&L tracker or trading journal app?', tag: 'ABOUT', color: 'var(--accent)' },
+  { label: 'What brokers do you support?', prompt: 'Which brokers and file formats does TradeSaath support?', tag: 'SUPPORT', color: 'var(--blue)' },
+  { label: 'Is my data private?', prompt: 'How does TradeSaath handle my data? Is anything shared with brokers or third parties?', tag: 'PRIVACY', color: 'var(--purple)' },
 ]
 
 /** Lightweight markdown to HTML for chat bubbles. Handles **bold**, *italic*, and `code`. */
@@ -34,6 +47,7 @@ function renderMarkdown(text: string): string {
 }
 
 export default function AiChat() {
+  const { isSignedIn } = useUser()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -43,6 +57,12 @@ export default function AiChat() {
   const [patternCount, setPatternCount] = useState(0)
   const [memoryStats, setMemoryStats] = useState<{ pnl: number; avgDqs: number; topPattern: string | null }>({ pnl: 0, avgDqs: 0, topPattern: null })
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // B4: Personalised prompts only when there's data to personalise against.
+  // Anonymous visitors and signed-in users with zero sessions see generic
+  // product questions instead of misleading "why am I losing?" bait.
+  const isGenericMode = !isSignedIn || sessionCount === 0
+  const activePrompts = isGenericMode ? GENERIC_PROMPTS : QUICK_PROMPTS
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -231,10 +251,16 @@ export default function AiChat() {
           }}>
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-ink)', marginBottom: 4, fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)' }}>Ask me anything about your trading.</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 16 }}>I analyse your patterns and give specific, actionable coaching</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-ink)', marginBottom: 4, fontFamily: 'var(--font-dm-sans, DM Sans, system-ui, sans-serif)' }}>
+                  {isGenericMode ? 'Have a question about TradeSaath?' : 'Ask me anything about your trading.'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 16 }}>
+                  {isGenericMode
+                    ? 'Upload a broker statement to unlock personalised coaching on your patterns.'
+                    : 'I analyse your patterns and give specific, actionable coaching'}
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {QUICK_PROMPTS.map(p => (
+                  {activePrompts.map(p => (
                     <button key={p.label} onClick={() => sendMessage(p.prompt)} style={{
                       padding: '8px 12px', fontSize: 11, background: 'var(--s2)',
                       border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
