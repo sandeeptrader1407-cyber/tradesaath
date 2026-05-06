@@ -72,6 +72,14 @@ interface ArchiveOpts {
 export async function archiveRawFile(opts: ArchiveOpts): Promise<ArchiveResult | null> {
   const { buffer, filename, fileHash, userId, anonId } = opts
 
+  console.log('[Archive-Debug] called with:', {
+    bufferLength: buffer?.length ?? 'no-buffer',
+    filename,
+    fileHashPrefix: fileHash?.slice(0, 12) ?? 'no-hash',
+    userId: userId ?? 'no-userId',
+    anonId: anonId ?? 'no-anonId',
+  })
+
   if (!buffer || buffer.length === 0) {
     console.warn('[STORAGE_ARCHIVE_FAILED]', {
       reason: 'empty_buffer',
