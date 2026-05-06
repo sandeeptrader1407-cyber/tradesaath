@@ -387,12 +387,11 @@ export default function PricingSection() {
           letter-spacing: 0.04em;
         }
         @media (max-width: 880px) {
-          .ts-price-grid {
-            grid-template-columns: 1fr;
-          }
-          .ts-pricing-h2 {
-            font-size: 36px;
-          }
+          .ts-pricing { padding: 60px 0; }
+          .ts-price-grid { grid-template-columns: 1fr; }
+          .ts-pricing-h2 { font-size: 36px; }
+          .ts-amt { font-size: 40px; }
+          .ts-plan-card { padding: 22px; }
         }
       `}</style>
     </section>

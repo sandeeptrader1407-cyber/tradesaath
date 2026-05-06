@@ -77,7 +77,7 @@ export default function FAQPage() {
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94A3B8', margin: 0 }}>
             FAQ
           </p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 400, color: '#0F172A', lineHeight: 1.1, marginTop: 14, marginBottom: 14, letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 8vw, 52px)', fontWeight: 400, color: '#0F172A', lineHeight: 1.1, marginTop: 14, marginBottom: 14, letterSpacing: '-0.02em' }}>
             Questions, answered.
           </h1>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 16, color: '#64748B', maxWidth: 520, margin: '0 auto', lineHeight: 1.7 }}>

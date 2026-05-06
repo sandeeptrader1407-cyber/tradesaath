@@ -221,6 +221,7 @@ export default function HeroSection() {
           }
         }
         @media (max-width: 880px) {
+          .ts-hero { padding: 56px 0 64px; }
           .ts-hero-grid {
             grid-template-columns: 1fr;
           }

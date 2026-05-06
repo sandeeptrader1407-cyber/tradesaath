@@ -887,13 +887,20 @@ export default function ProductDemo() {
           border-radius: 14px 14px 14px 4px;
         }
         @media (max-width: 880px) {
-          .ts-kpi-grid,
-          .ts-saathi,
+          .ts-product { padding: 60px 0; }
+          .ts-product-h2 { font-size: 32px; }
+          /* KPIs collapse to 2×2 (4 cards in 2 rows) rather than full-stack. */
+          .ts-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+          /* Saathi panels stack — their inner content is too dense at 1fr 1fr below 880px. */
+          .ts-saathi { grid-template-columns: 1fr; }
+          /* Journal table keeps its 5-col grid but scrolls horizontally inside
+             a clipped wrapper — don't collapse the columns vertically (which
+             destroys the row semantics). */
+          .ts-journal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
           .ts-journal-row {
-            grid-template-columns: 1fr;
-          }
-          .ts-product-h2 {
-            font-size: 36px;
+            grid-template-columns: 120px 1fr 100px 110px 90px;
+            min-width: 480px;
+            padding: 10px 12px;
           }
         }
       `}</style>

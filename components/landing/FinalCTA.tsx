@@ -125,6 +125,7 @@ export default function FinalCTA() {
           .ts-float-candle { animation: none; }
         }
         @media (max-width: 880px) {
+          .ts-final { padding: 60px 0; }
           .ts-final-h2 {
             font-size: 36px;
           }
