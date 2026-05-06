@@ -125,7 +125,10 @@ function JourneyContent() {
           </div>
         </div>
 
-        <TradingJourney />
+        {/* J1: pass sessionCount so TradingJourney can decide whether to
+            auto-generate the story on mount (only fire when the user has
+            data — empty-state path is a no-op API call otherwise). */}
+        <TradingJourney sessionCount={stats?.sessionCount ?? null} />
       </div>
     </main>
   )
