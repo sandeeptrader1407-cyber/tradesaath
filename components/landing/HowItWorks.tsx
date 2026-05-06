@@ -75,7 +75,7 @@ export default function HowItWorks() {
         .ts-how {
           padding: 120px 0 90px;
           background: #f7f7f3;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-container {
           max-width: 1180px;
@@ -114,7 +114,7 @@ export default function HowItWorks() {
           box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.15);
         }
         .ts-how-h2 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           letter-spacing: -0.01em;
           margin: 0;
@@ -160,7 +160,7 @@ export default function HowItWorks() {
           height: 100%;
         }
         .ts-step-num {
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           color: #7a8093;
           font-size: 13px;
           background: #f0f1f3;
@@ -175,7 +175,7 @@ export default function HowItWorks() {
           z-index: 2;
         }
         .ts-step-h3 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           font-size: 22px;
           margin: 0 0 10px;

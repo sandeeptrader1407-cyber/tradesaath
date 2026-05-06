@@ -47,7 +47,7 @@ export default function BrokerMarquee() {
           color: #8a93a8;
           font-size: 14px;
           position: relative;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-marquee::before,
         .ts-marquee::after {
@@ -84,6 +84,9 @@ export default function BrokerMarquee() {
         @keyframes ts-marq {
           from { transform: translateX(0); }
           to { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-marquee-track { animation: none; }
         }
       `}</style>
     </div>

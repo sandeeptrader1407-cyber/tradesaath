@@ -66,7 +66,7 @@ export default function FinalCTA() {
           padding: 120px 0;
           position: relative;
           overflow: hidden;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-final::before {
           content: '';
@@ -83,7 +83,7 @@ export default function FinalCTA() {
           z-index: 2;
         }
         .ts-final-h2 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           letter-spacing: -0.01em;
           margin: 0;
@@ -120,6 +120,9 @@ export default function FinalCTA() {
         @keyframes ts-floatY {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ts-float-candle { animation: none; }
         }
         @media (max-width: 880px) {
           .ts-final-h2 {

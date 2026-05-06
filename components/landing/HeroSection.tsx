@@ -74,7 +74,7 @@ export default function HeroSection() {
           color: #ecedef;
           overflow: hidden;
           padding: 96px 0 110px;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         .ts-hero::before {
           content: '';
@@ -124,7 +124,7 @@ export default function HeroSection() {
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-hero-h1 {
-          font-family: var(--font-dm-serif);
+          font-family: var(--font-display);
           font-weight: 400;
           letter-spacing: -0.01em;
           margin: 0;
@@ -154,7 +154,7 @@ export default function HeroSection() {
           margin-left: 8px;
           font-size: 12px;
           color: #8a93a8;
-          font-family: var(--font-dm-mono);
+          font-family: var(--font-mono);
           letter-spacing: 0.06em;
         }
         :global(.ts-btn) {
@@ -168,7 +168,7 @@ export default function HeroSection() {
           cursor: pointer;
           border: 1px solid transparent;
           transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
-          font-family: var(--font-dm-sans);
+          font-family: var(--font-sans);
         }
         :global(.ts-btn:hover) {
           transform: translateY(-1px);
