@@ -99,6 +99,24 @@ export async function intakeFile(
 
     console.log(`[Intake] Net P&L: ${kpis.netPnl}, Warnings: ${validation.warnings.length}`);
 
+    // If validation surfaced a critical issue (orderbook detected,
+    // 50%+ trades missing time data) — fail the intake. Caller must
+    // surface a specific user-facing error rather than persisting a
+    // misleading zero-P&L session.
+    if (validation.criticalError) {
+      console.warn(`[Intake] Critical validation failure: ${validation.criticalError.code} — ${validation.criticalError.message}`);
+      return {
+        success: false,
+        rawFile,
+        trades,
+        kpis,
+        timeAnalysis,
+        validationWarnings: validation.warnings,
+        error: validation.criticalError.message,
+        errorCode: validation.criticalError.code,
+      };
+    }
+
     return {
       success: true,
       rawFile,

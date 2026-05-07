@@ -3,12 +3,17 @@
  * Validates StandardTrade[] for common issues and anomalies.
  */
 
-import { StandardTrade } from './types';
+import { StandardTrade, IntakeErrorCode } from './types';
 
 export interface ValidationResult {
   warnings: string[];
   /** Trades with issues flagged */
   flaggedIndices: number[];
+  /** Critical issue that should fail the upload (orderbook detected,
+   *  missing-time export, etc.). Caller is expected to short-circuit
+   *  the pipeline and surface this to the user instead of producing a
+   *  zero-P&L session. */
+  criticalError?: { code: IntakeErrorCode; message: string };
 }
 
 /**
@@ -77,8 +82,27 @@ export function validateTrades(trades: StandardTrade[]): ValidationResult {
     warnings.push(`More than 50% of trades (${noTimeCount}/${trades.length}) have no time data`);
   }
 
+  // Hard-reject thresholds: the user uploaded an order book or a
+  // summary export rather than an executed-trades report. Returning
+  // a zero-P&L session in that case is a worse UX than a clear error.
+  // LIKELY_ORDERBOOK takes priority — orderbooks usually fail BOTH
+  // checks, and the orderbook diagnosis is the more actionable hint.
+  let criticalError: { code: IntakeErrorCode; message: string } | undefined
+  if (trades.length > 0 && openCount / trades.length >= 0.5) {
+    criticalError = {
+      code: 'LIKELY_ORDERBOOK',
+      message: `${openCount} of ${trades.length} trades are unpaired (no exit). This file looks like an order book, not a trade book.`,
+    }
+  } else if (trades.length > 0 && noTimeCount / trades.length >= 0.5) {
+    criticalError = {
+      code: 'MISSING_TIME_DATA',
+      message: `${noTimeCount} of ${trades.length} trades have no entry timestamp. The file is missing time data needed for analysis.`,
+    }
+  }
+
   return {
     warnings,
     flaggedIndices: Array.from(flaggedIndices),
+    criticalError,
   };
 }

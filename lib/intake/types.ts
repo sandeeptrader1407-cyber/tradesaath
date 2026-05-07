@@ -142,6 +142,16 @@ export interface IntakeTimeAnalysis {
   tradingDurationMinutes: number;
 }
 
+/** Stable error codes for upload-rejecting validation failures.
+ *  Surface these to the API + client so they can show specific guidance.
+ *
+ *  - LIKELY_ORDERBOOK: 50%+ trades unpaired (no exit) — broker exported
+ *    the order book / pending orders rather than the trade book.
+ *  - MISSING_TIME_DATA: 50%+ trades have no entry timestamp — usually a
+ *    daily-summary export, not the executed-trades report.
+ */
+export type IntakeErrorCode = 'LIKELY_ORDERBOOK' | 'MISSING_TIME_DATA'
+
 /** Final result from the intake pipeline */
 export interface IntakeResult {
   success: boolean;
@@ -157,6 +167,8 @@ export interface IntakeResult {
   validationWarnings: string[];
   /** Fatal error message if success=false */
   error?: string;
+  /** Stable code for callers to branch on (e.g. show specific guidance). */
+  errorCode?: IntakeErrorCode;
 }
 
 

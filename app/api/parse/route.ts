@@ -56,6 +56,26 @@ export async function POST(req: NextRequest) {
     if (result.validationWarnings.length > 0) console.log(`Validation warnings: ${result.validationWarnings.join('; ')}`);
 
     if (!result.success || result.trades.length === 0) {
+      // Hard-reject specific upload shapes (orderbook, missing-time
+      // export) with a stable code + actionable hint, rather than the
+      // generic PARSE_FAILED. The client uses the code to render a
+      // targeted error banner instead of falling through to AI extract.
+      if (result.errorCode === 'LIKELY_ORDERBOOK') {
+        return NextResponse.json({
+          error: 'LIKELY_ORDERBOOK',
+          code: 'LIKELY_ORDERBOOK',
+          message: 'This looks like an order book, not a trade book. Please download your Trade Book / Executed Trades report from your broker instead.',
+          hint: 'In Zerodha: Console → Reports → Tradebook. In Upstox/Angel: Reports → Executed Trades. Avoid the "Orders" or "Pending Orders" report.',
+        }, { status: 422 });
+      }
+      if (result.errorCode === 'MISSING_TIME_DATA') {
+        return NextResponse.json({
+          error: 'MISSING_TIME_DATA',
+          code: 'MISSING_TIME_DATA',
+          message: 'Your file is missing time data for most trades. Please ensure you exported the full Trade Book with timestamps.',
+          hint: 'Daily P&L summaries do not include execution times. Re-export the full executed-trades report from your broker — it must include entry/exit timestamps per trade.',
+        }, { status: 422 });
+      }
       return NextResponse.json({
         error: result.error || 'Could not extract trades from this file. Please check the format.',
         code: 'PARSE_FAILED',

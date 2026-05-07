@@ -131,6 +131,11 @@ export default function AnalyseButton() {
       let fileSizeBytes = 0
       let rawFileId: string | undefined
       const failedFiles: string[] = []
+      // If /api/parse rejects a file with a structural-shape code
+      // (LIKELY_ORDERBOOK / MISSING_TIME_DATA), we do NOT fall through
+      // to /api/analyse — that would just spend Claude tokens on a file
+      // we already know is unanalysable. Stop the run, show the error.
+      let hardRejection: { message: string; hint?: string } | null = null
 
       for (const file of files) {
         const parseForm = new FormData()
@@ -152,11 +157,36 @@ export default function AnalyseButton() {
               failedFiles.push(file.name)
             }
           } else {
+            // Check for a structured-shape rejection (orderbook /
+            // missing-time export). These need a specific message and
+            // must NOT fall through to /api/analyse.
+            const errBody = await parseRes.json().catch(() => null) as
+              | { code?: string; message?: string; hint?: string; error?: string }
+              | null
+            if (errBody && (errBody.code === 'LIKELY_ORDERBOOK' || errBody.code === 'MISSING_TIME_DATA')) {
+              hardRejection = {
+                message: errBody.message || errBody.error || 'Upload rejected',
+                hint: errBody.hint,
+              }
+              break
+            }
             failedFiles.push(file.name)
           }
         } catch {
           failedFiles.push(file.name)
         }
+      }
+
+      // Surface structured rejection BEFORE deciding fallback paths.
+      if (hardRejection) {
+        const fullMsg = hardRejection.hint
+          ? `${hardRejection.message} ${hardRejection.hint}`
+          : hardRejection.message
+        showToast.error(hardRejection.message)
+        setError(fullMsg)
+        setAnalysisState("error")
+        setLoading(false)
+        return
       }
 
       // Show partial success / failure messages
