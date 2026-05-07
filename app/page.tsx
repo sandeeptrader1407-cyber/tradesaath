@@ -11,13 +11,15 @@ import FinalCTA from '@/components/landing/FinalCTA'
 import { OrganizationSchema, WebPageSchema, HowToSchema } from '@/lib/schema'
 
 export const metadata: Metadata = {
-  title: 'TradeSaath — AI Trading Psychology Analysis for Indian Traders',
+  title: 'TradeSaath — AI Trading Psychology Analysis for Every Trader',
   description:
-    'Upload your tradebook. Get your Decision Quality Score in 60 seconds. AI-powered analysis detects revenge trading, FOMO, panic exits, and overtrading patterns. Works with Zerodha, Upstox, Angel One, Fyers, and 20+ brokers.',
+    'Upload your tradebook. Get your Decision Quality Score in 60 seconds. AI-powered analysis detects revenge trading, FOMO, panic exits, and overtrading patterns. Works with Zerodha, Upstox, Angel One, Fyers, Robinhood, Webull, Binance, Interactive Brokers, and 20+ brokers worldwide.',
   keywords: [
     'trading psychology', 'AI trading analysis', 'revenge trading',
-    'FOMO trading', 'trading journal India', 'Zerodha analysis',
-    'options trading psychology', 'decision quality score', 'Nifty options psychology',
+    'FOMO trading', 'global trading journal', 'trade analytics tool',
+    'options trading psychology', 'decision quality score',
+    'options trading journal', 'forex trading journal',
+    'crypto trading journal', 'stock trading journal',
   ],
   metadataBase: new URL('https://tradesaath.com'),
   openGraph: {
@@ -43,14 +45,14 @@ export default function Home() {
       <OrganizationSchema />
       <WebPageSchema
         name="TradeSaath — AI Trading Psychology Analysis"
-        description="AI-powered trading psychology analysis for Indian retail traders. Detects revenge trading, FOMO, panic exits, overtrading."
+        description="AI-powered trading psychology analysis for retail traders worldwide. Detects revenge trading, FOMO, panic exits, overtrading."
         url="https://tradesaath.com"
       />
       <HowToSchema
         name="How to Analyse Your Trading Psychology with TradeSaath"
         description="Upload your tradebook and get AI-powered psychology insights in 60 seconds."
         steps={[
-          { name: 'Export your tradebook', text: 'Download your trade history as CSV, Excel, or PDF from your broker (Zerodha, Upstox, Angel One, etc.).' },
+          { name: 'Export your tradebook', text: 'Download your trade history as CSV, Excel, or PDF from your broker (Zerodha, Upstox, Robinhood, IBKR, Binance, etc.).' },
           { name: 'Upload to TradeSaath', text: 'Drag and drop your file on the upload page. TradeSaath auto-detects your broker and maps columns.' },
           { name: 'Get your Decision Quality Score', text: 'In 60 seconds, receive your DQS score, emotional pattern analysis, and personalised coaching from Saathi AI.' },
         ]}

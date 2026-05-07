@@ -83,7 +83,7 @@ const terms: GlossaryTerm[] = [
     definition:
       'Averaging down is the practice of buying more of a losing position to reduce your average entry price, often without a strategic basis and driven by the hope that the position will recover.',
     explanation:
-      'While averaging down can be a valid strategy when planned in advance with clear rules, emotional averaging is dangerous. It\u2019s typically driven by loss aversion \u2014 the trader can\u2019t accept the loss and keeps adding to the position. In options trading, this is especially risky as time decay works against the position. Many large blowups in Indian retail trading come from averaging down on losing options positions on expiry day.',
+      'While averaging down can be a valid strategy when planned in advance with clear rules, emotional averaging is dangerous. It\u2019s typically driven by loss aversion \u2014 the trader can\u2019t accept the loss and keeps adding to the position. In options trading, this is especially risky as time decay works against the position. Many large blowups in retail options trading come from averaging down on losing positions near expiry.',
     howTradeSaathHelps:
       'TradeSaath flags instances where you added to losing positions without a pre-planned averaging strategy, quantifying the extra loss incurred from emotional averaging versus cutting losses at the original stop.',
   },

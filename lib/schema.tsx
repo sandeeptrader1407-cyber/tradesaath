@@ -54,7 +54,7 @@ export function SoftwareApplicationSchema() {
         operatingSystem: 'Web',
         url: 'https://tradesaath.com',
         description:
-          'AI-powered trading psychology analysis for Indian retail traders. Detects revenge trading, FOMO, panic exits, and overtrading patterns.',
+          'AI-powered trading psychology analysis for retail traders worldwide. Detects revenge trading, FOMO, panic exits, and overtrading patterns.',
         offers: {
           '@type': 'AggregateOffer',
           priceCurrency: 'INR',
@@ -112,7 +112,7 @@ export function SoftwareApplicationSchema() {
           'AI coaching companion (Saathi)',
           'Interactive trading journal',
           'Vicious Cycle stage mapping',
-          'Support for 21+ Indian and global brokers',
+          'Support for 30+ global brokers across stocks, options, futures, forex, and crypto',
         ],
         screenshot: 'https://tradesaath.com/og-image.svg',
       }}
