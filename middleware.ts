@@ -13,6 +13,16 @@ const isPublicRoute = createRouteMatcher([
   '/privacy',
   '/terms',
   '/refund',
+  // SEO content routes — broker / pattern / glossary subpages built from
+  // registries in lib/seo/. These are crawler-facing marketing pages and
+  // must NOT redirect anonymous visitors (Googlebot, Bing, etc.) to
+  // /sign-in. /glossary index is already covered above; the wildcard
+  // entry here adds per-term routes (/glossary/drawdown, etc.).
+  '/brokers',
+  '/brokers/(.*)',
+  '/patterns',
+  '/patterns/(.*)',
+  '/glossary/(.*)',
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/parse',
