@@ -163,7 +163,11 @@ export default function AnalyseButton() {
             const errBody = await parseRes.json().catch(() => null) as
               | { code?: string; message?: string; hint?: string; error?: string }
               | null
-            if (errBody && (errBody.code === 'LIKELY_ORDERBOOK' || errBody.code === 'MISSING_TIME_DATA')) {
+            if (errBody && (
+              errBody.code === 'MISSING_SYMBOL_OR_DATE' ||
+              errBody.code === 'LIKELY_ORDERBOOK' ||
+              errBody.code === 'MISSING_TIME_DATA'
+            )) {
               hardRejection = {
                 message: errBody.message || errBody.error || 'Upload rejected',
                 hint: errBody.hint,

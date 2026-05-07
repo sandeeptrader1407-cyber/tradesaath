@@ -145,12 +145,18 @@ export interface IntakeTimeAnalysis {
 /** Stable error codes for upload-rejecting validation failures.
  *  Surface these to the API + client so they can show specific guidance.
  *
+ *  - MISSING_SYMBOL_OR_DATE: 50%+ trades have unreadable symbol (empty,
+ *    "unknown", or purely-numeric like FYERS exchange-segment IDs "19")
+ *    OR unreadable date. The file is fundamentally unanalysable.
  *  - LIKELY_ORDERBOOK: 50%+ trades unpaired (no exit) — broker exported
  *    the order book / pending orders rather than the trade book.
  *  - MISSING_TIME_DATA: 50%+ trades have no entry timestamp — usually a
  *    daily-summary export, not the executed-trades report.
  */
-export type IntakeErrorCode = 'LIKELY_ORDERBOOK' | 'MISSING_TIME_DATA'
+export type IntakeErrorCode =
+  | 'MISSING_SYMBOL_OR_DATE'
+  | 'LIKELY_ORDERBOOK'
+  | 'MISSING_TIME_DATA'
 
 /** Final result from the intake pipeline */
 export interface IntakeResult {

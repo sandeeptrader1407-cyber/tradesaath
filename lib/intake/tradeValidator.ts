@@ -82,13 +82,37 @@ export function validateTrades(trades: StandardTrade[]): ValidationResult {
     warnings.push(`More than 50% of trades (${noTimeCount}/${trades.length}) have no time data`);
   }
 
-  // Hard-reject thresholds: the user uploaded an order book or a
-  // summary export rather than an executed-trades report. Returning
-  // a zero-P&L session in that case is a worse UX than a clear error.
-  // LIKELY_ORDERBOOK takes priority — orderbooks usually fail BOTH
-  // checks, and the orderbook diagnosis is the more actionable hint.
+  // Detect unreadable symbol / date columns. A "bad" symbol is empty,
+  // literally "unknown", or purely numeric (e.g. FYERS exchange-segment
+  // IDs like "19" come through when the broker file's symbol column
+  // didn't get mapped). A "bad" date is empty or "unknown".
+  const badSymbolCount = trades.filter(t => {
+    const s = (t.symbol ?? '').trim()
+    return s === '' || s.toLowerCase() === 'unknown' || /^[0-9]+$/.test(s)
+  }).length;
+  const badDateCount = trades.filter(t => {
+    const d = (t.date ?? '').trim()
+    return d === '' || d.toLowerCase() === 'unknown'
+  }).length;
+
+  // Hard-reject thresholds: the user uploaded a file we cannot analyse.
+  // Returning a zero-P&L (or numeric-symbol-named) session is a worse
+  // UX than a clear error. Priority order:
+  //   1. MISSING_SYMBOL_OR_DATE — data is fundamentally unreadable
+  //   2. LIKELY_ORDERBOOK — shape mismatch (order book vs trade book)
+  //   3. MISSING_TIME_DATA — daily-summary export, no per-trade times
   let criticalError: { code: IntakeErrorCode; message: string } | undefined
-  if (trades.length > 0 && openCount / trades.length >= 0.5) {
+  if (
+    trades.length > 0 &&
+    (badSymbolCount / trades.length >= 0.5 || badDateCount / trades.length >= 0.5)
+  ) {
+    const worst = Math.max(badSymbolCount, badDateCount)
+    const which = badSymbolCount >= badDateCount ? 'symbol' : 'date'
+    criticalError = {
+      code: 'MISSING_SYMBOL_OR_DATE',
+      message: `${worst} of ${trades.length} trades have an unreadable ${which}. The broker export is missing required columns.`,
+    }
+  } else if (trades.length > 0 && openCount / trades.length >= 0.5) {
     criticalError = {
       code: 'LIKELY_ORDERBOOK',
       message: `${openCount} of ${trades.length} trades are unpaired (no exit). This file looks like an order book, not a trade book.`,

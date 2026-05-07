@@ -60,6 +60,14 @@ export async function POST(req: NextRequest) {
       // export) with a stable code + actionable hint, rather than the
       // generic PARSE_FAILED. The client uses the code to render a
       // targeted error banner instead of falling through to AI extract.
+      if (result.errorCode === 'MISSING_SYMBOL_OR_DATE') {
+        return NextResponse.json({
+          error: 'MISSING_SYMBOL_OR_DATE',
+          code: 'MISSING_SYMBOL_OR_DATE',
+          message: 'We could not read the symbol name or trade date from your file. The broker export may be missing required columns.',
+          hint: 'In FYERS: download "Trade Book" not "Order Book". In Zerodha: download "Tradebook" CSV from Console → Reports. The file must have columns for trading symbol (e.g. NIFTY24MAR22000CE) and trade date.',
+        }, { status: 422 });
+      }
       if (result.errorCode === 'LIKELY_ORDERBOOK') {
         return NextResponse.json({
           error: 'LIKELY_ORDERBOOK',
