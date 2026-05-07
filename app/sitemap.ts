@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { BROKERS } from '@/lib/seo/brokerRegistry'
 
 /**
  * Next.js 15 file-based sitemap.
@@ -9,13 +10,21 @@ import type { MetadataRoute } from 'next'
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://tradesaath.com'
   const lastModified = new Date()
+  const brokerRoutes: MetadataRoute.Sitemap = BROKERS.map((b) => ({
+    url: `${baseUrl}/brokers/${b.slug}`,
+    lastModified,
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }))
   return [
     { url: baseUrl,                lastModified, changeFrequency: 'weekly',  priority: 1.0 },
     { url: `${baseUrl}/pricing`,   lastModified, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/brokers`,   lastModified, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/faq`,       lastModified, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/glossary`,  lastModified, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/privacy`,   lastModified, changeFrequency: 'yearly',  priority: 0.3 },
     { url: `${baseUrl}/terms`,     lastModified, changeFrequency: 'yearly',  priority: 0.3 },
     { url: `${baseUrl}/refund`,    lastModified, changeFrequency: 'yearly',  priority: 0.3 },
+    ...brokerRoutes,
   ]
 }
