@@ -6,6 +6,7 @@ import { useRazorpay } from "@/hooks/useRazorpay";
 import { usePlanStore } from "@/lib/planStore";
 import { useUser } from "@clerk/nextjs";
 import { showToast } from "@/components/ui/Toast";
+import CyclePipeline from "./CyclePipeline";
 
 interface TradeDetailProps {
   activeTrade?: number;
@@ -47,11 +48,6 @@ function getSideBadgeStyle(side: string): React.CSSProperties {
     color: isBuy ? "var(--color-profit)" : "var(--color-loss)",
   };
 }
-
-const CYCLE_STAGES = [
-  "Disciplined Win","Overconfidence","Larger Position","Market Goes Against",
-  "Hope & Hold","Averaging Down","Panic Exit","Revenge Trade","Decision Fatigue","FOMO Re-entry",
-];
 
 export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }: TradeDetailProps) {
   const { trades, sessionId } = useAnalysisStore();
@@ -388,28 +384,10 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
 
                       {trade.cycle_stage && (
                         <div style={{ padding: '10px 12px', borderRadius: 6, background: 'var(--color-canvas)', marginBottom: 10 }}>
-                          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginBottom: 8 }}>Vicious cycle position</p>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                            {CYCLE_STAGES.map((label) => {
-                              const isActive = trade.cycle_stage?.toLowerCase().includes(label.toLowerCase());
-                              return (
-                                <span key={label} style={{
-                                  display: 'inline-block',
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                  fontSize: 11,
-                                  fontFamily: 'var(--font-sans)',
-                                  fontWeight: isActive ? 500 : 400,
-                                  background: isActive ? 'rgba(192,57,43,.08)' : 'var(--color-border)',
-                                  color: isActive ? 'var(--color-loss)' : 'var(--color-muted)',
-                                  border: isActive ? '0.5px solid rgba(192,57,43,.25)' : '0.5px solid transparent',
-                                  opacity: isActive ? 1 : 0.6,
-                                }}>
-                                  {label}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginBottom: 8 }}>
+                            Vicious cycle position
+                          </p>
+                          <CyclePipeline mode="trade" activeStage={trade.cycle_stage} />
                         </div>
                       )}
                     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { formatPnl } from "@/lib/format/money"
+import CyclePipeline from "@/components/results/CyclePipeline"
 
 async function triggerReanalyse(sessionId: string, onDone: () => void) {
   try {
@@ -392,10 +393,11 @@ export default function SessionDetail({ session }: Props) {
                         </div>
                       )}
                       {trade.cycle_stage && (
-                        <div>
-                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'var(--color-border)', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
-                            Cycle: {trade.cycle_stage}
-                          </span>
+                        <div style={{ padding: '10px 12px', borderRadius: 6, background: 'var(--color-canvas)' }}>
+                          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginBottom: 8 }}>
+                            Vicious cycle position
+                          </p>
+                          <CyclePipeline mode="trade" activeStage={trade.cycle_stage} />
                         </div>
                       )}
                       {!hasAI && (
