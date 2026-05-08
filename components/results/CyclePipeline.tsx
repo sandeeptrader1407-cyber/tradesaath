@@ -46,6 +46,30 @@ const PIPELINE_STAGES = [
   { code: 'fomo',     label: 'FOMO Re-entry'        },
 ] as const
 
+/** Color theme for an active stage. 'win' is the only positive stage. */
+function getActiveColors(stageCode: string): {
+  fg: string         // text + marker fill color
+  glow: string       // box-shadow color (rgba)
+  bgTint: string     // background tint for count badge (rgba)
+  borderTint: string // border for count badge (rgba)
+} {
+  const isPositive = stageCode === 'win'
+  if (isPositive) {
+    return {
+      fg: 'var(--color-profit)',
+      glow: 'rgba(29,158,117,0.15)',
+      bgTint: 'rgba(29,158,117,0.1)',
+      borderTint: 'rgba(29,158,117,0.25)',
+    }
+  }
+  return {
+    fg: 'var(--color-loss)',
+    glow: 'rgba(192,57,43,0.15)',
+    bgTint: 'rgba(192,57,43,0.1)',
+    borderTint: 'rgba(192,57,43,0.25)',
+  }
+}
+
 /** Trade-mode active match: accept either short code or full label. */
 function isActive(stageCode: string, stageLabel: string, active: string | undefined): boolean {
   if (!active) return false
@@ -94,6 +118,7 @@ export default function CyclePipeline({ mode, stages, activeStage }: CyclePipeli
           active = !!entry && entry.count > 0
         }
 
+        const colors = getActiveColors(s.code)
         const isLast = idx === PIPELINE_STAGES.length - 1
         const count = entry?.count ?? 0
         const description = entry?.description
@@ -131,9 +156,9 @@ export default function CyclePipeline({ mode, stages, activeStage }: CyclePipeli
                 width: markerSize,
                 height: markerSize,
                 borderRadius: '50%',
-                background: active ? 'var(--color-loss)' : 'var(--color-canvas)',
-                border: active ? '2px solid var(--color-loss)' : '1px solid var(--color-border)',
-                boxShadow: active ? '0 0 0 4px rgba(192,57,43,0.15)' : 'none',
+                background: active ? colors.fg : 'var(--color-canvas)',
+                border: active ? `2px solid ${colors.fg}` : '1px solid var(--color-border)',
+                boxShadow: active ? `0 0 0 4px ${colors.glow}` : 'none',
                 opacity: active ? 1 : 0.5,
                 marginTop: 2,
                 position: 'relative',
@@ -150,7 +175,7 @@ export default function CyclePipeline({ mode, stages, activeStage }: CyclePipeli
                     fontSize: labelFontSize,
                     fontFamily: 'var(--font-sans)',
                     fontWeight: active ? 500 : 400,
-                    color: active ? 'var(--color-loss)' : 'var(--color-muted)',
+                    color: active ? colors.fg : 'var(--color-muted)',
                     opacity: active ? 1 : 0.7,
                     lineHeight: 1.4,
                     whiteSpace: 'nowrap',
@@ -166,7 +191,7 @@ export default function CyclePipeline({ mode, stages, activeStage }: CyclePipeli
                         fontSize: labelFontSize,
                         fontFamily: 'var(--font-sans)',
                         fontWeight: active ? 500 : 400,
-                        color: active ? 'var(--color-loss)' : 'var(--color-ink)',
+                        color: active ? colors.fg : 'var(--color-ink)',
                         opacity: active ? 1 : 0.75,
                         lineHeight: 1.3,
                       }}
@@ -183,10 +208,10 @@ export default function CyclePipeline({ mode, stages, activeStage }: CyclePipeli
                         fontFamily: 'var(--font-mono)',
                         fontSize: 11,
                         fontWeight: 500,
-                        background: active ? 'rgba(192,57,43,0.1)' : 'var(--color-canvas)',
-                        color: active ? 'var(--color-loss)' : 'var(--color-muted)',
+                        background: active ? colors.bgTint : 'var(--color-canvas)',
+                        color: active ? colors.fg : 'var(--color-muted)',
                         border: active
-                          ? '0.5px solid rgba(192,57,43,0.25)'
+                          ? `0.5px solid ${colors.borderTint}`
                           : '0.5px solid var(--color-border)',
                       }}
                     >
