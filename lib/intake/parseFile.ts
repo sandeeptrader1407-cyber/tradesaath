@@ -105,6 +105,35 @@ export async function intakeFile(
       };
     }
 
+    // Step 3.5: Validate that required columns were detected.
+    // PDF column extraction can produce broken headers (e.g.,
+    // ["Symbol Date", "", "& Time", "", ...]) where only some
+    // canonical fields get mapped. Pairing on a missing-symbol or
+    // missing-date file produces garbage trades. Reject early with
+    // a clear error.
+    const mappedFields = new Set(Object.values(rawFile.columnMapping));
+    const requiredFields = ['symbol', 'date', 'side', 'qty'] as const;
+    const missingRequired = requiredFields.filter(f => !mappedFields.has(f));
+    const hasPriceOrPnl = mappedFields.has('price') || mappedFields.has('pnl');
+    if (missingRequired.length > 0 || !hasPriceOrPnl) {
+      const missing = [
+        ...missingRequired,
+        ...(!hasPriceOrPnl ? ['price or pnl'] : []),
+      ];
+      const message = `Could not detect required columns: ${missing.join(', ')}. The file format may be unsupported, or the PDF columns extracted incorrectly.`;
+      console.warn(`[Intake] INSUFFICIENT_HEADERS: ${message} (mapped: ${Array.from(mappedFields).join(', ') || 'none'})`);
+      return {
+        success: false,
+        rawFile,
+        trades: [],
+        kpis: calculateIntakeKPIs([]),
+        timeAnalysis: calculateIntakeTimeAnalysis([]),
+        validationWarnings: [],
+        error: message,
+        errorCode: 'INSUFFICIENT_HEADERS',
+      };
+    }
+
     // Step 4: Pair trades
     const trades = pairRawTrades(rawFile.rows, rawFile.market);
     console.log(`[Intake] ${trades.length} paired trades`);

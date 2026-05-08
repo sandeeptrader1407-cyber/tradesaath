@@ -152,11 +152,14 @@ export interface IntakeTimeAnalysis {
  *    the order book / pending orders rather than the trade book.
  *  - MISSING_TIME_DATA: 50%+ trades have no entry timestamp — usually a
  *    daily-summary export, not the executed-trades report.
+ *  - INSUFFICIENT_HEADERS: required column mappings missing — PDF column
+ *    extraction failed or broker file uses unrecognized header names.
  */
 export type IntakeErrorCode =
   | 'MISSING_SYMBOL_OR_DATE'
   | 'LIKELY_ORDERBOOK'
   | 'MISSING_TIME_DATA'
+  | 'INSUFFICIENT_HEADERS'
 
 /** Final result from the intake pipeline */
 export interface IntakeResult {
