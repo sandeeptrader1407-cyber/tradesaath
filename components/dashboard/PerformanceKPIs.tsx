@@ -46,10 +46,10 @@ export default function PerformanceKPIs({ month, score, hasMonthData, allTime, b
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
       {kpis.map((k) => (
-        <div key={k.label} className="p-4 rounded-xl border" style={{ background: "var(--s1)", borderColor: "var(--border)" }}>
-          <div className="font-jetbrains-mono font-bold text-lg" style={{ color: k.pos ? "var(--green)" : "var(--red)" }}>
+        <div key={k.label} className="p-4 rounded-xl border" style={{ background: "var(--s1)", borderColor: "var(--border)", minWidth: 0 }}>
+          <div className="font-jetbrains-mono font-bold" style={{ color: k.pos ? "var(--green)" : "var(--red)", fontSize: 'clamp(14px, 4.5vw, 18px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.15 }}>
             {k.value}
           </div>
           <div className="text-[10px] sm:text-[9px] uppercase tracking-widest mt-1" style={{ color: "var(--text2)" }}>{k.label}</div>

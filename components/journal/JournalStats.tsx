@@ -53,16 +53,19 @@ export default function JournalStats({ sessions }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    <div className="gap-3 mb-5" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
       {stats.map((s) => (
-        <div key={s.label} style={cardStyle}>
+        <div key={s.label} style={{ ...cardStyle, minWidth: 0 }}>
           <div style={labelStyle}>{s.label}</div>
           <div style={{
-            fontSize: 22,
+            fontSize: 'clamp(14px, 4.5vw, 22px)',
             fontFamily: 'var(--font-mono)',
             fontWeight: 500,
             color: valueColor(s.pos, s.value),
             lineHeight: 1.1,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}>
             {s.value}
           </div>

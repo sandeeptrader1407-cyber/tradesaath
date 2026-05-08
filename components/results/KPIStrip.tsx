@@ -39,7 +39,7 @@ export default function KPIStrip() {
     display: 'inline-flex',
     flexDirection: 'column',
     flexShrink: 0,
-    width: 128,
+    minWidth: 128,
     padding: '10px 12px',
     borderRadius: 10,
     background: '#FFFFFF',
@@ -84,11 +84,12 @@ export default function KPIStrip() {
             <div key={m.label} style={cardStyle}>
               <div style={labelStyle}>{m.label}</div>
               <div style={{
-                fontSize: 22,
+                fontSize: 'clamp(14px, 4.5vw, 22px)',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 500,
                 color: valueColor(m.signed, m.num),
                 lineHeight: 1.1,
+                whiteSpace: 'nowrap',
               }}>
                 {m.value}
               </div>
@@ -103,15 +104,15 @@ export default function KPIStrip() {
 
       {/* Gross Profit / Gross Loss */}
       <div className="grid grid-cols-2 gap-3">
-        <div style={{ ...cardStyle, width: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ ...cardStyle, minWidth: 0, width: 'auto', display: 'flex', flexDirection: 'column' }}>
           <div style={labelStyle}>Gross Profit</div>
-          <div style={{ fontSize: 20, fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-profit)' }}>
+          <div style={{ fontSize: 'clamp(14px, 4.5vw, 20px)', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-profit)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             +{fmtAbs(kpis.gross_profit ?? 0)}
           </div>
         </div>
-        <div style={{ ...cardStyle, width: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ ...cardStyle, minWidth: 0, width: 'auto', display: 'flex', flexDirection: 'column' }}>
           <div style={labelStyle}>Gross Loss</div>
-          <div style={{ fontSize: 20, fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-loss)' }}>
+          <div style={{ fontSize: 'clamp(14px, 4.5vw, 20px)', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-loss)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {fmtAbs(kpis.gross_loss ?? 0)}
           </div>
         </div>
