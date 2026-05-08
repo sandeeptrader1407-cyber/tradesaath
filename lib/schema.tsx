@@ -1,5 +1,7 @@
 /* ── JSON-LD Structured Data for SEO + AEO ─────────────────────── */
 
+import { SITE_URL } from '@/lib/seo/siteUrl'
+
 type JsonLdProps = { data: Record<string, unknown> }
 
 export function JsonLd({ data }: JsonLdProps) {
@@ -20,9 +22,9 @@ export function OrganizationSchema() {
         '@context': 'https://schema.org',
         '@type': 'Organization',
         name: 'TradeSaath',
-        url: 'https://tradesaath.com',
+        url: SITE_URL,
         // TODO: replace with dedicated logo when designed (currently using og-image.svg as placeholder).
-        logo: 'https://tradesaath.com/og-image.svg',
+        logo: `${SITE_URL}/og-image.svg`,
         description:
           'AI-powered trading psychology analysis platform that helps retail traders identify emotional patterns like revenge trading, FOMO entries, and panic exits in their trade history.',
         foundingDate: '2025',
@@ -52,7 +54,7 @@ export function SoftwareApplicationSchema() {
         name: 'TradeSaath',
         applicationCategory: 'FinanceApplication',
         operatingSystem: 'Web',
-        url: 'https://tradesaath.com',
+        url: SITE_URL,
         description:
           'AI-powered trading psychology analysis for retail traders worldwide. Detects revenge trading, FOMO, panic exits, and overtrading patterns.',
         offers: {
@@ -114,7 +116,7 @@ export function SoftwareApplicationSchema() {
           'Vicious Cycle stage mapping',
           'Support for 30+ global brokers across stocks, options, futures, forex, and crypto',
         ],
-        screenshot: 'https://tradesaath.com/og-image.svg',
+        screenshot: `${SITE_URL}/og-image.svg`,
       }}
     />
   )
@@ -168,17 +170,17 @@ export function ArticleSchema({
         url,
         datePublished,
         dateModified: dateModified ?? datePublished,
-        image: image ?? 'https://tradesaath.com/og-image.svg',
+        image: image ?? `${SITE_URL}/og-image.svg`,
         author: {
           '@type': 'Organization',
           name: 'TradeSaath',
-          url: 'https://tradesaath.com',
+          url: SITE_URL,
         },
         publisher: {
           '@type': 'Organization',
           name: 'TradeSaath',
           // TODO: replace with dedicated logo when designed (currently using og-image.svg as placeholder).
-          logo: { '@type': 'ImageObject', url: 'https://tradesaath.com/og-image.svg' },
+          logo: { '@type': 'ImageObject', url: `${SITE_URL}/og-image.svg` },
         },
       }}
     />
@@ -259,7 +261,7 @@ export function WebPageSchema({
         isPartOf: {
           '@type': 'WebSite',
           name: 'TradeSaath',
-          url: 'https://tradesaath.com',
+          url: SITE_URL,
         },
       }}
     />
@@ -288,7 +290,7 @@ export function DefinedTermSchema({
         inDefinedTermSet: {
           '@type': 'DefinedTermSet',
           name: 'Trading Psychology Glossary',
-          url: 'https://tradesaath.com/glossary',
+          url: `${SITE_URL}/glossary`,
         },
       }}
     />

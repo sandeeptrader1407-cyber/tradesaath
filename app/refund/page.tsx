@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 export const metadata: Metadata = {
   title: 'Refund & Cancellation Policy — TradeSaath',
   description:
     'TradeSaath refund policy. Cancel anytime. Pro-rated refunds within 7 days for yearly plans. UPI, card, and net banking refund timelines.',
-  alternates: { canonical: 'https://tradesaath.com/refund' },
+  alternates: { canonical: `${SITE_URL}/refund` },
 }
 
 export default function RefundPage() {

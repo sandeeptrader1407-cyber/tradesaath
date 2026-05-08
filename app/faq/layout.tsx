@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 /**
  * FAQ route metadata. Lives in the layout because page.tsx is a client
@@ -9,11 +10,11 @@ export const metadata: Metadata = {
   title: 'FAQ — TradeSaath',
   description:
     'Common questions about TradeSaath: how the AI trading psychology analyser works, what brokers are supported, pricing, privacy, and more.',
-  alternates: { canonical: 'https://tradesaath.com/faq' },
+  alternates: { canonical: `${SITE_URL}/faq` },
   openGraph: {
     title: 'FAQ — TradeSaath',
     description: 'Common questions about TradeSaath.',
-    url: 'https://tradesaath.com/faq',
+    url: `${SITE_URL}/faq`,
     type: 'website',
   },
 }

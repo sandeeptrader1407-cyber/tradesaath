@@ -3,7 +3,9 @@
  * Sent after a fresh upload is analysed (not batch re-analysis).
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://tradesaath.com'
+import { SITE_URL } from '@/lib/seo/siteUrl'
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || SITE_URL
 
 export interface AnalysisEmailData {
   name?: string

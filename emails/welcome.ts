@@ -3,7 +3,9 @@
  * Sent once when a new user signs up via Clerk webhook.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://tradesaath.com'
+import { SITE_URL } from '@/lib/seo/siteUrl'
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || SITE_URL
 
 export function welcomeEmailHtml(firstName?: string): string {
   const name = firstName || 'Trader'

@@ -12,8 +12,8 @@ import {
   type BrokerInfo,
 } from '@/lib/seo/brokerRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
-const SITE_URL = 'https://tradesaath.com'
 const PAGE_URL = `${SITE_URL}/brokers`
 
 const META_DESCRIPTION =

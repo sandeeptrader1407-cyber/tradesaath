@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 export const metadata: Metadata = {
   title: 'Terms of Service — TradeSaath',
   description:
     'TradeSaath terms of service. Not financial advice. SEBI disclaimer. AI-powered trading psychology analysis platform usage terms.',
-  alternates: { canonical: 'https://tradesaath.com/terms' },
+  alternates: { canonical: `${SITE_URL}/terms` },
 }
 
 export default function TermsPage() {

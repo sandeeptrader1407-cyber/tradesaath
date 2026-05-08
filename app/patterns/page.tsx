@@ -12,8 +12,8 @@ import {
   type PatternInfo,
 } from '@/lib/seo/patternRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
-const SITE_URL = 'https://tradesaath.com'
 const PAGE_URL = `${SITE_URL}/patterns`
 
 const META_DESCRIPTION =

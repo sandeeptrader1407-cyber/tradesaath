@@ -9,6 +9,7 @@ import PricingSection from '@/components/landing/PricingSection'
 import FAQ from '@/components/FAQ'
 import FinalCTA from '@/components/landing/FinalCTA'
 import { OrganizationSchema, WebPageSchema, HowToSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 export const metadata: Metadata = {
   title: 'TradeSaath — AI Trading Psychology Analysis for Every Trader',
@@ -21,12 +22,12 @@ export const metadata: Metadata = {
     'options trading journal', 'forex trading journal',
     'crypto trading journal', 'stock trading journal',
   ],
-  metadataBase: new URL('https://tradesaath.com'),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: 'website',
     title: 'TradeSaath — AI Trading Psychology Analysis',
     description: 'Upload your tradebook. Get your Decision Quality Score in 60 seconds.',
-    url: 'https://tradesaath.com',
+    url: SITE_URL,
     siteName: 'TradeSaath',
     images: [{ url: '/api/og', width: 1200, height: 630, alt: 'TradeSaath' }],
   },
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
     description: 'Upload your tradebook. Get your Decision Quality Score in 60 seconds.',
     images: ['/api/og'],
   },
-  alternates: { canonical: 'https://tradesaath.com' },
+  alternates: { canonical: SITE_URL },
 }
 
 export default function Home() {
@@ -46,7 +47,7 @@ export default function Home() {
       <WebPageSchema
         name="TradeSaath — AI Trading Psychology Analysis"
         description="AI-powered trading psychology analysis for retail traders worldwide. Detects revenge trading, FOMO, panic exits, overtrading."
-        url="https://tradesaath.com"
+        url={SITE_URL}
       />
       <HowToSchema
         name="How to Analyse Your Trading Psychology with TradeSaath"

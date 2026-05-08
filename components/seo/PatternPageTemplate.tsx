@@ -8,6 +8,7 @@ import type { PatternInfo } from '@/lib/seo/patternRegistry'
 import { getPattern } from '@/lib/seo/patternRegistry'
 import { getTerm } from '@/lib/seo/glossaryRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 interface Props {
   pattern: PatternInfo
@@ -21,7 +22,7 @@ const CATEGORY_LABEL: Record<PatternInfo['category'], string> = {
 }
 
 export default function PatternPageTemplate({ pattern }: Props) {
-  const pageUrl = `https://tradesaath.com/patterns/${pattern.slug}`
+  const pageUrl = `${SITE_URL}/patterns/${pattern.slug}`
 
   const relatedPatterns = pattern.relatedPatterns
     .map((slug) => getPattern(slug))
@@ -43,14 +44,14 @@ export default function PatternPageTemplate({ pattern }: Props) {
           inDefinedTermSet: {
             '@type': 'DefinedTermSet',
             name: 'TradeSaath Trading Psychology Patterns',
-            url: 'https://tradesaath.com/patterns',
+            url: `${SITE_URL}/patterns`,
           },
         }}
       />
       <BreadcrumbSchema
         items={[
-          { name: 'Home', url: 'https://tradesaath.com' },
-          { name: 'Patterns', url: 'https://tradesaath.com/patterns' },
+          { name: 'Home', url: SITE_URL },
+          { name: 'Patterns', url: `${SITE_URL}/patterns` },
           { name: pattern.name, url: pageUrl },
         ]}
       />

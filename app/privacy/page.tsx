@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — TradeSaath',
   description:
     'TradeSaath privacy policy. How we handle your trading data under India’s DPDP Act 2023. Data encryption, retention, and your rights.',
-  alternates: { canonical: 'https://tradesaath.com/privacy' },
+  alternates: { canonical: `${SITE_URL}/privacy` },
 }
 
 export default function PrivacyPage() {

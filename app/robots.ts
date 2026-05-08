@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 /**
  * Next.js 15 file-based robots.
@@ -36,7 +37,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'Applebot-Extended', allow: '/' },
       { userAgent: 'CCBot',             allow: '/' },
     ],
-    sitemap: 'https://tradesaath.com/sitemap.xml',
-    host: 'https://tradesaath.com',
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   }
 }

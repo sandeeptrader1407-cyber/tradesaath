@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { BROKERS } from '@/lib/seo/brokerRegistry'
 import { PATTERNS } from '@/lib/seo/patternRegistry'
 import { GLOSSARY_TERMS } from '@/lib/seo/glossaryRegistry'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 /**
  * Next.js 15 file-based sitemap.
@@ -10,7 +11,7 @@ import { GLOSSARY_TERMS } from '@/lib/seo/glossaryRegistry'
  * disallow list in app/robots.ts).
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.tradesaath.com'
+  const baseUrl = SITE_URL
   const lastModified = new Date()
   const brokerRoutes: MetadataRoute.Sitemap = BROKERS.map((b) => ({
     url: `${baseUrl}/brokers/${b.slug}`,

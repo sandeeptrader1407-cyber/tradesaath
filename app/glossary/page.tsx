@@ -5,8 +5,8 @@ import {
   type GlossaryTerm,
 } from '@/lib/seo/glossaryRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
-const SITE_URL = 'https://tradesaath.com'
 const PAGE_URL = `${SITE_URL}/glossary`
 
 const META_DESCRIPTION =

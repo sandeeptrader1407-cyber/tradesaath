@@ -11,6 +11,7 @@ import Link from 'next/link'
 import type { BrokerInfo } from '@/lib/seo/brokerRegistry'
 import { getPattern } from '@/lib/seo/patternRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 interface Props {
   broker: BrokerInfo
@@ -25,7 +26,7 @@ const ASSET_LABELS: Record<string, string> = {
 }
 
 export default function BrokerPageTemplate({ broker }: Props) {
-  const pageUrl = `https://tradesaath.com/brokers/${broker.slug}`
+  const pageUrl = `${SITE_URL}/brokers/${broker.slug}`
   const exportSteps = broker.exportPath.split(' → ').map((s) => s.trim()).filter(Boolean)
 
   // Resolve related patterns to display name + link
@@ -63,8 +64,8 @@ export default function BrokerPageTemplate({ broker }: Props) {
       />
       <BreadcrumbSchema
         items={[
-          { name: 'Home', url: 'https://tradesaath.com' },
-          { name: 'Brokers', url: 'https://tradesaath.com/brokers' },
+          { name: 'Home', url: SITE_URL },
+          { name: 'Brokers', url: `${SITE_URL}/brokers` },
           { name: broker.name, url: pageUrl },
         ]}
       />

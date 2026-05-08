@@ -16,13 +16,13 @@ import {
   getTermSlugs,
   type GlossaryTerm,
 } from '@/lib/seo/glossaryRegistry'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 interface RouteParams {
   params: { slug: string }
 }
 
 const META_DESCRIPTION_MAX = 155
-const SITE_URL = 'https://tradesaath.com'
 
 /* ── Static-site generation: emit all 60 term slugs at build time. */
 export function generateStaticParams(): { slug: string }[] {

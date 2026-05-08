@@ -17,13 +17,13 @@ import {
   type BrokerInfo,
 } from '@/lib/seo/brokerRegistry'
 import { getPattern } from '@/lib/seo/patternRegistry'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 interface RouteParams {
   params: { slug: string }
 }
 
 const META_DESCRIPTION_MAX = 160
-const SITE_URL = 'https://tradesaath.com'
 
 /* ── Static-site generation: emit all 32 broker slugs at build time. */
 export function generateStaticParams(): { slug: string }[] {

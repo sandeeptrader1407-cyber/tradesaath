@@ -8,6 +8,7 @@ import type { GlossaryTerm } from '@/lib/seo/glossaryRegistry'
 import { getTerm } from '@/lib/seo/glossaryRegistry'
 import { getPattern } from '@/lib/seo/patternRegistry'
 import { JsonLd, BreadcrumbSchema } from '@/lib/schema'
+import { SITE_URL } from '@/lib/seo/siteUrl'
 
 interface Props {
   term: GlossaryTerm
@@ -25,7 +26,7 @@ const CATEGORY_LABEL: Record<GlossaryTerm['category'], string> = {
 }
 
 export default function GlossaryEntryTemplate({ term }: Props) {
-  const pageUrl = `https://tradesaath.com/glossary/${term.slug}`
+  const pageUrl = `${SITE_URL}/glossary/${term.slug}`
 
   const relatedTerms = term.relatedTerms
     .map((slug) => getTerm(slug))
@@ -46,14 +47,14 @@ export default function GlossaryEntryTemplate({ term }: Props) {
           inDefinedTermSet: {
             '@type': 'DefinedTermSet',
             name: 'TradeSaath Trading Glossary',
-            url: 'https://tradesaath.com/glossary',
+            url: `${SITE_URL}/glossary`,
           },
         }}
       />
       <BreadcrumbSchema
         items={[
-          { name: 'Home', url: 'https://tradesaath.com' },
-          { name: 'Glossary', url: 'https://tradesaath.com/glossary' },
+          { name: 'Home', url: SITE_URL },
+          { name: 'Glossary', url: `${SITE_URL}/glossary` },
           { name: term.term, url: pageUrl },
         ]}
       />
