@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAnalysisStore } from "@/lib/analysisStore";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { usePlanStore } from "@/lib/planStore";
@@ -62,6 +62,7 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
   const [deepDiveOpen, setDeepDiveOpen] = useState<Record<number, boolean>>({});
   const [tradeNotes, setTradeNotes] = useState<Record<number, string>>({});
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const [savedIndicator, setSavedIndicator] = useState<Record<number, boolean>>({});
 
   // Direct-to-Razorpay upgrade for the locked-trade overlay (matches the
   // Top-Issue card pattern in app/dashboard/page.tsx).
@@ -88,8 +89,33 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, tradeIndex, notes }),
-      }).catch(() => { /* silent */ });
+      })
+        .then(() => {
+          setSavedIndicator((p) => ({ ...p, [tradeIndex]: true }));
+          setTimeout(() => {
+            setSavedIndicator((p) => ({ ...p, [tradeIndex]: false }));
+          }, 2000);
+        })
+        .catch(() => { /* silent */ });
     }, 1000);
+  }, [sessionId]);
+
+  // Load existing notes on mount / when session changes
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    fetch(`/api/trade-notes?sessionId=${sessionId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled || !data?.notes) return;
+        const numericKeyed: Record<number, string> = {};
+        for (const [idx, note] of Object.entries(data.notes)) {
+          numericKeyed[Number(idx)] = note as string;
+        }
+        setTradeNotes(numericKeyed);
+      })
+      .catch(() => { /* silent */ });
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   const isLocked = (index: number): boolean => index >= freeLimit;
@@ -391,9 +417,22 @@ export default function TradeDetail({ activeTrade: _activeTrade, freeLimit = 3 }
 
                   {/* Notes */}
                   <div style={{ marginTop: 12 }}>
-                    <label style={{ display: 'block', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginBottom: 6 }}>
-                      Your reflection
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
+                        Your reflection
+                      </label>
+                      {savedIndicator[idx] && (
+                        <span style={{
+                          fontSize: 10,
+                          color: 'var(--color-profit)',
+                          fontFamily: 'var(--font-sans)',
+                          opacity: 0.85,
+                          transition: 'opacity 0.3s',
+                        }}>
+                          Saved ✓
+                        </span>
+                      )}
+                    </div>
                     <p style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginBottom: 6 }}>
                       What were you thinking? How did this trade feel?
                     </p>
