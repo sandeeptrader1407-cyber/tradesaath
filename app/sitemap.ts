@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { BROKERS } from '@/lib/seo/brokerRegistry'
 import { PATTERNS } from '@/lib/seo/patternRegistry'
+import { GLOSSARY_TERMS } from '@/lib/seo/glossaryRegistry'
 
 /**
  * Next.js 15 file-based sitemap.
@@ -23,6 +24,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: 'monthly' as const,
     priority: 0.7,
   }))
+  const glossaryRoutes: MetadataRoute.Sitemap = GLOSSARY_TERMS.map((t) => ({
+    url: `${baseUrl}/glossary/${t.slug}`,
+    lastModified,
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }))
   return [
     { url: baseUrl,                lastModified, changeFrequency: 'weekly',  priority: 1.0 },
     { url: `${baseUrl}/pricing`,   lastModified, changeFrequency: 'monthly', priority: 0.9 },
@@ -35,5 +42,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/refund`,    lastModified, changeFrequency: 'yearly',  priority: 0.3 },
     ...brokerRoutes,
     ...patternRoutes,
+    ...glossaryRoutes,
   ]
 }
