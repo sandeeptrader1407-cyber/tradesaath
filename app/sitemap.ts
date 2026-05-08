@@ -10,7 +10,7 @@ import { GLOSSARY_TERMS } from '@/lib/seo/glossaryRegistry'
  * disallow list in app/robots.ts).
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://tradesaath.com'
+  const baseUrl = 'https://www.tradesaath.com'
   const lastModified = new Date()
   const brokerRoutes: MetadataRoute.Sitemap = BROKERS.map((b) => ({
     url: `${baseUrl}/brokers/${b.slug}`,
