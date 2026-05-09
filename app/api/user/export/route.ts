@@ -17,7 +17,7 @@ export async function GET() {
       .order('trade_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
 
-    const header = 'Session Date,Broker,Market,Trades,Net PnL,Win Rate,Wins,Losses,Created At\n'
+    const header = 'Session Date,Broker,Market,Trades,Gross PnL,Win Rate,Wins,Losses,Created At\n'
 
     const rows = (sessions ?? []).map((s) => {
       const cols = [

@@ -360,7 +360,7 @@ export default function SessionDetail({ session }: Props) {
                           </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Net P&amp;L</span>
+                          <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>Gross P&amp;L</span>
                           <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: trade.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
                             {formatPnl(trade.pnl)}
                           </span>

@@ -66,7 +66,7 @@ export function analysisCompleteHtml(data: AnalysisEmailData): string {
     <td width="33%" style="padding:4px;">
       <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border-radius:8px;">
       <tr><td style="padding:16px;text-align:center;">
-        <p style="margin:0 0 4px;font-size:11px;color:#4a5568;text-transform:uppercase;letter-spacing:0.5px;">Net P&amp;L</p>
+        <p style="margin:0 0 4px;font-size:11px;color:#4a5568;text-transform:uppercase;letter-spacing:0.5px;">Gross P&amp;L</p>
         <p style="margin:0;font-size:20px;font-weight:700;color:${pnlColor};">${pnlStr}</p>
       </td></tr>
       </table>
@@ -134,7 +134,7 @@ export function analysisCompleteText(data: AnalysisEmailData): string {
 
   return `Hey ${name}, your ${sessionDate} analysis is ready!
 
-${tradeCount} trades | Net P&L: ${pnlStr} | DQS: ${dqsScore}/100
+${tradeCount} trades | Gross P&L: ${pnlStr} | DQS: ${dqsScore}/100
 ${topIssue ? `#1 Issue: ${topIssue}${costStr ? ` (cost: ${costStr})` : ''}` : ''}
 
 View your full analysis: ${BASE_URL}/dashboard
