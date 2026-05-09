@@ -139,7 +139,7 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
   }
 
   const winRate = totalTrades > 0
-    ? Math.round((totalWins / totalTrades) * 1000) / 10
+    ? Math.round((totalWins / totalTrades) * 10000) / 100
     : 0
 
   const successRate = sessions.length > 0
@@ -162,8 +162,8 @@ export function computeKPIs(sessions: KPISession[]): KPIResult {
     : (perTradeWinSum > 0 ? 999 : 0)
 
   // Per-trade averages (authoritative for R:R).
-  const avgWin = winnersCount > 0 ? Math.round(perTradeWinSum / winnersCount) : 0
-  const avgLoss = losersCount > 0 ? Math.round(perTradeLossSum / losersCount) : 0
+  const avgWin = winnersCount > 0 ? Math.round((perTradeWinSum / winnersCount) * 100) / 100 : 0
+  const avgLoss = losersCount > 0 ? Math.round((perTradeLossSum / losersCount) * 100) / 100 : 0
 
   // Risk:Reward is a TRADE-level ratio, not a session-level one.
   const riskReward = avgLoss > 0
