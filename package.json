@@ -14,6 +14,7 @@
     "@anthropic-ai/sdk": "^0.80.0",
     "@clerk/nextjs": "^6.39.0",
     "@napi-rs/canvas": "^0.1.69",
+    "@sentry/nextjs": "^10.52.0",
     "@supabase/supabase-js": "^2.99.3",
     "@types/papaparse": "^5.5.2",
     "@types/three": "^0.184.0",
