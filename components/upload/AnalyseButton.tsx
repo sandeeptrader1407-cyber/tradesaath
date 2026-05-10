@@ -132,9 +132,10 @@ export default function AnalyseButton() {
       let rawFileId: string | undefined
       const failedFiles: string[] = []
       // If /api/parse rejects a file with a structural-shape code
-      // (LIKELY_ORDERBOOK / MISSING_TIME_DATA), we do NOT fall through
-      // to /api/analyse — that would just spend Claude tokens on a file
-      // we already know is unanalysable. Stop the run, show the error.
+      // (LIKELY_ORDERBOOK / MISSING_TIME_DATA / INSUFFICIENT_HEADERS /
+      // MISSING_SYMBOL_OR_DATE), we do NOT fall through to /api/analyse
+      // — that would just spend Claude tokens on a file we already know
+      // is unanalysable. Stop the run, show the error.
       let hardRejection: { message: string; hint?: string } | null = null
 
       for (const file of files) {
@@ -166,7 +167,8 @@ export default function AnalyseButton() {
             if (errBody && (
               errBody.code === 'MISSING_SYMBOL_OR_DATE' ||
               errBody.code === 'LIKELY_ORDERBOOK' ||
-              errBody.code === 'MISSING_TIME_DATA'
+              errBody.code === 'MISSING_TIME_DATA' ||
+              errBody.code === 'INSUFFICIENT_HEADERS'
             )) {
               hardRejection = {
                 message: errBody.message || errBody.error || 'Upload rejected',
