@@ -40,3 +40,12 @@ export const FLAGS = {
 } as const
 
 export type FlagName = keyof typeof FLAGS
+
+/**
+ * AI-first parser (Gemini 2.5 Flash primary + Claude Haiku failover).
+ * When false, intake uses existing 4-layer parser only.
+ * When true, AI extraction runs first, falls back to existing parser on failure.
+ * Default: false (safe rollout — must be explicitly enabled in production).
+ */
+export const aiFirstParser =
+  process.env.ENABLE_AI_FIRST_PARSER === 'true';
