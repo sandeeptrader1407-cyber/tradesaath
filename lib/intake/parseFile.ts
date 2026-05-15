@@ -9,6 +9,8 @@ import { pairRawTrades } from './tradePairer';
 import { validateTrades } from './tradeValidator';
 import { calculateIntakeKPIs, calculateIntakeTimeAnalysis } from './kpiCalculator';
 import { saveRawData } from './saveRawData';
+import { tryAIExtract } from '@/lib/parsers/ai/orchestrator';
+import { aiFirstParser } from '@/lib/config/flags';
 
 export interface IntakeOptions {
   /** If true, save raw data to Supabase (requires userId) */
@@ -79,7 +81,20 @@ export async function intakeFile(
     console.log(`[Intake] Processing ${filename} (${ext}, ${buffer.length} bytes)`);
 
     // Step 1: Extract raw data
-    const rawFile = await extractRawFile(buffer, filename);
+    // AI-first path when flag enabled. Falls through to legacy extractor on AI failure.
+    let rawFile;
+    if (aiFirstParser) {
+      const aiResult = await tryAIExtract(buffer, filename);
+      if (aiResult) {
+        rawFile = aiResult.data;
+        console.log(`[Intake] AI extraction via ${aiResult.parserUsed} (${aiResult.modelName}), cost: $${aiResult.costUsd.toFixed(6)}, ${aiResult.durationMs}ms`);
+      } else {
+        console.log(`[Intake] AI extraction returned null, falling through to legacy`);
+        rawFile = await extractRawFile(buffer, filename);
+      }
+    } else {
+      rawFile = await extractRawFile(buffer, filename);
+    }
     console.log(`[Intake] Extracted ${rawFile.rows.length} raw rows, broker: ${rawFile.broker}, confidence: ${rawFile.confidence} (${rawFile.confidenceScore}/100)`);
 
     // Step 2: Optionally save raw data to Supabase
