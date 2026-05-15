@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV = [
-  { href: '/admin',           label: 'Overview',  exact: true },
-  { href: '/admin/users',     label: 'Users',     exact: false },
-  { href: '/admin/retention', label: 'Retention', exact: false },
-  { href: '/admin/revenue',   label: 'Revenue',   exact: false },
-  { href: '/admin/sessions',  label: 'Sessions',  exact: false },
-  { href: '/admin/ai-usage',  label: 'AI Usage',  exact: false },
-  { href: '/admin/coupons',   label: 'Coupons',   exact: false },
-  { href: '/admin/flags',     label: 'Flags',     exact: false },
+  { href: '/admin',                label: 'Overview',       exact: true },
+  { href: '/admin/users',          label: 'Users',          exact: false },
+  { href: '/admin/retention',      label: 'Retention',      exact: false },
+  { href: '/admin/revenue',        label: 'Revenue',        exact: false },
+  { href: '/admin/sessions',       label: 'Sessions',       exact: false },
+  { href: '/admin/ai-usage',       label: 'AI Usage',       exact: false },
+  { href: '/admin/parser-metrics', label: 'Parser Metrics', exact: false },
+  { href: '/admin/coupons',        label: 'Coupons',        exact: false },
+  { href: '/admin/flags',          label: 'Flags',          exact: false },
 ]
 
 export default function AdminNav() {
