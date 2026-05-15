@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
     // Compute file hash for dedup (passed to /api/analyse later)
     const fileHash = computeFileHash(buffer);
 
+    // Note: /parse persists to raw_files but NOT to trade_sessions (that
+    // happens in /api/analyse). result.parserMetadata is therefore not
+    // forwarded from here. If we ever want parser_* columns to survive the
+    // /parse → /analyse JSON hop, thread parserMetadata through the response
+    // body and into /api/analyse's handleJSON.
     const result = await intakeFile(buffer, file.name);
 
     // Convert to legacy format for backward compat with frontend + detectPatterns

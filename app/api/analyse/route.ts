@@ -15,7 +15,7 @@ import { sendEmail } from '@/lib/email';
 import { analysisCompleteHtml, analysisCompleteText } from '@/emails/analysisComplete';
 import { clerkClient } from '@clerk/nextjs/server';
 import { intakeFile, toLegacyTrade, saveRawData, saveClaudeFallbackRawData, computeFileHash } from '@/lib/intake';
-import type { RawFileData } from '@/lib/intake';
+import type { RawFileData, IntakeResult } from '@/lib/intake';
 import { tradesNeedPairing, pairClaudeTrades } from '@/lib/intake/claudeTradePairer';
 import { logAiUsage } from '@/lib/admin/logAiUsage';
 import { resolveCurrency } from '@/lib/utils/currency';
@@ -234,7 +234,7 @@ type SaveResult = { sessionId?: string; dedupStats?: { tradesAdded: number; trad
 
 async function saveSessionsByDay({
   trades, analysis, context, metadata, plan, userId, anonId,
-  cookieCurrency, acceptLanguage,
+  cookieCurrency, acceptLanguage, parserMetadata,
 }: {
   trades: any[]; analysis: any; context: any; metadata: any; plan: string
   userId?: string; anonId?: string
@@ -242,6 +242,8 @@ async function saveSessionsByDay({
   cookieCurrency?: string | null
   /** FIX (audit Finding F — 2026-05-04): forwarded to saveTradeSession's resolveCurrency chain. */
   acceptLanguage?: string | null
+  /** AI parser metadata forwarded to saveTradeSession for trade_sessions.parser_* columns. */
+  parserMetadata?: IntakeResult['parserMetadata']
   // PR 2d (audit Finding E): the legacy `files?: File[]` param is gone —
   // raw_files row + Storage upload now happen in handleFormData via
   // saveRawData / saveClaudeFallbackRawData. saveSessionsByDay no longer
@@ -280,7 +282,7 @@ async function saveSessionsByDay({
     // Single day — save as one session (original behavior)
     const saved = await saveTradeSession({
       userId, anonId, trades, analysis, context, metadata, plan,
-      cookieCurrency, acceptLanguage,
+      cookieCurrency, acceptLanguage, parserMetadata,
     })
     const sid = saved?.id
     const ds: DedupStats | undefined = saved?._dedupStats
@@ -348,7 +350,7 @@ async function saveSessionsByDay({
     const saved = await saveTradeSession({
       userId, anonId, trades: dayTrades,
       analysis: dayAnalysis, context, metadata: dayMetadata, plan,
-      cookieCurrency, acceptLanguage,
+      cookieCurrency, acceptLanguage, parserMetadata,
     })
     const sid = saved?.id
     const ds: DedupStats | undefined = saved?._dedupStats
@@ -538,6 +540,10 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
   // the metadata row. Multi-file local parse overwrites rawFileData
   // with the latest successful file, so we must keep its buffer paired.
   let rawFileBuffer: Buffer | undefined;
+  // Parser metadata from AI extraction (when ENABLE_AI_FIRST_PARSER=true).
+  // Multi-file uploads keep the last successful file's metadata, matching
+  // the rawFileData/rawFileBuffer convention above.
+  let parserMetadata: IntakeResult['parserMetadata'] = undefined;
   let usedLocalParse = false;
   // Phase 4 sanity gate: surfaced to the client when Claude's JSON output was
   // truncated by the model's max_tokens ceiling so the UI can warn the user.
@@ -552,6 +558,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
       trades.push(...legacyTrades);
       rawFileData = intakeResult.rawFile;
       rawFileBuffer = buffer;
+      parserMetadata = intakeResult.parserMetadata;
       extracted = {
         detected_market: intakeResult.rawFile.market,
         detected_currency: intakeResult.rawFile.currency,
@@ -874,7 +881,7 @@ async function handleFormData(req: NextRequest, apiKey: string, startTime: numbe
         file_name: fileBuffers[0]?.file.name || 'upload',
       },
       plan: userPlan, userId: userId || undefined, anonId,
-      cookieCurrency, acceptLanguage,
+      cookieCurrency, acceptLanguage, parserMetadata,
     });
     savedSessionId = saveResult.sessionId;
     dedupStats = saveResult.dedupStats;
@@ -1142,6 +1149,13 @@ async function handleJSON(req: NextRequest, apiKey: string, startTime: number) {
         console.error(`[Analyse/JSON] No raw_file_id available for session — raw lineage will be lost | user=${userId} hasHash=${!!file_hash} trades=${trades.length}`);
       }
 
+      // parserMetadata intentionally omitted: handleJSON receives
+      // pre-parsed trades from /api/parse (no intakeFile call here, so no
+      // parser_* metadata in scope). The /api/parse step doesn't persist a
+      // trade_sessions row either — the parser metadata gets lost in the
+      // form-data → analyse → JSON path. Tracked for follow-up: thread
+      // parserMetadata through the /api/parse → client → /api/analyse JSON
+      // body so it survives this hop.
       saveResult = await saveSessionsByDay({
         trades, analysis: responseObj.analysis, context: context || {},
         metadata: {

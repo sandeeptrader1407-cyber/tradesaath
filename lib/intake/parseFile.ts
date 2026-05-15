@@ -83,10 +83,19 @@ export async function intakeFile(
     // Step 1: Extract raw data
     // AI-first path when flag enabled. Falls through to legacy extractor on AI failure.
     let rawFile;
+    let parserMetadata: IntakeResult['parserMetadata'] = undefined;
     if (aiFirstParser) {
       const aiResult = await tryAIExtract(buffer, filename);
       if (aiResult) {
         rawFile = aiResult.data;
+        parserMetadata = {
+          parserUsed: aiResult.parserUsed,
+          modelName: aiResult.modelName,
+          costUsd: aiResult.costUsd,
+          durationMs: aiResult.durationMs,
+          inputTokens: aiResult.inputTokens,
+          outputTokens: aiResult.outputTokens,
+        };
         console.log(`[Intake] AI extraction via ${aiResult.parserUsed} (${aiResult.modelName}), cost: $${aiResult.costUsd.toFixed(6)}, ${aiResult.durationMs}ms`);
       } else {
         console.log(`[Intake] AI extraction returned null, falling through to legacy`);
@@ -187,6 +196,7 @@ export async function intakeFile(
       kpis,
       timeAnalysis,
       validationWarnings: validation.warnings,
+      parserMetadata,
     };
 
   } catch (err) {

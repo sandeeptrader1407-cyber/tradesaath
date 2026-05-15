@@ -60,6 +60,7 @@ export async function saveTradeSession({
   paymentId,
   cookieCurrency,
   acceptLanguage,
+  parserMetadata,
 }: {
   userId?: string
   anonId?: string
@@ -82,6 +83,20 @@ export async function saveTradeSession({
    * Pass `null` when no request context is available.
    */
   acceptLanguage?: string | null
+  /**
+   * Parser metadata from AI extraction layer. When present, persists
+   * parser_used/parser_cost_usd/parser_duration_ms/parser_model_name
+   * onto trade_sessions for the admin dashboard. Undefined for legacy
+   * parser path.
+   */
+  parserMetadata?: {
+    parserUsed: 'gemini' | 'claude-haiku'
+    modelName: string
+    costUsd: number
+    durationMs: number
+    inputTokens: number
+    outputTokens: number
+  }
 }): Promise<(any & { _dedupStats?: DedupStats }) | null> {
   if (!userId && !anonId) {
     console.warn('saveTradeSession: no userId or anonId, skipping')
@@ -176,6 +191,13 @@ export async function saveTradeSession({
         raw_row_count: mergedTrades.length,
         parsed_count: mergedTrades.length,
         updated_at: new Date().toISOString(),
+        // Parser metadata: overwrite when a fresh parse merges into an existing session.
+        ...(parserMetadata ? {
+          parser_used: parserMetadata.parserUsed,
+          parser_cost_usd: parserMetadata.costUsd,
+          parser_duration_ms: parserMetadata.durationMs,
+          parser_model_name: parserMetadata.modelName,
+        } : {}),
       })
       .eq('id', existingSession.id)
       .select()
@@ -236,6 +258,12 @@ export async function saveTradeSession({
   }
   if (metadata?.raw_file_id) {
     insertRow.raw_file_id = metadata.raw_file_id
+  }
+  if (parserMetadata) {
+    insertRow.parser_used = parserMetadata.parserUsed
+    insertRow.parser_cost_usd = parserMetadata.costUsd
+    insertRow.parser_duration_ms = parserMetadata.durationMs
+    insertRow.parser_model_name = parserMetadata.modelName
   }
 
   const { data, error } = await supabase

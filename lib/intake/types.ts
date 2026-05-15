@@ -178,6 +178,15 @@ export interface IntakeResult {
   error?: string;
   /** Stable code for callers to branch on (e.g. show specific guidance). */
   errorCode?: IntakeErrorCode;
+  /** Parser metadata when AI extraction ran. Undefined for legacy parser path. */
+  parserMetadata?: {
+    parserUsed: 'gemini' | 'claude-haiku';
+    modelName: string;
+    costUsd: number;
+    durationMs: number;
+    inputTokens: number;
+    outputTokens: number;
+  };
 }
 
 

@@ -113,6 +113,10 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth()
 
     // --- Try Module 1 intake pipeline first (free, instant) ---
+    // Note: /extract is preview-only and does NOT persist a trade_sessions row,
+    // so intakeResult.parserMetadata is intentionally not captured here. The
+    // actual session (and its parser_used/cost columns) is written later by
+    // /api/analyse when the user clicks "Analyze".
     const intakeResult = await intakeFile(buffer, file.name)
     if (intakeResult.success && intakeResult.trades.length > 0) {
       const legacyTrades = intakeResult.trades.map(toLegacyTrade)
