@@ -16,6 +16,7 @@
 
 import type { PatternResult, DetectedTrade } from './patternDetector'
 import { toLegacyTag, toLegacyCycleStage, MISTAKE_TAGS } from './patternDetector'
+import { COACHING_SYSTEM_PROMPT, buildCoachingUserMessage } from './coachingPrompts'
 
 function fmtINR(n: number): string {
   const sign = n < 0 ? '-' : ''
@@ -356,11 +357,10 @@ export async function generateAICoaching(
 ): Promise<string | undefined> {
   if (!apiKey) return undefined
   try {
-    const bullets = r.coachingPoints.slice(0, 3).map(b => `- ${b}`).join('\n')
-    const system = `You are TradeSaath, a brutally honest but empathetic trading psychology coach. Given the bullet-point patterns below, write EXACTLY 2 sentences of coaching (max 50 words total). Use "I know..." empathetic phrasing in the first sentence, then one concrete action. No markdown, no preamble.`
-    const user = `Today's patterns:\n${bullets}\n\nWrite the 2-sentence coaching note.`
+    const userMessage = buildCoachingUserMessage(r)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: controller.signal,
@@ -371,17 +371,61 @@ export async function generateAICoaching(
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 120,
-        system,
-        messages: [{ role: 'user', content: user }],
+        max_tokens: 700,
+        // System content is an array with a single cached text block.
+        // The COACHING_SYSTEM_PROMPT is ~4,800 tokens, comfortably above
+        // Haiku 4.5's 4,096-token caching minimum. Below that threshold
+        // cache_control is silently ignored and we pay full input price.
+        system: [
+          {
+            type: 'text',
+            text: COACHING_SYSTEM_PROMPT,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content: userMessage }],
       }),
     })
     clearTimeout(timeout)
-    if (!res.ok) return undefined
-    const data = await res.json() as { content?: Array<{ type: string; text?: string }> }
+
+    if (!res.ok) {
+      console.warn('[AI_COACHING] non-OK response:', res.status)
+      return undefined
+    }
+
+    const data = await res.json() as {
+      content?: Array<{ type: string; text?: string }>
+      usage?: {
+        input_tokens?: number
+        output_tokens?: number
+        cache_creation_input_tokens?: number
+        cache_read_input_tokens?: number
+      }
+    }
+
+    // Cache visibility log — grep '[AI_COACHING_CACHE]' in Vercel logs.
+    // After deploy, expect: first call has write>0, subsequent calls
+    // (within 5min) have read>0. If both are always 0, the cache isn't
+    // firing — likely the system prompt fell below 4096 tokens.
+    if (data.usage) {
+      const u = data.usage
+      console.log(
+        '[AI_COACHING_CACHE]',
+        JSON.stringify({
+          in: u.input_tokens ?? 0,
+          out: u.output_tokens ?? 0,
+          write: u.cache_creation_input_tokens ?? 0,
+          read: u.cache_read_input_tokens ?? 0,
+        }),
+      )
+    }
+
     const text = data.content?.find(c => c.type === 'text')?.text?.trim()
     return text || undefined
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.name !== 'AbortError') {
+      console.warn('[AI_COACHING] error:', e.message)
+    }
     return undefined
   }
 }
