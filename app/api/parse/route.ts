@@ -61,24 +61,19 @@ export async function POST(req: NextRequest) {
     if (result.validationWarnings.length > 0) console.log(`Validation warnings: ${result.validationWarnings.join('; ')}`);
 
     if (!result.success || result.trades.length === 0) {
-      // Hard-reject specific upload shapes (orderbook, missing-time
-      // export) with a stable code + actionable hint, rather than the
-      // generic PARSE_FAILED. The client uses the code to render a
-      // targeted error banner instead of falling through to AI extract.
+      // Hard-reject specific upload shapes (missing-time export,
+      // missing-symbol-or-date) with a stable code + actionable hint,
+      // rather than the generic PARSE_FAILED. The client uses the code
+      // to render a targeted error banner instead of falling through to
+      // AI extract. Orderbook-shape detection is now handled by the AI
+      // parser via row-level Status filtering (no hard reject).
       if (result.errorCode === 'MISSING_SYMBOL_OR_DATE') {
         return NextResponse.json({
           error: 'MISSING_SYMBOL_OR_DATE',
           code: 'MISSING_SYMBOL_OR_DATE',
           message: 'We could not read the symbol name or trade date from your file. The broker export may be missing required columns.',
           hint: 'In FYERS: download "Trade Book" not "Order Book". In Zerodha: download "Tradebook" CSV from Console → Reports. The file must have columns for trading symbol (e.g. NIFTY24MAR22000CE) and trade date.',
-        }, { status: 422 });
-      }
-      if (result.errorCode === 'LIKELY_ORDERBOOK') {
-        return NextResponse.json({
-          error: 'LIKELY_ORDERBOOK',
-          code: 'LIKELY_ORDERBOOK',
-          message: 'This looks like an order book, not a trade book. Please download your Trade Book / Executed Trades report from your broker instead.',
-          hint: 'In Zerodha: Console → Reports → Tradebook. In Upstox/Angel: Reports → Executed Trades. Avoid the "Orders" or "Pending Orders" report.',
+          warnings: result.rawFile?.warnings ?? [],
         }, { status: 422 });
       }
       if (result.errorCode === 'MISSING_TIME_DATA') {
@@ -87,11 +82,13 @@ export async function POST(req: NextRequest) {
           code: 'MISSING_TIME_DATA',
           message: 'Your file is missing time data for most trades. Please ensure you exported the full Trade Book with timestamps.',
           hint: 'Daily P&L summaries do not include execution times. Re-export the full executed-trades report from your broker — it must include entry/exit timestamps per trade.',
+          warnings: result.rawFile?.warnings ?? [],
         }, { status: 422 });
       }
       return NextResponse.json({
         error: result.error || 'Could not extract trades from this file. Please check the format.',
         code: 'PARSE_FAILED',
+        warnings: result.rawFile?.warnings ?? [],
       }, { status: 422 });
     }
 

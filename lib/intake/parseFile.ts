@@ -45,24 +45,8 @@ export async function intakeFile(
 ): Promise<IntakeResult> {
   const ext = filename.toLowerCase().split('.').pop() || '';
 
-  // Filename-based pre-rejection: brokers like Fyers/Zerodha export
-  // separate "orderbook" (orders placed) and "tradebook" (orders
-  // executed) reports. We need executed trades only — orderbooks
-  // contain quantity/price columns that look right but are pre-fill
-  // values. Combinatorial pairing on orderbook rows produces fake
-  // trades with garbage P&L. Catch by filename before extraction.
-  if (/order[\s_-]?book/i.test(filename)) {
-    return {
-      success: false,
-      rawFile: emptyRawFile(filename, ext, buffer.length, 'File appears to be an order book (filename match)'),
-      trades: [],
-      kpis: calculateIntakeKPIs([]),
-      timeAnalysis: calculateIntakeTimeAnalysis([]),
-      validationWarnings: [],
-      error: 'This appears to be an order book, not an executed trades report. Please upload your tradebook (executed orders) instead.',
-      errorCode: 'LIKELY_ORDERBOOK',
-    };
-  }
+  // Shape detection delegated to AI parser. No pre-flight rejection
+  // based on filename or title — AI examines actual row Status.
 
   // Images need AI/OCR — early exit
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {

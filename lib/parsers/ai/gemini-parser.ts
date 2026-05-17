@@ -51,7 +51,12 @@ Rules:
 8. Fees are total per-fill charges (brokerage + STT + GST + misc + exchange + SEBI). 0 if not in file. If broker has multiple fee columns (e.g. Kotak has "Total Charges" + "STT/CTT"), sum them.
 9. Never fabricate. Missing field → empty string for strings, 0 for numbers. Better to return fewer accurate fills than many guessed ones.
 10. Skip non-trade rows: headers, summaries, totals, brokerage statements, page footers, watermarks.
-11. For order books (NOT trade books): if you see a file labeled "orderbook" or with column "Status" showing "Pending"/"Cancelled" — emit zero rows and add warning "input appears to be an order book, not a trade book".
+11. Do NOT reject files based on filename, sheet title, or report header. Judge by data shape only.
+   If a "Status" (or similarly named) column is present:
+   - Treat rows with Status in {Executed, Filled, Complete, Traded, Done, Success} as actual trades — extract them.
+   - Discard rows with Status in {Pending, Cancelled, Rejected, Open, Failed, Expired}.
+
+   Files labeled "orderbook" often contain executed trades mixed with cancelled/rejected orders. Filter, do not reject. If, after filtering, fewer than 2 executed rows remain, then emit zero rows and add warning: "No executed trades found in this file. It may contain only pending or cancelled orders."
 12. confidenceScore: 100 if you're certain of every field; 80 if column mapping is clean but a few rows ambiguous; 60 if symbol normalization required guessing; <40 if you're not sure this is a trade file at all.
 
 Return ONLY the JSON object matching the schema. No prose, no markdown, no explanation.`;

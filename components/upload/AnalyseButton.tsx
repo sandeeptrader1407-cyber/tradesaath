@@ -132,10 +132,12 @@ export default function AnalyseButton() {
       let rawFileId: string | undefined
       const failedFiles: string[] = []
       // If /api/parse rejects a file with a structural-shape code
-      // (LIKELY_ORDERBOOK / MISSING_TIME_DATA / INSUFFICIENT_HEADERS /
-      // MISSING_SYMBOL_OR_DATE), we do NOT fall through to /api/analyse
-      // — that would just spend Claude tokens on a file we already know
-      // is unanalysable. Stop the run, show the error.
+      // (MISSING_TIME_DATA / INSUFFICIENT_HEADERS / MISSING_SYMBOL_OR_DATE)
+      // we do NOT fall through to /api/analyse — that would just spend
+      // Claude tokens on a file we already know is unanalysable. Stop
+      // the run, show the error. Orderbook-shape detection is now
+      // handled inside the AI parser (row-level Status filtering); we
+      // surface its warnings[] verbatim if the response includes them.
       let hardRejection: { message: string; hint?: string } | null = null
 
       for (const file of files) {
@@ -158,15 +160,17 @@ export default function AnalyseButton() {
               failedFiles.push(file.name)
             }
           } else {
-            // Check for a structured-shape rejection (orderbook /
-            // missing-time export). These need a specific message and
-            // must NOT fall through to /api/analyse.
+            // Check for a structured-shape rejection (missing-time /
+            // missing-symbol-or-date / insufficient-headers). These three
+            // have curated remediation guidance and must NOT fall through
+            // to /api/analyse. Orderbook-shape detection lives in the AI
+            // parser now; any per-file context comes back as a warnings[]
+            // array which we surface verbatim below.
             const errBody = await parseRes.json().catch(() => null) as
-              | { code?: string; message?: string; hint?: string; error?: string }
+              | { code?: string; message?: string; hint?: string; error?: string; warnings?: string[] }
               | null
             if (errBody && (
               errBody.code === 'MISSING_SYMBOL_OR_DATE' ||
-              errBody.code === 'LIKELY_ORDERBOOK' ||
               errBody.code === 'MISSING_TIME_DATA' ||
               errBody.code === 'INSUFFICIENT_HEADERS'
             )) {
@@ -174,6 +178,19 @@ export default function AnalyseButton() {
                 message: errBody.message || errBody.error || 'Upload rejected',
                 hint: errBody.hint,
               }
+              break
+            }
+            // Generic-shape rejection: prefer the AI's own warnings[]
+            // array if present and non-empty; otherwise show a generic
+            // fallback. Replaces the previous orderbook-specific branch
+            // — we no longer treat orderbook-shape files as a hard reject;
+            // the AI's per-file warning carries the message.
+            if (errBody) {
+              const warnings = errBody.warnings
+              const displayMessage = Array.isArray(warnings) && warnings.length > 0
+                ? warnings.join('\n')
+                : "We couldn't extract trades from this file. Please ensure the file contains executed trade data (symbol, date/time, side, quantity, price)."
+              hardRejection = { message: displayMessage }
               break
             }
             failedFiles.push(file.name)

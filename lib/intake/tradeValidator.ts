@@ -76,6 +76,15 @@ export function validateTrades(trades: StandardTrade[]): ValidationResult {
   if (openCount > 0) {
     warnings.push(`${openCount} trade(s) flagged as open positions (unpaired)`);
   }
+  // The >=50%-unpaired check used to hard-reject (orderbook-shape).
+  // Downgraded to a non-fatal warning — options strategies legitimately
+  // leave legs open or expired, and Status-column filtering happens
+  // upstream in the AI parser.
+  if (trades.length > 0 && openCount / trades.length >= 0.5) {
+    warnings.push(
+      `UNPAIRED_TRADES_DETECTED: ${openCount} of ${trades.length} trades have no matching exit. This is normal for options strategies with open positions or expired legs.`
+    );
+  }
 
   const noTimeCount = trades.filter(t => !t.entryTime).length;
   if (noTimeCount > trades.length * 0.5 && trades.length > 0) {
@@ -99,8 +108,12 @@ export function validateTrades(trades: StandardTrade[]): ValidationResult {
   // Returning a zero-P&L (or numeric-symbol-named) session is a worse
   // UX than a clear error. Priority order:
   //   1. MISSING_SYMBOL_OR_DATE — data is fundamentally unreadable
-  //   2. LIKELY_ORDERBOOK — shape mismatch (order book vs trade book)
-  //   3. MISSING_TIME_DATA — daily-summary export, no per-trade times
+  //   2. MISSING_TIME_DATA — daily-summary export, no per-trade times
+  //
+  // The unpaired-trade ratio (>=50% open) used to hard-reject as an
+  // orderbook-shape mismatch. That guard is now a non-fatal warning —
+  // options strategies legitimately leave legs open or expired, and the
+  // AI parser already filters Status=Pending/Cancelled rows upstream.
   let criticalError: { code: IntakeErrorCode; message: string } | undefined
   if (
     trades.length > 0 &&
@@ -111,11 +124,6 @@ export function validateTrades(trades: StandardTrade[]): ValidationResult {
     criticalError = {
       code: 'MISSING_SYMBOL_OR_DATE',
       message: `${worst} of ${trades.length} trades have an unreadable ${which}. The broker export is missing required columns.`,
-    }
-  } else if (trades.length > 0 && openCount / trades.length >= 0.5) {
-    criticalError = {
-      code: 'LIKELY_ORDERBOOK',
-      message: `${openCount} of ${trades.length} trades are unpaired (no exit). This file looks like an order book, not a trade book.`,
     }
   } else if (trades.length > 0 && noTimeCount / trades.length >= 0.5) {
     criticalError = {
