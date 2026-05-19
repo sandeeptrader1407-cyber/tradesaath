@@ -17,7 +17,7 @@ import { AIParserError, type AIParserResult } from './types';
 import { calculateAIParserCost } from './cost-tracker';
 
 const MODEL_NAME = 'claude-haiku-4-5-20251001';
-const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 25_000;
 
 /**
  * MIME types Claude supports natively via document/image content blocks.
