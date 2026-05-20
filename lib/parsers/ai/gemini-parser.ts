@@ -104,6 +104,8 @@ function withTimeout<T>(
       })
       .catch((err) => {
         clearTimeout(timer);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[withTimeout/gemini] underlying SDK rejected: ${msg}`);
         reject(err);
       });
   });
