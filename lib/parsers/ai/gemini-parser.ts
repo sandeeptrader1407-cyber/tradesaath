@@ -16,7 +16,7 @@ import { AIParserError, type AIParserResult } from './types';
 import { calculateAIParserCost } from './cost-tracker';
 
 const MODEL_NAME = 'gemini-2.5-flash';
-const DEFAULT_TIMEOUT_MS = 25_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 /**
  * MIME types Gemini supports for inline file content.

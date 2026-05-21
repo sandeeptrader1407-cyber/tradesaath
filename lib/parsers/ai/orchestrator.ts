@@ -1,17 +1,17 @@
 /**
  * AI extraction orchestrator.
  *
- * Try Gemini (primary, cheaper) → Claude Haiku (failover) → return null.
- *
- * Returns null when both AI parsers fail. Caller (intake pipeline) then
+ * Try Gemini → return null on failure. Caller (intake pipeline) then
  * falls through to the existing extractRawFile() 4-layer chain.
  *
- * Cost note: Gemini timeout (30s) + Haiku timeout (30s) = max 60s on
- * worst-case dual-failure. Caller should be prepared for this.
+ * Claude Haiku failover was removed — Gemini latency in production
+ * exceeded the prior 25s timeout, and Haiku showed no benefit on the
+ * same files (same timeout symptom from the same broker exports).
+ * The file lib/parsers/ai/claude-haiku-parser.ts is intentionally kept
+ * for potential future re-introduction.
  */
 import type { RawFileData } from '@/lib/intake/types';
 import { parseWithGemini } from './gemini-parser';
-import { parseWithClaudeHaiku } from './claude-haiku-parser';
 import { normalizeAIRawFile } from './normalizer';
 import { AIParserError, type AIParserName } from './types';
 
@@ -56,7 +56,7 @@ function detectMimeType(filename: string): string | null {
 }
 
 /**
- * Try AI extraction. Returns null if both Gemini and Claude Haiku fail.
+ * Try AI extraction. Returns null if Gemini fails.
  *
  * Caller MUST handle null by falling through to legacy parser.
  */
@@ -70,7 +70,6 @@ export async function tryAIExtract(
     return null;
   }
 
-  // Try Gemini first (cheaper)
   try {
     const result = await parseWithGemini(buffer, mimeType, filename);
     const normalized = normalizeAIRawFile(result.data);
@@ -91,28 +90,6 @@ export async function tryAIExtract(
     );
   }
 
-  // Failover to Claude Haiku
-  try {
-    const result = await parseWithClaudeHaiku(buffer, mimeType, filename);
-    const normalized = normalizeAIRawFile(result.data);
-    return {
-      data: normalized,
-      parserUsed: result.parserUsed,
-      modelName: result.modelName,
-      costUsd: result.costUsd,
-      durationMs: result.durationMs,
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-    };
-  } catch (err) {
-    const cost = err instanceof AIParserError ? err.costUsd : 0;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(
-      `[ai-orchestrator] Claude Haiku failed (cost: $${cost.toFixed(6)}): ${msg}`,
-    );
-  }
-
-  // Both AI parsers failed — caller falls through to legacy
-  console.warn(`[ai-orchestrator] both AI parsers failed for ${filename}, returning null`);
+  console.warn(`[ai-orchestrator] Gemini failed, falling through to legacy parser`);
   return null;
 }
