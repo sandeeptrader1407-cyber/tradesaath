@@ -228,7 +228,7 @@ export function matchColumns(headers: string[]): Record<string, string> {
   const fieldPriority = [
     'symbol', 'side', 'buyQty', 'sellQty', 'buyPrice', 'sellPrice',
     'entryPrice', 'exitPrice',
-    'qty', 'price', 'date', 'time', 'pnl',
+    'qty', 'price', 'time', 'date', 'pnl',
     'exchange', 'tradeId', 'fees', 'amount', 'segment', 'orderId',
     'expiry', 'strike', 'optionType',
   ];
