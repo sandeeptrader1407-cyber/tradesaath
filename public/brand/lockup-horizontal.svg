@@ -1,0 +1,5 @@
+<svg width="560" height="220" viewBox="0 0 560 220" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>TradeSaath logo, horizontal lockup</title><desc>Icon with wordmark and tagline.</desc>
+<defs><marker id="arrow-lh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8792B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><path d="M 174.4 135.4 A 60 60 0 1 1 174.4 84.6" fill="none" stroke="#E8792B" stroke-width="11.142857142857142" stroke-linecap="round"/><path d="M 174.4 135.4 L 225.1 26.6" fill="none" stroke="#E8792B" stroke-width="11.142857142857142" stroke-linecap="round" marker-end="url(#arrow-lh)"/>
+<text x="266.2" y="122" font-family="Georgia, 'DM Serif Display', serif" font-size="46" letter-spacing="-0.5" fill="#14110F">tradesaath</text>
+<text x="266.2" y="150" font-family="Helvetica, Arial, sans-serif" font-size="13" letter-spacing="1.5" fill="#8A8175">YOUR COMPANION IN TRADING</text></svg>
