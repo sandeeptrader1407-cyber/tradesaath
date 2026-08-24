@@ -210,7 +210,7 @@ const COLUMN_PATTERNS: Record<string, string[]> = {
 // ═══════════════════════════════════════════
 
 /** Normalize a string for comparison: lowercase, strip separators */
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s_\-\/\.&]+/g, '').trim();
 }
 

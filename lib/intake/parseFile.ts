@@ -4,7 +4,7 @@
  */
 
 import { IntakeResult, RawFileData } from './types';
-import { extractRawFile } from './rawExtractor';
+import { extractRawFile, normalize } from './rawExtractor';
 import { pairRawTrades } from './tradePairer';
 import { validateTrades } from './tradeValidator';
 import { calculateIntakeKPIs, calculateIntakeTimeAnalysis } from './kpiCalculator';
@@ -121,7 +121,20 @@ export async function intakeFile(
     // a clear error.
     const mappedFields = new Set(Object.values(rawFile.columnMapping));
     const requiredFields = ['symbol', 'date', 'side', 'qty'] as const;
-    const missingRequired = requiredFields.filter(f => !mappedFields.has(f));
+    let missingRequired = requiredFields.filter(f => !mappedFields.has(f));
+
+    // Carve-out: a "Date & Time"-style column (mapped to 'time')
+    // implicitly satisfies the 'date' requirement. The per-row
+    // extractDateFromTime recovery in rawExtractor will fill
+    // mapped.date for each row.
+    if (missingRequired.includes('date') && mappedFields.has('time')) {
+      const timeHeader = Object.entries(rawFile.columnMapping)
+        .find(([, field]) => field === 'time')?.[0];
+      if (timeHeader && normalize(timeHeader).includes('date')) {
+        missingRequired = missingRequired.filter(f => f !== 'date');
+      }
+    }
+
     const hasPriceOrPnl = mappedFields.has('price') || mappedFields.has('pnl');
     if (missingRequired.length > 0 || !hasPriceOrPnl) {
       const missing = [
