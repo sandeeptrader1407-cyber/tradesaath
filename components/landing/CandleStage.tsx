@@ -46,7 +46,7 @@ function buildCandlesSVG(animate: boolean): { svg: string; closes: CandlePoint[]
     const cx = x + CANDLE_WIDTH / 2
     const up = close < open
     const isMistake = MISTAKE_INDICES.has(i)
-    const color = up ? '#36d399' : '#f05d6c'
+    const color = up ? 'var(--ts-profit)' : 'var(--ts-loss)'
     const wickColor = isMistake ? '#ff3344' : color
     const wickOpacity = isMistake ? 0.9 : 0.55
     const bodyOpacity = up ? 0.85 : 0.78
@@ -70,18 +70,18 @@ function buildCandlesSVG(animate: boolean): { svg: string; closes: CandlePoint[]
   // When animating, start with full dash offset (line hidden) and let <animate> reveal it.
   // When reduced-motion is on, draw the full line immediately (no dasharray trickery).
   if (animate) {
-    frag += `<path d="${linePath}" fill="none" stroke="#f05d6c" stroke-width="1.6" stroke-opacity="0.85" stroke-dasharray="800" stroke-dashoffset="800">`
+    frag += `<path d="${linePath}" fill="none" stroke="var(--ts-loss)" stroke-width="1.6" stroke-opacity="0.85" stroke-dasharray="800" stroke-dashoffset="800">`
     frag += `<animate attributeName="stroke-dashoffset" from="800" to="0" dur="2.4s" begin="1.4s" fill="freeze" />`
     frag += `</path>`
   } else {
-    frag += `<path d="${linePath}" fill="none" stroke="#f05d6c" stroke-width="1.6" stroke-opacity="0.85" />`
+    frag += `<path d="${linePath}" fill="none" stroke="var(--ts-loss)" stroke-width="1.6" stroke-opacity="0.85" />`
   }
 
   // Drawdown shaded area below the trace
   const last = closes[closes.length - 1]
   const first = closes[0]
   const areaPath = `${linePath} L ${last.x},${H} L ${first.x},${H} Z`
-  frag += `<defs><linearGradient id="ts-ddGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f05d6c" stop-opacity="0.18"/><stop offset="100%" stop-color="#f05d6c" stop-opacity="0"/></linearGradient></defs>`
+  frag += `<defs><linearGradient id="ts-ddGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--ts-loss)" stop-opacity="0.18"/><stop offset="100%" stop-color="var(--ts-loss)" stop-opacity="0"/></linearGradient></defs>`
   if (animate) {
     frag += `<path d="${areaPath}" fill="url(#ts-ddGrad)" opacity="0">`
     frag += `<animate attributeName="opacity" values="0;1" dur="0.8s" begin="3s" fill="freeze" />`
@@ -131,8 +131,8 @@ export default function CandleStage() {
       <style jsx>{`
         .ts-candle-stage {
           position: relative;
-          border: 1px solid #1f2a44;
-          background: linear-gradient(180deg, #0e1830, #0a1126);
+          border: 1px solid var(--ts-line);
+          background: linear-gradient(180deg, var(--ts-raise), #0a1126);
           border-radius: 18px;
           padding: 18px 18px 22px;
           height: 430px;
@@ -166,7 +166,7 @@ export default function CandleStage() {
           justify-content: space-between;
           font-family: var(--font-mono);
           font-size: 9px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           text-align: right;
           letter-spacing: 0.04em;
           opacity: 0.6;
@@ -180,7 +180,7 @@ export default function CandleStage() {
           justify-content: space-between;
           font-family: var(--font-mono);
           font-size: 9px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           letter-spacing: 0.04em;
           opacity: 0.55;
         }

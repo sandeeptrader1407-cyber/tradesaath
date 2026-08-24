@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { CurrencyProvider } from '@/lib/contexts/CurrencyContext'
 import HeroSection from '@/components/landing/HeroSection'
 import StatsRow from '@/components/landing/StatsRow'
+import GlobalMarkets from '@/components/landing/GlobalMarkets'
 import BrokerMarquee from '@/components/landing/BrokerMarquee'
 import HowItWorks from '@/components/landing/HowItWorks'
 import ProductDemo from '@/components/landing/ProductDemo'
@@ -29,13 +30,13 @@ export const metadata: Metadata = {
     description: 'Upload your tradebook. Get your Decision Quality Score in 60 seconds.',
     url: SITE_URL,
     siteName: 'TradeSaath',
-    images: [{ url: '/api/og', width: 1200, height: 630, alt: 'TradeSaath' }],
+    images: [{ url: '/brand/og-image.png', width: 1200, height: 630, alt: 'TradeSaath' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TradeSaath — AI Trading Psychology Analysis',
     description: 'Upload your tradebook. Get your Decision Quality Score in 60 seconds.',
-    images: ['/api/og'],
+    images: ['/brand/og-image.png'],
   },
   alternates: { canonical: SITE_URL },
 }
@@ -61,9 +62,10 @@ export default function Home() {
       <CurrencyProvider>
         <HeroSection />
         <StatsRow />
-        <BrokerMarquee />
+        <GlobalMarkets />
         <HowItWorks />
         <ProductDemo />
+        <BrokerMarquee />
         <PricingSection />
         <FAQ />
         <FinalCTA />

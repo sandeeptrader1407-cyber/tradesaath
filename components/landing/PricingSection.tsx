@@ -139,7 +139,7 @@ export default function PricingSection() {
       <style jsx>{`
         .ts-pricing {
           padding: 120px 0;
-          background: #f7f7f3;
+          background: var(--ts-paper);
           font-family: var(--font-sans);
         }
         .ts-container {
@@ -157,11 +157,11 @@ export default function PricingSection() {
           align-items: center;
           padding: 6px 14px;
           border-radius: 999px;
-          border: 1px solid #1f2a44;
+          border: 1px solid var(--ts-line);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #8a93a8;
+          color: var(--ts-mute);
         }
         .ts-pill-light {
           color: #7a8093 !important;
@@ -171,11 +171,11 @@ export default function PricingSection() {
           width: 6px;
           height: 6px;
           border-radius: 99px;
-          background: #36d399;
+          background: var(--ts-profit);
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-pill-dot-orange {
-          background: #ff7a00;
+          background: var(--ts-signal);
           box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.15);
         }
         .ts-pricing-h2 {
@@ -184,7 +184,7 @@ export default function PricingSection() {
           letter-spacing: -0.01em;
           margin: 0;
           font-size: 56px;
-          color: #0c1322;
+          color: var(--ts-void);
           margin-top: 18px;
         }
         .ts-pricing-sub {
@@ -212,11 +212,11 @@ export default function PricingSection() {
           transition: color 0.15s, background 0.15s;
         }
         .ts-currency-toggle button.ts-on {
-          background: #0c1322;
+          background: var(--ts-void);
           color: #fff;
         }
         .ts-currency-toggle button:not(.ts-on):hover {
-          color: #0c1322;
+          color: var(--ts-void);
         }
         .ts-geo-hint {
           margin: 14px auto 0;
@@ -232,7 +232,7 @@ export default function PricingSection() {
           font-size: 13px;
         }
         .ts-currency-name {
-          color: #0c1322;
+          color: var(--ts-void);
           font-weight: 500;
         }
         .ts-price-grid {
@@ -268,7 +268,7 @@ export default function PricingSection() {
           top: -12px;
           left: 50%;
           transform: translateX(-50%);
-          background: #ff7a00;
+          background: var(--ts-signal);
           color: #fff;
           padding: 5px 14px;
           border-radius: 99px;
@@ -302,7 +302,7 @@ export default function PricingSection() {
           font-size: 54px;
           line-height: 1;
           letter-spacing: -0.02em;
-          color: #0c1322;
+          color: var(--ts-void);
         }
         .ts-amt sub {
           font-family: var(--font-mono);
@@ -339,14 +339,14 @@ export default function PricingSection() {
         li {
           font-size: 14px;
           padding: 7px 0;
-          color: #0c1322;
+          color: var(--ts-void);
           display: flex;
           gap: 10px;
           align-items: flex-start;
         }
         li::before {
           content: '✓';
-          color: #36d399;
+          color: var(--ts-profit);
           font-weight: 700;
         }
         .ts-price-card-featured li::before {
@@ -361,7 +361,7 @@ export default function PricingSection() {
           font-weight: 500;
           font-size: 14px;
           background: #fff;
-          color: #0c1322;
+          color: var(--ts-void);
           cursor: pointer;
           transition: transform 0.15s, box-shadow 0.15s;
           text-decoration: none;
@@ -370,7 +370,7 @@ export default function PricingSection() {
           transform: translateY(-1px);
         }
         .ts-price-card-featured .ts-cta {
-          background: #ff7a00;
+          background: var(--ts-signal);
           color: #fff;
           border-color: transparent;
           box-shadow: 0 8px 20px -6px rgba(255, 122, 0, 0.45);

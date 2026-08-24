@@ -19,22 +19,31 @@
   --color-border:       #E5E2D9;
   --color-border-strong:#D3D1C7;
 
+  /* ── Identity tokens ── */
+  --ts-void:#0A0F1C; --ts-raise:#111A2E; --ts-line:#1F2A44;
+  --ts-ink:#ECEDEF; --ts-mute:#8A93A8;
+  --ts-paper:#F7F7F3; --ts-raise-lt:#FFFFFF; --ts-line-lt:#E4E5E0;
+  --ts-ink-lt:#0A0F1C; --ts-mute-lt:#7A8093;
+  --ts-signal:#E8792B; --ts-signal-dk:#9E4E14;
+  --ts-profit:#36D399; --ts-loss:#F05D6C;
+  --ts-profit-lt:#177A44; --ts-loss-lt:#C0392B;
+
   /* ── Semantic aliases (used by existing CSS classes throughout) ── */
-  --bg:      #F8F6F1;
-  --s1:      #FFFFFF;
+  --bg:      var(--ts-paper);
+  --s1:      var(--ts-raise-lt);
   --s2:      #F5F2EC;
   --s3:      #EDE9E0;
-  --border:  #E5E2D9;
+  --border:  var(--ts-line-lt);
   --border2: #D3D1C7;
-  --accent:  #0F4C81;
+  --accent:  var(--ts-signal-dk);
   --accent2: rgba(15,76,129,.06);
   --accent3: rgba(15,76,129,.12);
-  --text:    #1A1F2E;
+  --text:    var(--ts-ink-lt);
   --text2:   #3D4052;
-  --muted:   #888780;
+  --muted:   var(--ts-mute-lt);
   --muted2:  #B4B2A9;
-  --green:   #1D9E75;
-  --red:     #C0392B;
+  --green:   var(--ts-profit-lt);
+  --red:     var(--ts-loss-lt);
   --gold:    #B87B2B;
   --blue:    #0F4C81;
   --purple:  #5B4B8A;
@@ -145,13 +154,20 @@ nav {
 }
 
 .nav-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   color: var(--color-ink);
   text-decoration: none;
   letter-spacing: -.01em;
   flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .nav-logo span { display: none; }
 }
 
 .nav-links { display: flex; align-items: center; gap: 0; flex-shrink: 0 }

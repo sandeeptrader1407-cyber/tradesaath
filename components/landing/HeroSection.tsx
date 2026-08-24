@@ -1,40 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef } from 'react'
 import CandleStage from './CandleStage'
 
-const SPARK_COLORS = ['#36d399', '#f59e0b', '#f05d6c', '#4c6ef5', '#ff7a00'] as const
-const SPARK_COUNT = 28
-
 export default function HeroSection() {
-  const sparksRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const wrap = sparksRef.current
-    if (!wrap) return
-    wrap.innerHTML = ''
-    for (let i = 0; i < SPARK_COUNT; i++) {
-      const s = document.createElement('div')
-      s.className = 'ts-spark'
-      s.style.left = Math.random() * 100 + '%'
-      s.style.top = Math.random() * 100 + '%'
-      s.style.background = SPARK_COLORS[i % SPARK_COLORS.length]
-      // Per-spark animation params via CSS vars — keyframes read these
-      // so each dot drifts on its own timeline and they don't pulse in lockstep.
-      s.style.setProperty('--ts-spark-scale', String(0.6 + Math.random() * 1.4))
-      s.style.setProperty('--ts-spark-opacity', String(0.3 + Math.random() * 0.4))
-      s.style.setProperty('--ts-spark-dx', `${(Math.random() - 0.5) * 20}px`)
-      s.style.setProperty('--ts-spark-dy', `${(Math.random() - 0.5) * 24}px`)
-      s.style.setProperty('--ts-spark-dur', `${6 + Math.random() * 10}s`)
-      s.style.setProperty('--ts-spark-delay', `-${Math.random() * 10}s`)
-      wrap.appendChild(s)
-    }
-  }, [])
-
   return (
     <section className="ts-hero">
-      <div ref={sparksRef} className="ts-sparks" aria-hidden="true" />
       <div className="ts-container">
         <div className="ts-hero-grid">
           <div>
@@ -56,10 +27,21 @@ export default function HeroSection() {
               <Link href="/upload" className="ts-btn ts-btn-primary">
                 Drop your file →
               </Link>
-              <Link href="/results" className="ts-btn ts-btn-ghost">
+              <Link href="/results" className="ts-hero-quiet-link">
                 See sample report
               </Link>
-              <span className="ts-hero-meta">first analysis free · no signup</span>
+            </div>
+
+            <div className="ts-hero-facts">
+              <span className="ts-hero-fact">
+                <span className="ts-hero-fact-n">60s</span> to first insight
+              </span>
+              <span className="ts-hero-fact">
+                <span className="ts-hero-fact-n">20+</span> brokers
+              </span>
+              <span className="ts-hero-fact">
+                <span className="ts-hero-fact-n">₹0</span> first file
+              </span>
             </div>
           </div>
 
@@ -70,8 +52,8 @@ export default function HeroSection() {
       <style jsx>{`
         .ts-hero {
           position: relative;
-          background: #0c1322;
-          color: #ecedef;
+          background: var(--ts-void);
+          color: var(--ts-ink);
           overflow: hidden;
           padding: 96px 0 110px;
           font-family: var(--font-sans);
@@ -80,14 +62,7 @@ export default function HeroSection() {
           content: '';
           position: absolute;
           inset: 0;
-          background:
-            radial-gradient(ellipse 60% 40% at 80% 20%, rgba(255, 122, 0, 0.08), transparent 60%),
-            radial-gradient(ellipse 40% 30% at 10% 90%, rgba(76, 110, 245, 0.06), transparent 60%);
-          pointer-events: none;
-        }
-        .ts-sparks {
-          position: absolute;
-          inset: 0;
+          background: radial-gradient(ellipse 60% 40% at 80% 20%, rgba(232, 121, 43, 0.08), transparent 60%);
           pointer-events: none;
         }
         .ts-container {
@@ -109,18 +84,18 @@ export default function HeroSection() {
           align-items: center;
           padding: 6px 14px;
           border-radius: 999px;
-          border: 1px solid #1f2a44;
+          border: 1px solid var(--ts-line);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #8a93a8;
+          color: var(--ts-mute);
           margin-bottom: 28px;
         }
         .ts-pill-dot {
           width: 6px;
           height: 6px;
           border-radius: 99px;
-          background: #36d399;
+          background: var(--ts-profit);
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-hero-h1 {
@@ -133,12 +108,12 @@ export default function HeroSection() {
           color: #fff;
         }
         .ts-hero-accent {
-          color: #f05d6c;
+          color: var(--ts-loss);
           display: block;
         }
         .ts-hero-lede {
           margin-top: 22px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           font-size: 17px;
           line-height: 1.6;
           max-width: 520px;
@@ -146,16 +121,9 @@ export default function HeroSection() {
         .ts-hero-ctas {
           margin-top: 32px;
           display: flex;
-          gap: 12px;
+          gap: 24px;
           align-items: center;
           flex-wrap: wrap;
-        }
-        .ts-hero-meta {
-          margin-left: 8px;
-          font-size: 12px;
-          color: #8a93a8;
-          font-family: var(--font-mono);
-          letter-spacing: 0.06em;
         }
         :global(.ts-btn) {
           display: inline-flex;
@@ -174,50 +142,57 @@ export default function HeroSection() {
           transform: translateY(-1px);
         }
         :global(.ts-btn-primary) {
-          background: #ff7a00;
+          background: var(--ts-signal);
           color: #fff;
-          box-shadow: 0 8px 24px -8px rgba(255, 122, 0, 0.45);
+          box-shadow: 0 8px 24px -8px rgba(232, 121, 43, 0.45);
         }
         :global(.ts-btn-primary:hover) {
-          box-shadow: 0 14px 32px -8px rgba(255, 122, 0, 0.6);
+          box-shadow: 0 14px 32px -8px rgba(232, 121, 43, 0.6);
         }
-        :global(.ts-btn-ghost) {
-          border-color: rgba(255, 255, 255, 0.18);
-          color: #ecedef;
-          background: transparent;
+        :global(.ts-btn:focus-visible),
+        :global(.ts-hero-quiet-link:focus-visible) {
+          outline: 2px solid var(--ts-signal);
+          outline-offset: 3px;
+          border-radius: 4px;
         }
-        :global(.ts-btn-ghost:hover) {
-          border-color: rgba(255, 255, 255, 0.4);
-          background: rgba(255, 255, 255, 0.04);
+        :global(.ts-hero-quiet-link) {
+          font-size: 14px;
+          color: var(--ts-mute);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          text-decoration-color: var(--ts-line);
+          transition: color 0.15s ease;
         }
-        :global(.ts-btn-dark) {
-          background: #0c1322;
+        :global(.ts-hero-quiet-link:hover) {
           color: #fff;
         }
-        :global(.ts-spark) {
-          position: absolute;
-          width: 3px;
-          height: 3px;
-          border-radius: 99px;
-          opacity: var(--ts-spark-opacity, 0.55);
-          transform: scale(var(--ts-spark-scale, 1));
-          animation: ts-sparkDrift var(--ts-spark-dur, 8s) ease-in-out infinite;
-          animation-delay: var(--ts-spark-delay, 0s);
-          will-change: transform, opacity;
+        .ts-hero-facts {
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid var(--ts-line);
+          display: flex;
+          gap: 28px;
+          flex-wrap: wrap;
         }
-        @keyframes ts-sparkDrift {
-          0%, 100% {
-            transform: translate(0, 0) scale(var(--ts-spark-scale, 1));
-            opacity: var(--ts-spark-opacity, 0.55);
-          }
-          50% {
-            transform: translate(var(--ts-spark-dx, 0), var(--ts-spark-dy, 0)) scale(calc(var(--ts-spark-scale, 1) * 1.15));
-            opacity: calc(var(--ts-spark-opacity, 0.55) * 0.4);
-          }
+        .ts-hero-fact {
+          font-size: 13px;
+          color: var(--ts-mute);
+        }
+        .ts-hero-fact-n {
+          font-family: var(--font-mono);
+          color: #fff;
+          font-weight: 500;
+          margin-right: 6px;
         }
         @media (prefers-reduced-motion: reduce) {
-          :global(.ts-spark) {
-            animation: none;
+          :global(.ts-btn) {
+            transition: none;
+          }
+          :global(.ts-btn:hover) {
+            transform: none;
+          }
+          :global(.ts-hero-quiet-link) {
+            transition: none;
           }
         }
         @media (max-width: 880px) {

@@ -230,8 +230,8 @@ export default function PatternsTicker() {
         </div>
         <div className="ts-dqs-spark">
           <svg width="100%" height="100%" viewBox="0 0 200 18" preserveAspectRatio="none">
-            <path d="M 0,3 L 25,5 L 50,4 L 75,7 L 100,8 L 125,7 L 150,11 L 175,13 L 200,15" fill="none" stroke="#f05d6c" strokeWidth="1.5" />
-            <circle cx="200" cy="15" r="2.5" fill="#f05d6c" />
+            <path d="M 0,3 L 25,5 L 50,4 L 75,7 L 100,8 L 125,7 L 150,11 L 175,13 L 200,15" fill="none" stroke="var(--ts-loss)" strokeWidth="1.5" />
+            <circle cx="200" cy="15" r="2.5" fill="var(--ts-loss)" />
           </svg>
         </div>
       </div>
@@ -283,13 +283,13 @@ export default function PatternsTicker() {
           align-items: center;
           justify-content: space-between;
           padding: 13px 16px 10px;
-          border-bottom: 1px solid #1f2a44;
+          border-bottom: 1px solid var(--ts-line);
           position: relative;
         }
         .ts-patterns-label {
           font-size: 10px;
           letter-spacing: 0.18em;
-          color: #8a93a8;
+          color: var(--ts-mute);
           text-transform: uppercase;
           font-weight: 500;
         }
@@ -299,7 +299,7 @@ export default function PatternsTicker() {
           gap: 5px;
           font-size: 9px;
           letter-spacing: 0.18em;
-          color: #f05d6c;
+          color: var(--ts-loss);
           text-transform: uppercase;
           font-family: var(--font-mono);
         }
@@ -308,7 +308,7 @@ export default function PatternsTicker() {
           width: 5px;
           height: 5px;
           border-radius: 99px;
-          background: #f05d6c;
+          background: var(--ts-loss);
           box-shadow: 0 0 0 0 rgba(240, 93, 108, 0.6);
           animation: ts-livePulse 1.4s ease-in-out infinite;
         }
@@ -320,9 +320,9 @@ export default function PatternsTicker() {
           padding: 8px 16px;
           font-family: var(--font-mono);
           font-size: 10px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           letter-spacing: 0.04em;
-          border-bottom: 1px dashed #1f2a44;
+          border-bottom: 1px dashed var(--ts-line);
         }
         .ts-patterns-total {
           color: #fff;
@@ -334,7 +334,7 @@ export default function PatternsTicker() {
           width: 5px;
           height: 5px;
           border-radius: 99px;
-          background: #36d399;
+          background: var(--ts-profit);
           margin-right: 5px;
           vertical-align: middle;
           animation: ts-greenPulse 2s ease-in-out infinite;
@@ -376,7 +376,7 @@ export default function PatternsTicker() {
         }
         .ts-patterns-dqs {
           padding: 10px 16px 14px;
-          border-top: 1px solid #1f2a44;
+          border-top: 1px solid var(--ts-line);
           background: linear-gradient(180deg, transparent, rgba(240, 93, 108, 0.04));
         }
         .ts-dqs-row {
@@ -386,7 +386,7 @@ export default function PatternsTicker() {
         }
         .ts-dqs-lab {
           font-size: 10px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           text-transform: uppercase;
           letter-spacing: 0.16em;
         }
@@ -398,17 +398,17 @@ export default function PatternsTicker() {
         .ts-dqs-num {
           font-family: var(--font-mono);
           font-size: 22px;
-          color: #36d399;
+          color: var(--ts-profit);
           font-weight: 500;
         }
         .ts-dqs-denom {
           font-size: 11px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           font-weight: 400;
         }
         .ts-dqs-trend {
           font-size: 10px;
-          color: #f05d6c;
+          color: var(--ts-loss);
           font-family: var(--font-mono);
         }
         .ts-dqs-spark {
@@ -467,7 +467,7 @@ export default function PatternsTicker() {
         .ts-pattern-dot.ts-sev-low { background: #fbbf24; color: #fbbf24; }
         .ts-pattern-dot.ts-sev-med { background: #f59e0b; color: #f59e0b; }
         .ts-pattern-dot.ts-sev-high { background: #fb7c5c; color: #fb7c5c; }
-        .ts-pattern-dot.ts-sev-sev { background: #f05d6c; color: #f05d6c; }
+        .ts-pattern-dot.ts-sev-sev { background: var(--ts-loss); color: var(--ts-loss); }
         .ts-pattern-name {
           flex: 1;
           white-space: nowrap;
@@ -483,7 +483,7 @@ export default function PatternsTicker() {
         .ts-pattern-count.ts-sev-low { color: #fbbf24; }
         .ts-pattern-count.ts-sev-med { color: #f59e0b; }
         .ts-pattern-count.ts-sev-high { color: #fb7c5c; }
-        .ts-pattern-count.ts-sev-sev { color: #f05d6c; }
+        .ts-pattern-count.ts-sev-sev { color: var(--ts-loss); }
         .ts-pattern-trend {
           font-family: var(--font-mono);
           font-size: 11px;
@@ -491,9 +491,9 @@ export default function PatternsTicker() {
           width: 14px;
           text-align: center;
         }
-        .ts-pattern-trend.ts-up { color: #f05d6c; }
-        .ts-pattern-trend.ts-flat { color: #8a93a8; }
-        .ts-pattern-trend.ts-down { color: #36d399; }
+        .ts-pattern-trend.ts-up { color: var(--ts-loss); }
+        .ts-pattern-trend.ts-flat { color: var(--ts-mute); }
+        .ts-pattern-trend.ts-down { color: var(--ts-profit); }
         .ts-pattern-bar {
           height: 2px;
           border-radius: 99px;
@@ -511,7 +511,7 @@ export default function PatternsTicker() {
         .ts-pattern-bar-fill.ts-sev-low { background: linear-gradient(90deg, #fbbf24, rgba(251, 191, 36, 0.4)); }
         .ts-pattern-bar-fill.ts-sev-med { background: linear-gradient(90deg, #f59e0b, rgba(245, 158, 11, 0.4)); }
         .ts-pattern-bar-fill.ts-sev-high { background: linear-gradient(90deg, #fb7c5c, rgba(251, 124, 92, 0.4)); }
-        .ts-pattern-bar-fill.ts-sev-sev { background: linear-gradient(90deg, #f05d6c, rgba(240, 93, 108, 0.4)); }
+        .ts-pattern-bar-fill.ts-sev-sev { background: linear-gradient(90deg, var(--ts-loss), rgba(240, 93, 108, 0.4)); }
       `}</style>
     </div>
   )

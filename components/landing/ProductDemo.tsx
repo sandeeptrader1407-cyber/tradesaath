@@ -80,16 +80,16 @@ function buildEquityCurve(): string {
   return `
     <defs>
       <linearGradient id="ts-eqGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#36d399" stop-opacity="0.4"/>
-        <stop offset="100%" stop-color="#36d399" stop-opacity="0"/>
+        <stop offset="0%" stop-color="var(--ts-profit)" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="var(--ts-profit)" stop-opacity="0"/>
       </linearGradient>
     </defs>
     <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" stroke="#e7e8ea" stroke-dasharray="3 4"/>
     <path d="${areaPath}" fill="url(#ts-eqGrad)"/>
-    <path d="${linePath}" fill="none" stroke="#36d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2000" stroke-dashoffset="2000">
+    <path d="${linePath}" fill="none" stroke="var(--ts-profit)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2000" stroke-dashoffset="2000">
       <animate attributeName="stroke-dashoffset" from="2000" to="0" dur="2s" fill="freeze" />
     </path>
-    <circle cx="${last.x}" cy="${last.y}" r="4" fill="#36d399" opacity="0">
+    <circle cx="${last.x}" cy="${last.y}" r="4" fill="var(--ts-profit)" opacity="0">
       <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="2s" fill="freeze"/>
     </circle>
   `
@@ -255,7 +255,7 @@ export default function ProductDemo() {
             <div className="ts-avatar">SA</div>
             <div className="ts-cursor" ref={cursorRef} aria-hidden="true">
               <svg viewBox="0 0 32 32" fill="none">
-                <path d="M6 4 L6 22 L11 18 L14 26 L17 25 L14 17 L21 16 Z" fill="#fff" stroke="#0c1322" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M6 4 L6 22 L11 18 L14 26 L17 25 L14 17 L21 16 Z" fill="#fff" stroke="var(--ts-void)" strokeWidth="1.5" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="ts-tap-ring" ref={tapRingRef} aria-hidden="true" />
@@ -278,7 +278,7 @@ export default function ProductDemo() {
                   <div className="ts-kpi-delta">Improving vs last month</div>
                   <div className="ts-mini-spark">
                     <svg viewBox="0 0 80 20" preserveAspectRatio="none">
-                      <path d={KPI_SPARK_PATHS.thisMonth} fill="none" stroke="#36d399" strokeWidth="1.4" strokeLinecap="round" />
+                      <path d={KPI_SPARK_PATHS.thisMonth} fill="none" stroke="var(--ts-profit)" strokeWidth="1.4" strokeLinecap="round" />
                     </svg>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ export default function ProductDemo() {
                   <div className="ts-kpi-delta">on 21 Feb · 7 trades</div>
                   <div className="ts-mini-spark">
                     <svg viewBox="0 0 80 20" preserveAspectRatio="none">
-                      <path d={KPI_SPARK_PATHS.bestDay} fill="none" stroke="#36d399" strokeWidth="1.4" strokeLinecap="round" />
+                      <path d={KPI_SPARK_PATHS.bestDay} fill="none" stroke="var(--ts-profit)" strokeWidth="1.4" strokeLinecap="round" />
                     </svg>
                   </div>
                 </div>
@@ -308,7 +308,7 @@ export default function ProductDemo() {
                   <div className="ts-kpi-delta">Above avg profitable</div>
                   <div className="ts-mini-spark">
                     <svg viewBox="0 0 80 20" preserveAspectRatio="none">
-                      <path d={KPI_SPARK_PATHS.discipline} fill="none" stroke="#36d399" strokeWidth="1.4" strokeLinecap="round" />
+                      <path d={KPI_SPARK_PATHS.discipline} fill="none" stroke="var(--ts-profit)" strokeWidth="1.4" strokeLinecap="round" />
                     </svg>
                   </div>
                 </div>
@@ -419,8 +419,8 @@ export default function ProductDemo() {
 
       <style jsx>{`
         .ts-product {
-          background: #0c1322;
-          color: #ecedef;
+          background: var(--ts-void);
+          color: var(--ts-ink);
           padding: 120px 0;
           position: relative;
           overflow: hidden;
@@ -449,17 +449,17 @@ export default function ProductDemo() {
           align-items: center;
           padding: 6px 14px;
           border-radius: 999px;
-          border: 1px solid #1f2a44;
+          border: 1px solid var(--ts-line);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #8a93a8;
+          color: var(--ts-mute);
         }
         .ts-pill-dot {
           width: 6px;
           height: 6px;
           border-radius: 99px;
-          background: #36d399;
+          background: var(--ts-profit);
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-product-h2 {
@@ -473,7 +473,7 @@ export default function ProductDemo() {
         }
         .ts-product-sub {
           margin-top: 14px;
-          color: #8a93a8;
+          color: var(--ts-mute);
         }
         .ts-demo-nudge {
           margin: 32px auto 24px;
@@ -484,7 +484,7 @@ export default function ProductDemo() {
           border-radius: 999px;
           background: rgba(255, 122, 0, 0.12);
           border: 1px solid rgba(255, 122, 0, 0.4);
-          color: #ff7a00;
+          color: var(--ts-signal);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
@@ -494,7 +494,7 @@ export default function ProductDemo() {
           width: 6px;
           height: 6px;
           border-radius: 99px;
-          background: #ff7a00;
+          background: var(--ts-signal);
           box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.18);
           animation: ts-nudgePulse 1.6s ease-in-out infinite;
         }
@@ -507,8 +507,8 @@ export default function ProductDemo() {
         }
         .ts-demo {
           margin-top: 30px;
-          background: #0e1830;
-          border: 1px solid #1f2a44;
+          background: var(--ts-raise);
+          border: 1px solid var(--ts-line);
           border-radius: 20px;
           overflow: hidden;
           position: relative;
@@ -518,7 +518,7 @@ export default function ProductDemo() {
           display: flex;
           align-items: center;
           padding: 14px 18px;
-          border-bottom: 1px solid #1f2a44;
+          border-bottom: 1px solid var(--ts-line);
           position: relative;
         }
         .ts-lights {
@@ -539,12 +539,12 @@ export default function ProductDemo() {
           transform: translateX(-50%);
           font-family: var(--font-mono);
           font-size: 12px;
-          color: #ff7a00;
+          color: var(--ts-signal);
           letter-spacing: 0.06em;
         }
         .ts-tabs {
           background: #fff;
-          color: #0c1322;
+          color: var(--ts-void);
           display: flex;
           align-items: center;
           border-bottom: 1px solid #e7e8ea;
@@ -563,7 +563,7 @@ export default function ProductDemo() {
           width: 22px;
           height: 22px;
           border-radius: 6px;
-          background: linear-gradient(135deg, #ff7a00, #ff5500);
+          background: linear-gradient(135deg, var(--ts-signal), #ff5500);
         }
         .ts-tabs ol {
           list-style: none;
@@ -581,7 +581,7 @@ export default function ProductDemo() {
           transition: color 0.15s;
         }
         .ts-tabs ol li.ts-active {
-          color: #0c1322;
+          color: var(--ts-void);
         }
         .ts-tabs ol li.ts-active::after {
           content: '';
@@ -590,13 +590,13 @@ export default function ProductDemo() {
           right: 0;
           bottom: -1px;
           height: 2px;
-          background: #ff7a00;
+          background: var(--ts-signal);
         }
         .ts-avatar {
           width: 32px;
           height: 32px;
           border-radius: 99px;
-          background: #0c1322;
+          background: var(--ts-void);
           color: #fff;
           display: flex;
           align-items: center;
@@ -630,7 +630,7 @@ export default function ProductDemo() {
           width: 50px;
           height: 50px;
           border-radius: 99px;
-          border: 2px solid #ff7a00;
+          border: 2px solid var(--ts-signal);
           pointer-events: none;
           opacity: 0;
           z-index: 4;
@@ -646,7 +646,7 @@ export default function ProductDemo() {
         }
         .ts-panel {
           background: #fff;
-          color: #0c1322;
+          color: var(--ts-void);
           min-height: 480px;
           padding: 36px;
           animation: ts-panelIn 0.35s ease;
@@ -701,12 +701,12 @@ export default function ProductDemo() {
           margin-top: 8px;
         }
         .ts-mint {
-          color: #36d399;
+          color: var(--ts-profit);
         }
         .ts-kpi-delta {
           font-size: 12px;
           margin-top: 6px;
-          color: #36d399;
+          color: var(--ts-profit);
         }
         .ts-mini-spark {
           margin-top: 10px;
@@ -741,7 +741,7 @@ export default function ProductDemo() {
         .ts-equity-total {
           font-family: var(--font-mono);
           font-size: 14px;
-          color: #36d399;
+          color: var(--ts-profit);
         }
         .ts-equity-chart {
           position: relative;
@@ -786,10 +786,10 @@ export default function ProductDemo() {
           font-family: var(--font-mono);
         }
         .ts-pnl-up {
-          color: #36d399;
+          color: var(--ts-profit);
         }
         .ts-pnl-dn {
-          color: #f05d6c;
+          color: var(--ts-loss);
         }
         .ts-tag {
           font-size: 11px;
@@ -839,7 +839,7 @@ export default function ProductDemo() {
           height: 14px;
           border-radius: 99px;
           background: #fff;
-          border: 2px solid #36d399;
+          border: 2px solid var(--ts-profit);
         }
         .ts-tl-t {
           font-family: var(--font-mono);
@@ -877,12 +877,12 @@ export default function ProductDemo() {
         }
         .ts-bubble-user {
           background: #f0f1f3;
-          color: #0c1322;
+          color: var(--ts-void);
           border-radius: 14px 14px 4px 14px;
           align-self: flex-end;
         }
         .ts-bubble-ai {
-          background: linear-gradient(180deg, #0e1830, #1a2848);
+          background: linear-gradient(180deg, var(--ts-raise), #1a2848);
           color: #fff;
           border-radius: 14px 14px 14px 4px;
         }

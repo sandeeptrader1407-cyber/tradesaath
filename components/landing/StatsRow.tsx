@@ -32,7 +32,7 @@ export default function StatsRow() {
             <div className="ts-stat-l">Mistake cost found</div>
             <div className="ts-stat-spark">
               <svg viewBox="0 0 80 24" preserveAspectRatio="none">
-                <path d="M 0,20 L 10,17 L 20,18 L 30,14 L 40,12 L 50,8 L 60,9 L 70,5 L 80,3" fill="none" stroke="#f05d6c" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M 0,20 L 10,17 L 20,18 L 30,14 L 40,12 L 50,8 L 60,9 L 70,5 L 80,3" fill="none" stroke="var(--ts-loss)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
           </div>
@@ -42,7 +42,7 @@ export default function StatsRow() {
             <div className="ts-stat-l">Brokers supported</div>
             <div className="ts-stat-spark">
               <svg viewBox="0 0 80 24" preserveAspectRatio="none">
-                <path d="M 0,22 L 10,20 L 20,18 L 30,15 L 40,14 L 50,11 L 60,8 L 70,6 L 80,4" fill="none" stroke="#36d399" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M 0,22 L 10,20 L 20,18 L 30,15 L 40,14 L 50,11 L 60,8 L 70,6 L 80,4" fill="none" stroke="var(--ts-profit)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
           </div>
@@ -52,7 +52,7 @@ export default function StatsRow() {
             <div className="ts-stat-l">Avg patterns per trader</div>
             <div className="ts-stat-spark">
               <svg viewBox="0 0 80 24" preserveAspectRatio="none">
-                <path d="M 0,15 L 10,18 L 20,12 L 30,16 L 40,10 L 50,14 L 60,8 L 70,12 L 80,6" fill="none" stroke="#ecedef" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M 0,15 L 10,18 L 20,12 L 30,16 L 40,10 L 50,14 L 60,8 L 70,12 L 80,6" fill="none" stroke="var(--ts-ink)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
           </div>
@@ -61,8 +61,8 @@ export default function StatsRow() {
 
       <style jsx>{`
         .ts-stats {
-          background: #0c1322;
-          color: #ecedef;
+          background: var(--ts-void);
+          color: var(--ts-ink);
           padding: 0 0 60px;
           position: relative;
           font-family: var(--font-sans);
@@ -76,12 +76,12 @@ export default function StatsRow() {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 0;
-          border-top: 1px solid #1f2a44;
+          border-top: 1px solid var(--ts-line);
           padding-top: 36px;
         }
         .ts-stat {
           padding: 0 24px;
-          border-right: 1px solid #1f2a44;
+          border-right: 1px solid var(--ts-line);
         }
         .ts-stat:last-child {
           border-right: none;
@@ -92,13 +92,13 @@ export default function StatsRow() {
           letter-spacing: 0.02em;
         }
         .ts-stat-amber .ts-stat-n { color: #f59e0b; }
-        .ts-stat-crimson .ts-stat-n { color: #f05d6c; }
-        .ts-stat-mint .ts-stat-n { color: #36d399; }
+        .ts-stat-crimson .ts-stat-n { color: var(--ts-loss); }
+        .ts-stat-mint .ts-stat-n { color: var(--ts-profit); }
         .ts-stat-white .ts-stat-n { color: #fff; }
         .ts-stat-l {
           margin-top: 6px;
           font-size: 11px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           letter-spacing: 0.18em;
           text-transform: uppercase;
         }
@@ -118,7 +118,7 @@ export default function StatsRow() {
           }
           .ts-stat {
             border-right: none;
-            border-bottom: 1px solid #1f2a44;
+            border-bottom: 1px solid var(--ts-line);
             padding: 20px 24px;
           }
           .ts-stat:last-child {

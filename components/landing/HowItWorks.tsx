@@ -19,9 +19,9 @@ export default function HowItWorks() {
           <div className="ts-step">
             <div className="ts-step-icon">
               <svg viewBox="0 0 48 48" fill="none">
-                <rect x="8" y="6" width="28" height="36" rx="3" stroke="#0c1322" strokeWidth="1.5" />
+                <rect x="8" y="6" width="28" height="36" rx="3" stroke="var(--ts-void)" strokeWidth="1.5" />
                 <path d="M14 18h16M14 24h16M14 30h10" stroke="#7a8093" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="34" cy="34" r="8" fill="#ff7a00" />
+                <circle cx="34" cy="34" r="8" fill="var(--ts-signal)" />
                 <path d="M30 34l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
@@ -36,9 +36,9 @@ export default function HowItWorks() {
           <div className="ts-step">
             <div className="ts-step-icon">
               <svg viewBox="0 0 48 48" fill="none">
-                <circle cx="22" cy="22" r="14" stroke="#0c1322" strokeWidth="1.5" />
-                <path d="M32 32l8 8" stroke="#0c1322" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="22" cy="22" r="7" fill="#f05d6c" />
+                <circle cx="22" cy="22" r="14" stroke="var(--ts-void)" strokeWidth="1.5" />
+                <path d="M32 32l8 8" stroke="var(--ts-void)" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="22" cy="22" r="7" fill="var(--ts-loss)" />
                 <path d="M19 22l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
@@ -53,12 +53,12 @@ export default function HowItWorks() {
           <div className="ts-step">
             <div className="ts-step-icon">
               <svg viewBox="0 0 48 48" fill="none">
-                <path d="M6 38L14 28L22 32L30 18L40 22" stroke="#0c1322" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="14" cy="28" r="2.5" fill="#36d399" />
-                <circle cx="22" cy="32" r="2.5" fill="#36d399" />
-                <circle cx="30" cy="18" r="2.5" fill="#36d399" />
-                <circle cx="40" cy="22" r="2.5" fill="#36d399" />
-                <path d="M40 22L40 12L36 12" stroke="#36d399" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M6 38L14 28L22 32L30 18L40 22" stroke="var(--ts-void)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="14" cy="28" r="2.5" fill="var(--ts-profit)" />
+                <circle cx="22" cy="32" r="2.5" fill="var(--ts-profit)" />
+                <circle cx="30" cy="18" r="2.5" fill="var(--ts-profit)" />
+                <circle cx="40" cy="22" r="2.5" fill="var(--ts-profit)" />
+                <path d="M40 22L40 12L36 12" stroke="var(--ts-profit)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
             <div className="ts-step-num">03</div>
@@ -74,7 +74,7 @@ export default function HowItWorks() {
       <style jsx>{`
         .ts-how {
           padding: 120px 0 90px;
-          background: #f7f7f3;
+          background: var(--ts-paper);
           font-family: var(--font-sans);
         }
         .ts-container {
@@ -96,21 +96,21 @@ export default function HowItWorks() {
           align-items: center;
           padding: 6px 14px;
           border-radius: 999px;
-          border: 1px solid #1f2a44;
+          border: 1px solid var(--ts-line);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #8a93a8;
+          color: var(--ts-mute);
         }
         .ts-pill-dot {
           width: 6px;
           height: 6px;
           border-radius: 99px;
-          background: #36d399;
+          background: var(--ts-profit);
           box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.15);
         }
         .ts-pill-dot-orange {
-          background: #ff7a00;
+          background: var(--ts-signal);
           box-shadow: 0 0 0 4px rgba(255, 122, 0, 0.15);
         }
         .ts-how-h2 {
@@ -120,7 +120,7 @@ export default function HowItWorks() {
           margin: 0;
           font-size: 56px;
           margin-top: 18px;
-          color: #0c1322;
+          color: var(--ts-void);
         }
         .ts-how-sub {
           color: #7a8093;
@@ -179,7 +179,7 @@ export default function HowItWorks() {
           font-weight: 400;
           font-size: 22px;
           margin: 0 0 10px;
-          color: #0c1322;
+          color: var(--ts-void);
           position: relative;
           z-index: 2;
         }

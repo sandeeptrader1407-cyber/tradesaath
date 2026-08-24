@@ -248,7 +248,15 @@ export default function Navbar() {
   return (
     <>
       <motion.nav style={{ borderBottom: navBorder }}>
-        <Link className="nav-logo" href="/" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.02em' }}>TradeSaath</Link>
+        <Link
+          className="nav-logo"
+          href="/"
+          aria-label="tradesaath — home"
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.02em' }}
+        >
+          <img src="/brand/icon.svg" alt="" width={24} height={24} aria-hidden="true" />
+          <span>TradeSaath</span>
+        </Link>
 
         <div className="nav-links">
           <ClerkErrorBoundary fallback={

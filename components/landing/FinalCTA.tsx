@@ -6,8 +6,8 @@ export default function FinalCTA() {
   return (
     <section className="ts-final">
       <svg className="ts-float-candle" style={{ left: '8%', top: '20%' }} width="40" height="60" viewBox="0 0 40 60">
-        <line x1="20" y1="6" x2="20" y2="54" stroke="#36d399" strokeWidth="1" />
-        <rect x="14" y="14" width="12" height="32" fill="#36d399" />
+        <line x1="20" y1="6" x2="20" y2="54" stroke="var(--ts-profit)" strokeWidth="1" />
+        <rect x="14" y="14" width="12" height="32" fill="var(--ts-profit)" />
       </svg>
       <svg
         className="ts-float-candle"
@@ -16,8 +16,8 @@ export default function FinalCTA() {
         height="50"
         viewBox="0 0 36 50"
       >
-        <line x1="18" y1="4" x2="18" y2="46" stroke="#f05d6c" strokeWidth="1" />
-        <rect x="12" y="12" width="12" height="28" fill="#f05d6c" />
+        <line x1="18" y1="4" x2="18" y2="46" stroke="var(--ts-loss)" strokeWidth="1" />
+        <rect x="12" y="12" width="12" height="28" fill="var(--ts-loss)" />
       </svg>
       <svg
         className="ts-float-candle"
@@ -26,8 +26,8 @@ export default function FinalCTA() {
         height="55"
         viewBox="0 0 40 55"
       >
-        <line x1="20" y1="4" x2="20" y2="50" stroke="#36d399" strokeWidth="1" />
-        <rect x="14" y="10" width="12" height="36" fill="#36d399" />
+        <line x1="20" y1="4" x2="20" y2="50" stroke="var(--ts-profit)" strokeWidth="1" />
+        <rect x="14" y="10" width="12" height="36" fill="var(--ts-profit)" />
       </svg>
       <svg
         className="ts-float-candle"
@@ -36,8 +36,8 @@ export default function FinalCTA() {
         height="48"
         viewBox="0 0 36 48"
       >
-        <line x1="18" y1="6" x2="18" y2="44" stroke="#f05d6c" strokeWidth="1" />
-        <rect x="12" y="14" width="12" height="26" fill="#f05d6c" />
+        <line x1="18" y1="6" x2="18" y2="44" stroke="var(--ts-loss)" strokeWidth="1" />
+        <rect x="12" y="14" width="12" height="26" fill="var(--ts-loss)" />
       </svg>
 
       <div className="ts-container">
@@ -60,8 +60,8 @@ export default function FinalCTA() {
 
       <style jsx>{`
         .ts-final {
-          background: #0c1322;
-          color: #ecedef;
+          background: var(--ts-void);
+          color: var(--ts-ink);
           text-align: center;
           padding: 120px 0;
           position: relative;
@@ -92,7 +92,7 @@ export default function FinalCTA() {
         }
         .ts-final-p {
           margin-top: 18px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           font-size: 17px;
         }
         .ts-final-ctas {
@@ -104,7 +104,7 @@ export default function FinalCTA() {
         }
         .ts-disclaimer {
           margin-top: 60px;
-          color: #8a93a8;
+          color: var(--ts-mute);
           font-size: 11.5px;
           max-width: 680px;
           margin-left: auto;
