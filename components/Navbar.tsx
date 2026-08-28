@@ -18,19 +18,68 @@ function initials(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-const PUBLIC_NAV_LINKS = [
-  { label: 'How it works', href: '/#how' },
-  { label: 'Features',     href: '/#features' },
-  { label: 'Pricing',      href: '/pricing' },
-  { label: 'FAQ',          href: '/faq' },
+// Single source of truth for the public nav — add a line here to add an item.
+// These are marketing anchors, identical for every visitor, so nothing that
+// renders them may depend on auth state.
+const NAV_LINKS = [
+  { label: 'How it works',    href: '/#how' },
+  { label: 'What it detects', href: '/patterns' },
+  { label: 'Markets',         href: '/#markets' },
+  { label: 'The report',      href: '/results' },
+  { label: 'Pricing',         href: '/#pricing' },
+  { label: 'FAQ',             href: '/#faq' },
 ] as const
 
-/* ─── Auth buttons ────────────────────────────────────────────────── */
+const INSTRUMENTS = ['Equities', 'Options', 'Futures', 'Forex', 'Commodities', 'Crypto'] as const
 
-function ClerkAuthButtons() {
+// If Clerk hasn't resolved isLoaded within this window (blocked by an ad
+// blocker, network trouble, or just slow), stop waiting and render the
+// signed-out auth UI instead of leaving the slot blank forever.
+const AUTH_FAILOPEN_MS = 2500
+
+/* ─── Auth resolution (fails open) ───────────────────────────────────
+   The only thing in this file that waits on Clerk. Everything else —
+   the public nav links, the instrument strip, the logo — renders with
+   zero dependency on this. ──────────────────────────────────────── */
+
+function useAuthState() {
   const { isSignedIn, isLoaded, user } = useUser()
+  const [timedOut, setTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (isLoaded) return
+    const t = window.setTimeout(() => setTimedOut(true), AUTH_FAILOPEN_MS)
+    return () => window.clearTimeout(t)
+  }, [isLoaded])
+
+  const resolved = isLoaded || timedOut
+  // Once we've given up waiting (timed out without ever loading), treat the
+  // visitor as signed-out rather than stalling the UI indefinitely.
+  const signedIn = isLoaded ? !!isSignedIn : false
+
+  return { resolved, signedIn, user }
+}
+
+/* ─── Public nav links — no auth dependency, same for everyone ──────── */
+
+function PublicNavLinks({ onLinkClick }: { onLinkClick?: () => void }) {
+  return (
+    <>
+      {NAV_LINKS.map(({ label, href }) => (
+        <Link key={label} href={href} onClick={onLinkClick} className="nav-landing-link">{label}</Link>
+      ))}
+    </>
+  )
+}
+
+/* ─── Auth slot (desktop) ─────────────────────────────────────────── */
+
+function AuthSlot() {
+  const { resolved, signedIn, user } = useAuthState()
   const { signOut } = useClerk()
   const router = useRouter()
+  const pathname = usePathname()
+  const { isPro, isPaid } = usePlan()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -43,11 +92,22 @@ function ClerkAuthButtons() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  if (!isLoaded) return null
+  // While Clerk is still resolving, reserve the space a resolved state would
+  // take so nothing shifts once it settles — never render nothing.
+  if (!resolved) {
+    return <div className="nav-auth-placeholder" aria-hidden="true" />
+  }
 
-  if (isSignedIn) {
+  if (signedIn) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link
+          href="/dashboard"
+          className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}
+        >
+          Dashboard
+        </Link>
+
         {/* Avatar with dropdown */}
         <div data-avatar-dropdown="" style={{ position: 'relative' }}>
           <button
@@ -89,6 +149,28 @@ function ClerkAuthButtons() {
                   {user?.primaryEmailAddress?.emailAddress}
                 </div>
               </div>
+
+              {[
+                { label: 'Journal', href: isPaid ? '/journal' : '/pricing' },
+                { label: 'Journey', href: isPaid ? '/journey' : '/pricing' },
+                { label: 'Saathi',  href: isPro ? '/coach' : '/pricing' },
+              ].map(({ label, href }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 16px',
+                    fontFamily: 'var(--font-sans)', fontSize: 13,
+                    color: '#374151', textDecoration: 'none',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {label}
+                </Link>
+              ))}
 
               {/* Settings */}
               <Link
@@ -147,64 +229,31 @@ function ClerkAuthButtons() {
     )
   }
 
+  // Resolved and signed out — same UI covers a real "signed out" answer and
+  // the fail-open (timed out without ever loading) case.
   return (
     <>
       <Link href="/sign-in" className="nav-auth-btn">Sign in</Link>
       <SignUpButton mode="redirect">
-        <button className="nav-getstarted-btn">Get started</button>
+        <button className="nav-getstarted-btn">Start free</button>
       </SignUpButton>
     </>
   )
 }
 
-function ClerkMobileAuth({ closeMenu }: { closeMenu: () => void }) {
-  const { isSignedIn, isLoaded } = useUser()
-  if (!isLoaded || isSignedIn) return null
-  return (
-    <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">
-      Sign in
-    </Link>
-  )
-}
+/* ─── Auth slot (mobile) ──────────────────────────────────────────── */
 
-/* ─── Nav links ───────────────────────────────────────────────────── */
-
-function NavLinks() {
-  const { isSignedIn, isLoaded } = useUser()
-  const pathname = usePathname()
-  const { isPro, isPaid } = usePlan()
-
-  if (!isLoaded) return null
-
-  if (isSignedIn) {
-    return (
-      <>
-        <Link href="/dashboard" className={`nav-app-link${pathname === '/dashboard' ? ' nav-active' : ''}`}>Dashboard</Link>
-        <Link href={isPaid ? '/journal' : '/pricing'} className={`nav-app-link${pathname === '/journal' ? ' nav-active' : ''}${!isPaid ? ' opacity-60' : ''}`}>Journal</Link>
-        <Link href={isPaid ? '/journey' : '/pricing'} className={`nav-app-link${pathname === '/journey' ? ' nav-active' : ''}${!isPaid ? ' opacity-60' : ''}`}>Journey</Link>
-        <Link href={isPro ? '/coach' : '/pricing'} className={`nav-app-link${pathname === '/coach' ? ' nav-active' : ''}${!isPro ? ' opacity-60' : ''}`}>Saathi</Link>
-      </>
-    )
-  }
-
-  return (
-    <>
-      {PUBLIC_NAV_LINKS.map(({ label, href }) => (
-        <Link key={label} href={href} className="nav-landing-link">{label}</Link>
-      ))}
-    </>
-  )
-}
-
-function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
-  const { isSignedIn, isLoaded } = useUser()
-  const { isPro, isPaid } = usePlan()
+function MobileAuthSlot({ closeMenu }: { closeMenu: () => void }) {
+  const { resolved, signedIn } = useAuthState()
   const { signOut } = useClerk()
   const router = useRouter()
+  const { isPro, isPaid } = usePlan()
 
-  if (!isLoaded) return null
+  if (!resolved) {
+    return <div className="mobile-auth-placeholder" aria-hidden="true" />
+  }
 
-  if (isSignedIn) {
+  if (signedIn) {
     return (
       <>
         <Link href="/dashboard" onClick={closeMenu} className="nav-app-link">Dashboard</Link>
@@ -229,11 +278,9 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
   }
 
   return (
-    <>
-      {PUBLIC_NAV_LINKS.map(({ label, href }) => (
-        <Link key={label} href={href} onClick={closeMenu} className="nav-landing-link">{label}</Link>
-      ))}
-    </>
+    <Link href="/sign-in" onClick={closeMenu} className="nav-signin-link">
+      Sign in
+    </Link>
   )
 }
 
@@ -241,6 +288,8 @@ function MobileNavLinks({ closeMenu }: { closeMenu: () => void }) {
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const pathname = usePathname()
+  const isLanding = pathname === '/'
   const { scrollY } = useScroll()
   const borderOpacity = useTransform(scrollY, [0, 20], [0, 1])
   const navBorder = useTransform(borderOpacity, (v) => `0.5px solid rgba(209,213,219,${v})`)
@@ -259,25 +308,17 @@ export default function Navbar() {
         </Link>
 
         <div className="nav-links">
-          <ClerkErrorBoundary fallback={
-            <>
-              {PUBLIC_NAV_LINKS.map(({ label, href }) => (
-                <Link key={label} href={href} className="nav-landing-link">{label}</Link>
-              ))}
-            </>
-          }>
-            <NavLinks />
-          </ClerkErrorBoundary>
+          <PublicNavLinks />
         </div>
 
         <div className="nav-right">
           <ClerkErrorBoundary fallback={
             <>
               <Link href="/sign-in"  className="nav-auth-btn">Sign in</Link>
-              <Link href="/sign-up"  className="nav-getstarted-btn">Get started</Link>
+              <Link href="/sign-up"  className="nav-getstarted-btn">Start free</Link>
             </>
           }>
-            <ClerkAuthButtons />
+            <AuthSlot />
           </ClerkErrorBoundary>
 
           <button
@@ -290,18 +331,25 @@ export default function Navbar() {
         </div>
       </motion.nav>
 
-      <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
-        <ClerkErrorBoundary fallback={
-          <>
-            {PUBLIC_NAV_LINKS.map(({ label, href }) => (
-              <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="nav-landing-link">{label}</Link>
+      {isLanding && (
+        <div className="instruments">
+          <div className="inst-in">
+            {INSTRUMENTS.map((label) => (
+              <span key={label}>{label}</span>
             ))}
-          </>
+            <span className="inst-note">detected automatically from your file</span>
+          </div>
+        </div>
+      )}
+
+      <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
+        <PublicNavLinks onLinkClick={() => setMenuOpen(false)} />
+        <ClerkErrorBoundary fallback={
+          <Link href="/sign-in" onClick={() => setMenuOpen(false)} className="nav-signin-link">
+            Sign in
+          </Link>
         }>
-          <MobileNavLinks closeMenu={() => setMenuOpen(false)} />
-        </ClerkErrorBoundary>
-        <ClerkErrorBoundary>
-          <ClerkMobileAuth closeMenu={() => setMenuOpen(false)} />
+          <MobileAuthSlot closeMenu={() => setMenuOpen(false)} />
         </ClerkErrorBoundary>
       </div>
     </>

@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { CurrencyProvider } from '@/lib/contexts/CurrencyContext'
 import HeroSection from '@/components/landing/HeroSection'
 import StatsRow from '@/components/landing/StatsRow'
-import GlobalMarkets from '@/components/landing/GlobalMarkets'
 import BrokerMarquee from '@/components/landing/BrokerMarquee'
 import HowItWorks from '@/components/landing/HowItWorks'
 import ProductDemo from '@/components/landing/ProductDemo'
@@ -62,7 +61,6 @@ export default function Home() {
       <CurrencyProvider>
         <HeroSection />
         <StatsRow />
-        <GlobalMarkets />
         <HowItWorks />
         <ProductDemo />
         <BrokerMarquee />

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Lato, JetBrains_Mono } from 'next/font/google'
+import { IBM_Plex_Sans, IBM_Plex_Serif, IBM_Plex_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import Navbar from '@/components/Navbar'
@@ -10,21 +10,24 @@ import AiChat from '@/components/AiChat'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-const inter = Inter({
+// IBM Plex Sans has no static 450 weight file (Google only ships 100/200/300/
+// 400/500/600/700) — the reference design's 450 nav/button weight falls back
+// to the nearest loaded weight (400/500) rather than a true intermediate cut.
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-sans',
   display: 'swap',
 })
 
-const lato = Lato({
+const ibmPlexSerif = IBM_Plex_Serif({
   subsets: ['latin'],
-  weight: ['300', '400', '700'],
+  weight: ['300', '400'],
   variable: '--font-display',
   display: 'swap',
 })
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-mono',
@@ -44,7 +47,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${inter.variable} ${lato.variable} ${jetbrainsMono.variable}`}
+        className={`${ibmPlexSans.variable} ${ibmPlexSerif.variable} ${ibmPlexMono.variable}`}
       >
         <body>
           <AuthSync />

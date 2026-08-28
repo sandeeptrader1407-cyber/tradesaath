@@ -39,12 +39,12 @@ export default function BrokerMarquee() {
 
       <style jsx>{`
         .ts-marquee {
-          background: var(--ts-void);
+          background: var(--void);
           padding: 24px 0;
-          border-top: 1px solid var(--ts-line);
-          border-bottom: 1px solid var(--ts-line);
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
           overflow: hidden;
-          color: var(--ts-mute);
+          color: var(--mute);
           font-size: 14px;
           position: relative;
           font-family: var(--font-sans);
@@ -61,11 +61,11 @@ export default function BrokerMarquee() {
         }
         .ts-marquee::before {
           left: 0;
-          background: linear-gradient(90deg, var(--ts-void), transparent);
+          background: linear-gradient(90deg, var(--void), transparent);
         }
         .ts-marquee::after {
           right: 0;
-          background: linear-gradient(-90deg, var(--ts-void), transparent);
+          background: linear-gradient(-90deg, var(--void), transparent);
         }
         .ts-marquee-track {
           display: flex;
@@ -79,7 +79,7 @@ export default function BrokerMarquee() {
           white-space: nowrap;
         }
         .ts-marquee-track span:hover {
-          color: #fff;
+          color: var(--ink);
         }
         @keyframes ts-marq {
           from { transform: translateX(0); }

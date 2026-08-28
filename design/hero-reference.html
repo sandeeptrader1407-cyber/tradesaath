@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tradesaath — hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500&family=IBM+Plex+Serif:wght@300;400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#FFFFFF; --raise:#FAFAF8; --line:#E4E5E0; --line-soft:#EFEFEB;
+  --ink:#0A0F1C; --mute:#5F6577; --dim:#6B7180;
+  --signal:#E8792B;
+  /* money colours darkened for AA contrast on white */
+  --profit:#177A44; --loss:#C0392B;
+  /* One superfamily, three voices. IBM Plex was drawn for enterprise
+     technical products — it reads as institutional rather than startup. */
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --display:'IBM Plex Serif',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fff;color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;line-height:1.6}
+a{color:inherit;text-decoration:none}
+nav{border-bottom:1px solid var(--line);background:#fff}
+.nav-in{max-width:1220px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:10px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:20px;font-weight:400;color:var(--ink);letter-spacing:-.015em}
+.nav-links{margin-left:auto;display:flex;align-items:center;gap:26px}
+.nav-links a{font-size:13.5px;color:var(--mute)}
+.nav-links a:hover{color:var(--ink)}
+.nav-signin{color:var(--ink)!important;font-weight:450}
+.nav-links{gap:22px}
+.instruments{border-top:1px solid var(--line-soft);background:#FAFAF8}
+.inst-in{max-width:1220px;margin:0 auto;padding:8px 28px;display:flex;gap:22px;
+  flex-wrap:wrap;align-items:baseline;font-family:var(--mono);font-size:10px;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--mute)}
+.inst-note{margin-left:auto;color:var(--dim);text-transform:none;letter-spacing:.02em;
+  font-family:var(--sans);font-size:11.5px}
+.btn{display:inline-block;padding:10px 19px;border-radius:5px;font-size:13.5px;
+  font-weight:450;letter-spacing:-.005em;border:1px solid transparent}
+.btn-primary{background:var(--signal);color:#16202e}
+.btn-primary:hover{background:#F08839}
+.label{font-family:var(--mono);font-size:10px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--mute)}
+.hero{max-width:1220px;margin:0 auto;padding:68px 28px 80px;
+  display:grid;grid-template-columns:1fr 500px;gap:52px;align-items:center}
+h1{font-family:var(--display);font-weight:400;color:var(--ink);
+  font-size:clamp(35px,4.4vw,53px);line-height:1.08;letter-spacing:-.018em;margin:17px 0 0;font-weight:300}
+h1 em{font-style:normal;color:#9E4E14}  /* signal-dark: orange as text needs AA on white */
+.lede{margin-top:20px;color:var(--mute);font-size:16.5px;line-height:1.62;max-width:470px}
+.does{margin-top:30px;border-top:1px solid var(--line)}
+.do{display:flex;gap:16px;padding:13px 0;border-bottom:1px solid var(--line-soft);align-items:baseline}
+.do .i{font-family:var(--mono);font-size:9.5px;color:var(--dim);width:20px;flex-shrink:0}
+.do .t{font-size:14.5px;color:var(--ink);width:148px;flex-shrink:0;letter-spacing:-.01em}
+.do .d{font-size:13.5px;color:var(--mute);line-height:1.55}
+.cta{margin-top:28px;display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.quiet{font-size:13.5px;color:var(--mute);border-bottom:1px solid var(--line);padding-bottom:2px}
+.quiet:hover{color:var(--ink);border-color:var(--mute)}
+.globe-wrap{position:relative}
+#globe{width:100%;height:auto;display:block}
+.globe-meta{margin-top:14px;border-top:1px solid var(--line);padding-top:13px}
+.gm-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.gm-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+.gm-row{display:flex;align-items:baseline;gap:9px;padding:4px 0;font-family:var(--mono);font-size:11px}
+.gm-row .code{color:var(--mute);width:50px}
+.gm-row .city{color:var(--dim);flex:1}
+.gm-row .st{color:var(--dim)}
+.gm-row.open .code{color:var(--signal)}
+.gm-row.open .st{color:var(--signal)}
+.gm-row.crypto .code,.gm-row.crypto .st{color:var(--profit)}
+.do .d{color:#4A5060}
+@media(max-width:960px){
+  .hero{grid-template-columns:1fr;gap:40px;padding-top:48px}
+  .globe-wrap{max-width:420px;margin:0 auto;width:100%}
+  .do{flex-wrap:wrap;gap:6px} .do .t{width:auto}
+  .nav-links a:not(.btn):not(.nav-signin){display:none}
+  .nav-links{gap:16px}
+  .inst-in{gap:12px;font-size:9px;padding:7px 28px}
+  .inst-note{display:none}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-in">
+    <a href="#" class="logo">
+      <svg width="27" height="27" viewBox="20 -32 328 328" aria-hidden="true">
+        <path d="M 231.6 188.0 A 90 90 0 1 1 231.6 112.0" fill="none" stroke="#E8792B" stroke-width="26" stroke-linecap="round"/>
+        <path d="M 231.6 188.0 L 300 42" fill="none" stroke="#E8792B" stroke-width="26" stroke-linecap="round"/>
+        <path d="M 272 38 L 307 22 L 297 60" fill="none" stroke="#E8792B" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      tradesaath
+    </a>
+    <div class="nav-links">
+      <!-- links injected from NAV_LINKS — see the script below -->
+      <a href="/sign-in" class="nav-signin">Sign in</a>
+      <a href="/sign-up" class="btn btn-primary">Start free</a>
+    </div>
+  </div>
+  <div class="instruments">
+    <div class="inst-in">
+      <span>Equities</span><span>Options</span><span>Futures</span>
+      <span>Forex</span><span>Commodities</span><span>Crypto</span>
+      <span class="inst-note">detected automatically from your file</span>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div>
+    <span class="label">Behavioural analysis · every market</span>
+    <h1>Your strategy was fine.<br>Your <em>behaviour</em> wasn't.</h1>
+    <p class="lede">TradeSaath reads your tradebook from any broker — equities, F&amp;O,
+      forex or crypto — finds the decisions that cost you money, and prices each one.</p>
+    <div class="does">
+      <div class="do"><span class="i">01</span><span class="t">Reads your file</span>
+        <span class="d">Any broker, any market. Columns, currency and instrument type detected automatically.</span></div>
+      <div class="do"><span class="i">02</span><span class="t">Names the pattern</span>
+        <span class="d">Revenge entries, oversizing after a loss, cutting winners early — found in your own timestamps.</span></div>
+      <div class="do"><span class="i">03</span><span class="t">Prices the damage</span>
+        <span class="d">What each behaviour cost, and what the same trades would have returned without it.</span></div>
+    </div>
+    <div class="cta">
+      <a href="#" class="btn btn-primary">Analyse my trades</a>
+      <a href="#" class="quiet">See a real report</a>
+    </div>
+  </div>
+
+  <div class="globe-wrap">
+    <canvas id="globe" width="1000" height="1000" role="img"
+      aria-label="Rotating world map globe showing exchanges and which markets are open"></canvas>
+    <div class="globe-meta">
+      <div class="gm-head"><span class="label">World markets</span><span class="label" id="clock">—</span></div>
+      <div class="gm-grid" id="markets"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ─────────────────────────────────────────────────────────
+   NAVIGATION
+   Single source of truth. To add a nav item later, add one
+   line here — nothing else needs editing. Order is the order
+   shown. Keep this to 6 or fewer: past that, scanning cost
+   rises and nothing reads as primary.
+   ───────────────────────────────────────────────────────── */
+const NAV_LINKS = [
+  { label: 'How it works',     href: '#how' },
+  { label: 'What it detects',  href: '#detects' },
+  { label: 'Markets',          href: '#markets' },
+  { label: 'The report',       href: '#report' },
+  { label: 'Pricing',          href: '#pricing' },
+  { label: 'FAQ',              href: '#faq' },
+  // { label: 'Blog',          href: '/blog' },
+  // { label: 'Docs',          href: '/docs' },
+];
+
+(() => {
+  const wrap = document.querySelector('.nav-links');
+  const anchor = wrap.querySelector('.nav-signin');
+  for (const l of NAV_LINKS){
+    const a = document.createElement('a');
+    a.href = l.href; a.textContent = l.label;
+    wrap.insertBefore(a, anchor);
+  }
+})();
+
+/* Land mask: world coastlines rasterised from Natural Earth 110m,
+   240x120 cells at 1.5deg, packed 1 bit per cell. */
+const MASK_B64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//8////44AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPx/n/////AAAA/AAYAAAAfAAAAAAAAAAAAAAAAEO3v4f////+AAAPgAAAAAAAAcAAAAAAAAAAAAAADAAAfgP////+AAAHAAAAAAAAAMAAAAAAAAAAAAAAA9jjCAAP///+AAAAAAAAHgAAP/8AAPAAAAAAAAAAcAAAAAAD///8AAAAAAAAYAAD//gAAAAAAAAAAAAAe6zs/AAB///4AAAAAAABgDA/////wGAAAAwAEAAAI/wM//AAf4AH///////xwHf/////z/+AAAAB//wPI/+sEP4A///wAAAAf8AACHf////////8B8P4AAAAAPPIZ+H/gAD////8AAOcgEQAAAAAAAAAAAE/AAAAAAAAB+AfAAf////4AAHAAAgAAAAAAAAAAA54AAAAAAAALwG/gH/4H//wOB4AAAAAAAAAAAAAAAAAf///////Ng+AP4ADAAA/n////////////////+AD///////8COMAHwAAAAD/P///////////////v8AD/7/////4APwABgAAAAH/P//////////////wfAAA+AH////4APzAAAAAAAD/D/////////////JhgAAAFAAf///8AH/gAAAAAIAOD////////////4AHAAAAQAAP////wH/gAAAAAMBuP////////////wAPgAACAAAH////+f/8AAAAAWAhf////////////AAPAAAAAAAT////+f/+AAAAA3H//////////////+AOAAAAAAAB/////f/8AAAAAHn//////////////+AIAAAAAAAB//////8wAAAAAMf//////////////9AAAAAAAAAA//////2HAAAAAF///////////////4AAAAAAAAAAf/////+AgAAAAD///////////////4AAAAAAAAAAf//////wAAAAAB///yfx/////////wAAAAAAAAAAf/////yAAAAAAB/z/gPj/////////jAAAAAAAAAAf/////gAAAAAA/wY/gDx////////8HAAAAAAAAAAf/////AAAAAAA/gGfnn4////////wAAAAAAAAAAAf////+AAAAAAA/ACY//4///////1gGAAAAAAAAAAP////8AAAAAAA/ACM//4///////hwEAAAAAAAAAAH////4AAAAAAAOLgA//////////4wcAAAAAAAAAAH////4AAAAAAAN/gDC/////////wz8AAAAAAAAAAB////wAAAAAAAf/gAA/////////wDgAAAAAAAAAAA////AAAAAAAA//8YB/////////4EAAAAAAAAAAAAX///AAAAAAAA///f//////////4AAAAAAAAAAAAAX/5BAAAAAAAB//////z///////4AAAAAAAAAAAAAb/gBAAAAAAAH////8/5///////4AAAAAAAAAAAAAF/gBoAAAAAAP////+/4f//////wAAAAAAAAAAAAAE/gAAAAAAAAP////+f8wH/////gAAAAAAAAAAAAAAfgAAAAAAAAf/////P/4D/////IAAAAAAAAAAAAAAPgAQAAAAAAf/////v/8D/+f/4AAAAAAAAAAAAAAAPgwOAAAAAAf/////n/4Af8P+AAAAAAAAAAAAAAAAHxwAwAAAAAf/////n/wAfwH+wAAAAAAAAAAAAAAAB/gAAAAAAAf/////z/gAfgH+AMAAAAAAAAAAAAAAAT8AAAAAAAf/////z+AAfAF/AIAAAAAAAAAAAAAAAB+AAAAAAAf/////94AAOAB/gIAAAAAAAAAAAAAAAAMAAAAAAAf//////AAAOAA/gCAAAAAAAAAAAAAAAAEBQAAAAAP/////+MAAGAAHAFAAAAAAAAAAAAAAAACDfgAAAAH//////8AAGAACAAAAAAAAAAAAAAAAAABP/wAAAAH//////4AABABgADAAAAAAAAAAAAAAAAAP/4AAAAD//////4AABAAQABAAAAAAAAAAAAAAAAAP//gAAAA/H////wAAAACYBgAAAAAAAAAAAAAAAAAH//wAAAAAA////wAAAADYDAAAAAAAAAAAAAAAAAAP//wAAAAAA////gAAAABoPgAAAAAAAAAAAAAAAAAf//4AAAAAA///+AAAAAA4fuQAAAAAAAAAAAAAAAA///+AAAAAA///8AAAAAAYfASAAAAAAAAAAAAAAAA////AAAAAA///4AAAAAAcfYBYAAAAAAAAAAAAAAA////8AAAAAf//4AAAAAAOCEh/AAAAAAAAAAAAAAA/////AAAAAP//wAAAAAAGAAAPgAAAAAAAAAAAAAA/////gAAAAP//wAAAAAADIABPwIAAAAAAAAAAAAAf////gAAAAH//wAAAAAAAOAAPYCAAAAAAAAAAAAAP////AAAAAH//4AAAAAAAACAAMAAAAAAAAAAAAAAP///+AAAAAH//4AAAAAAAAAAAAAAAAAAAAAAAAAAH///+AAAAAH//4AAAAAAAAAHhAAAAAAAAAAAAAAAH///8AAAAAP//4IAAAAAAAAvjAAAAAAAAAAAAAAAD///8AAAAAP//4cAAAAAAAB/jgAAAAAAAAAAAAAAA///8AAAAAP//h4AAAAAAAD/7gAAAAAAAAAAAAAAAf//8AAAAAP//B4AAAAAAAH//wAAAAAAAAAAAAAAAf//4AAAAAH/+AwAAAAAAAf//4AQAAAAAAAAAAAAAf//4AAAAAH//BwAAAAAAB///8AIAAAAAAAAAAAAAf//gAAAAAD//BwAAAAAAD///+AAAAAAAAAAAAAAAf/8AAAAAAD/+BgAAAAAAD////AAAAAAAAAAAAAAAf/8AAAAAAD/8AAAAAAAAD////AAAAAAAAAAAAAAAf/8AAAAAAD/8AAAAAAAAD////AAAAAAAAAAAAAAA//4AAAAAAB/4AAAAAAAAB////AAAAAAAAAAAAAAA//wAAAAAAA/wAAAAAAAAB////AAAAAAAAAAAAAAA//gAAAAAAA/gAAAAAAAAB/h//AAAAAAAAAAAAAAA//AAAAAAAA+AAAAAAAAAB+Av+AAAAAAAAAAAAAAA/8AAAAAAAAAAAAAAAAAAAAAP8AAQAAAAAAAAAAAB/8AAAAAAAAAAAAAAAAAAAAAH8AAIAAAAAAAAAAAB/4AAAAAAAAAAAAAAAAAAAAADQAAOAAAAAAAAAAAB/gAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAYAAIAAAAAAAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAYAAwAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAD4AAAAAAAAAAAAAAAAAAAAAAAAAHAAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAADwAACAefH/gAAAAAAAAAAAAAAAAEAAAAAAAAAAAB//8B///////4AAAAAAAAAAAAAAA/AAAAAAAAAAH///8P////////8AAAAAAAAAAAAAB3gAAAAATf//////8//////////+AAAAAAAAAAAgAHgAAAAH////////////////////AAAAAAAB4B////gAAAAP///////////////////4AAAAD////////4AAAAD////////////////////gAAALP///////8AAAAD/////////////////////gAABj////////wAAHg//////////////////////4AAAAD///////8AQ/AB////////////////////+AAAAB//////////AGP//////////////////////AAAAA///////////////////////////////////8AAD//gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+const MW = 240, MH = 120, MSTEP = 1.5;
+const MASK = (() => {
+  const bin = atob(MASK_B64), b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+})();
+const isLand = (lat, lon) => {
+  const r = Math.floor((90 - lat) / MSTEP), c = Math.floor((lon + 180) / MSTEP);
+  if (r < 0 || r >= MH || c < 0 || c >= MW) return false;
+  const i = r * MW + c;
+  return (MASK[i >> 3] >> (7 - (i & 7))) & 1;
+};
+
+const EXCHANGES = [
+  { code:'NSE',  city:'Mumbai',    tz:'Asia/Kolkata',     lat:19.08,  lon:72.88,  open:555, close:930 },
+  { code:'SGX',  city:'Singapore', tz:'Asia/Singapore',   lat:1.29,   lon:103.85, open:540, close:1020 },
+  { code:'TSE',  city:'Tokyo',     tz:'Asia/Tokyo',       lat:35.68,  lon:139.69, open:540, close:900 },
+  { code:'ASX',  city:'Sydney',    tz:'Australia/Sydney', lat:-33.87, lon:151.21, open:600, close:960 },
+  { code:'LSE',  city:'London',    tz:'Europe/London',    lat:51.51,  lon:-0.13,  open:480, close:990 },
+  { code:'NYSE', city:'New York',  tz:'America/New_York', lat:40.71,  lon:-74.01, open:570, close:960 },
+];
+
+function localState(tz, now){
+  const p = new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'2-digit',
+    minute:'2-digit',weekday:'short',hour12:false}).formatToParts(now);
+  const g = t => p.find(x=>x.type===t)?.value ?? '0';
+  const days = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+  let h = parseInt(g('hour'),10); if (h===24) h=0;
+  return { m: h*60 + parseInt(g('minute'),10), w: days[g('weekday')] ?? 0 };
+}
+const isOpen = (e, now) => {
+  const {m,w} = localState(e.tz, now);
+  return w !== 0 && w !== 6 && m >= e.open && m < e.close;
+};
+
+const cv = document.getElementById('globe'), ctx = cv.getContext('2d');
+const R = 340, CX = 500, CY = 500, TILT = -20 * Math.PI/180;
+
+/* land dots, sampled from the mask */
+const DOTS = [];
+for (let lat = -84; lat <= 84; lat += 2.4){
+  const circ = Math.cos(lat*Math.PI/180);
+  const steps = Math.max(8, Math.round(150*circ));
+  for (let i = 0; i < steps; i++){
+    const lon = -180 + i*(360/steps);
+    if (isLand(lat, lon)) DOTS.push([lat, lon]);
+  }
+}
+
+function project(lat, lon, spin){
+  const la = lat*Math.PI/180, lo = (lon + spin)*Math.PI/180;
+  const x = Math.cos(la)*Math.sin(lo), y = Math.sin(la), z = Math.cos(la)*Math.cos(lo);
+  const yy = y*Math.cos(TILT) - z*Math.sin(TILT);
+  const zz = y*Math.sin(TILT) + z*Math.cos(TILT);
+  return { x: CX + R*x, y: CY - R*yy, z: zz };
+}
+/* crypto orbit: a ring inclined to the globe's axis — 24/7, tied to no city */
+const ORBIT_R = 1.24, INC = 62 * Math.PI/180;
+function orbitPoint(theta, spin){
+  const bx = Math.cos(theta), by = 0, bz = Math.sin(theta);
+  const y1 = by*Math.cos(INC) - bz*Math.sin(INC);
+  const z1 = by*Math.sin(INC) + bz*Math.cos(INC);
+  const s = spin*Math.PI/180;
+  const x2 = bx*Math.cos(s) + z1*Math.sin(s);
+  const z2 = -bx*Math.sin(s) + z1*Math.cos(s);
+  const y3 = y1*Math.cos(TILT) - z2*Math.sin(TILT);
+  const z3 = y1*Math.sin(TILT) + z2*Math.cos(TILT);
+  return { x: CX + R*ORBIT_R*x2, y: CY - R*ORBIT_R*y3, z: z3 };
+}
+const occluded = p => p.z < 0 && Math.hypot(p.x-CX, p.y-CY) < R;
+
+let spin = 0, openSet = new Set(), last = performance.now();
+
+function draw(t){
+  const dt = Math.min(64, t - last); last = t;
+  spin = (spin + dt*0.0040) % 360;
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.fillStyle = '#FBFBF9'; ctx.fill();
+  ctx.strokeStyle = '#E0E1DC'; ctx.lineWidth = 1.2; ctx.stroke();
+
+  /* crypto orbit behind the globe */
+  for (let pass = 0; pass < 2; pass++){
+    ctx.beginPath();
+    let started = false;
+    for (let a = 0; a <= 360; a += 2){
+      const p = orbitPoint(a*Math.PI/180, spin*0.55);
+      const behind = occluded(p);
+      if ((pass === 0) !== behind){ started = false; continue; }
+      if (!started){ ctx.moveTo(p.x,p.y); started = true; } else ctx.lineTo(p.x,p.y);
+    }
+    ctx.strokeStyle = pass === 0 ? 'rgba(23,122,68,.15)' : 'rgba(23,122,68,.62)';
+    ctx.lineWidth = pass === 0 ? 1.4 : 2; ctx.stroke();
+    if (pass === 0){
+      /* land dots drawn between the two orbit passes so the ring wraps the globe */
+      for (const [lat,lon] of DOTS){
+        const p = project(lat,lon,spin);
+        if (p.z <= 0.02) continue;
+        ctx.beginPath(); ctx.arc(p.x,p.y,1.9,0,Math.PI*2);
+        ctx.fillStyle = 'rgba(10,15,28,' + (0.16 + p.z*0.46) + ')'; ctx.fill();
+      }
+      for (const e of EXCHANGES){
+        const p = project(e.lat,e.lon,spin);
+        if (p.z <= 0.04) continue;
+        const live = openSet.has(e.code), fade = Math.min(1, p.z*1.7);
+        if (live){
+          const pulse = 0.5 + 0.5*Math.sin(t/560);
+          ctx.beginPath(); ctx.arc(p.x,p.y, 9 + pulse*17, 0, Math.PI*2);
+          ctx.strokeStyle = 'rgba(232,121,43,' + ((1-pulse)*0.5*fade) + ')';
+          ctx.lineWidth = 2; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(p.x,p.y, live?7:4.5, 0, Math.PI*2);
+        ctx.fillStyle = live ? 'rgba(232,121,43,'+fade+')' : 'rgba(120,127,145,'+(fade*0.7)+')';
+        ctx.fill();
+        if (p.z > 0.42){
+          ctx.font = '500 21px "IBM Plex Mono", monospace';
+          ctx.fillStyle = live ? 'rgba(10,15,28,'+fade+')' : 'rgba(112,119,137,'+(fade*0.85)+')';
+          ctx.fillText(e.code, p.x + 14, p.y + 7);
+        }
+      }
+    }
+  }
+  /* the crypto marker itself, always live */
+  const cp = orbitPoint((t/2600) % (Math.PI*2), spin*0.55);
+  if (!occluded(cp)){
+    const pulse = 0.5 + 0.5*Math.sin(t/500);
+    ctx.beginPath(); ctx.arc(cp.x,cp.y, 7 + pulse*13, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(23,122,68,' + ((1-pulse)*0.42) + ')'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cp.x,cp.y,6.5,0,Math.PI*2);
+    ctx.fillStyle = '#177A44'; ctx.fill();
+    ctx.font = '500 20px "IBM Plex Mono", monospace';
+    ctx.fillStyle = 'rgba(23,122,68,.95)';
+    ctx.fillText('CRYPTO 24/7', cp.x + 15, cp.y + 6);
+  }
+  requestAnimationFrame(draw);
+}
+
+function refresh(){
+  const now = new Date();
+  openSet = new Set(EXCHANGES.filter(e => isOpen(e, now)).map(e => e.code));
+  document.getElementById('markets').innerHTML = EXCHANGES.map(e => {
+    const live = openSet.has(e.code);
+    const {m} = localState(e.tz, now);
+    const hh = String(Math.floor(m/60)).padStart(2,'0'), mm = String(m%60).padStart(2,'0');
+    return '<div class="gm-row' + (live?' open':'') + '"><span class="code">' + e.code +
+      '</span><span class="city">' + e.city + '</span><span class="st">' +
+      (live ? 'open' : hh + ':' + mm) + '</span></div>';
+  }).join('') +
+  '<div class="gm-row crypto"><span class="code">CRYPTO</span><span class="city">global</span><span class="st">24/7</span></div>';
+  document.getElementById('clock').textContent =
+    (openSet.size ? openSet.size + ' OPEN' : 'EQUITIES CLOSED') + ' · CRYPTO LIVE';
+}
+refresh(); setInterval(refresh, 30000); requestAnimationFrame(draw);
+</script>
+</body>
+</html>

@@ -47,12 +47,12 @@ export default function StatsRow() {
             </div>
           </div>
 
-          <div className="ts-stat ts-stat-white">
+          <div className="ts-stat ts-stat-ink">
             <div className="ts-stat-n">3.2×</div>
             <div className="ts-stat-l">Avg patterns per trader</div>
             <div className="ts-stat-spark">
               <svg viewBox="0 0 80 24" preserveAspectRatio="none">
-                <path d="M 0,15 L 10,18 L 20,12 L 30,16 L 40,10 L 50,14 L 60,8 L 70,12 L 80,6" fill="none" stroke="var(--ts-ink)" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M 0,15 L 10,18 L 20,12 L 30,16 L 40,10 L 50,14 L 60,8 L 70,12 L 80,6" fill="none" stroke="var(--ink)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
           </div>
@@ -61,8 +61,8 @@ export default function StatsRow() {
 
       <style jsx>{`
         .ts-stats {
-          background: var(--ts-void);
-          color: var(--ts-ink);
+          background: var(--void);
+          color: var(--ink);
           padding: 0 0 60px;
           position: relative;
           font-family: var(--font-sans);
@@ -76,12 +76,12 @@ export default function StatsRow() {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 0;
-          border-top: 1px solid var(--ts-line);
+          border-top: 1px solid var(--line);
           padding-top: 36px;
         }
         .ts-stat {
           padding: 0 24px;
-          border-right: 1px solid var(--ts-line);
+          border-right: 1px solid var(--line);
         }
         .ts-stat:last-child {
           border-right: none;
@@ -92,13 +92,13 @@ export default function StatsRow() {
           letter-spacing: 0.02em;
         }
         .ts-stat-amber .ts-stat-n { color: #f59e0b; }
-        .ts-stat-crimson .ts-stat-n { color: var(--ts-loss); }
-        .ts-stat-mint .ts-stat-n { color: var(--ts-profit); }
-        .ts-stat-white .ts-stat-n { color: #fff; }
+        .ts-stat-crimson .ts-stat-n { color: var(--loss); }
+        .ts-stat-mint .ts-stat-n { color: var(--profit); }
+        .ts-stat-ink .ts-stat-n { color: var(--ink); }
         .ts-stat-l {
           margin-top: 6px;
           font-size: 11px;
-          color: var(--ts-mute);
+          color: var(--mute);
           letter-spacing: 0.18em;
           text-transform: uppercase;
         }
@@ -118,7 +118,7 @@ export default function StatsRow() {
           }
           .ts-stat {
             border-right: none;
-            border-bottom: 1px solid var(--ts-line);
+            border-bottom: 1px solid var(--line);
             padding: 20px 24px;
           }
           .ts-stat:last-child {

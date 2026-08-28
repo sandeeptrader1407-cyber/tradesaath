@@ -28,6 +28,15 @@
   --ts-profit:#36D399; --ts-loss:#F05D6C;
   --ts-profit-lt:#177A44; --ts-loss-lt:#C0392B;
 
+  /* ── Hero light tokens (source of truth: design/hero-reference.html) ──
+     Orange fails AA as text on white (2.9:1) — only use --signal as a
+     filled button background with #16202E text. For orange-as-text
+     (headline accent, links) use var(--ts-signal-dk) instead. ── */
+  --void:#FFFFFF; --raise:#FAFAF8; --line:#E4E5E0; --line-soft:#EFEFEB;
+  --ink:#0A0F1C; --mute:#5F6577; --dim:#6B7180;
+  --signal:#E8792B;
+  --profit:#177A44; --loss:#C0392B;
+
   /* ── Semantic aliases (used by existing CSS classes throughout) ── */
   --bg:      var(--ts-paper);
   --s1:      var(--ts-raise-lt);
@@ -56,12 +65,13 @@
   --radius-sm: 8px;
   --radius-xs: 6px;
   --nav-h:     52px;
+  --inst-h:    34px;
   --ease:      cubic-bezier(.4,0,.2,1);
 
   /* ── Typography — set by next/font CSS variables ── */
-  --font-sans:    'Inter', system-ui, sans-serif;
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+  --font-sans:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'IBM Plex Serif', Georgia, serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -151,6 +161,29 @@ nav {
   padding: 0 24px;
   background: #FFFFFF;
   border-bottom: 0.5px solid transparent;
+}
+
+/* Instrument strip — landing page only, sits fixed directly beneath nav */
+.instruments {
+  position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 99;
+  height: var(--inst-h);
+  display: flex; align-items: center;
+  border-top: 1px solid var(--line-soft);
+  background: var(--raise);
+}
+.inst-in {
+  width: 100%; max-width: 1220px; margin: 0 auto; padding: 0 28px;
+  display: flex; gap: 22px; flex-wrap: wrap; align-items: baseline;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--mute);
+}
+.inst-note {
+  margin-left: auto; color: var(--dim); text-transform: none; letter-spacing: .02em;
+  font-family: var(--font-sans); font-size: 11.5px;
+}
+@media (max-width: 960px) {
+  .inst-in { gap: 12px; font-size: 9px; padding: 0 28px; }
+  .inst-note { display: none; }
 }
 
 .nav-logo {
@@ -355,6 +388,18 @@ nav {
   transition: background .15s;
 }
 .nav-getstarted-btn:hover { background: #D97706 }
+
+/* Reserves the width of "Sign in" + "Start free" while Clerk resolves, so
+   the auth slot never renders blank and nothing shifts once it settles. */
+.nav-auth-placeholder {
+  width: 168px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--s2);
+}
+.mobile-auth-placeholder {
+  height: 52px;
+}
 
 /* ═══════════════════════════════════════════════════════
    CARDS
